@@ -10,7 +10,9 @@ dependencies = [
     "pydantic",
     "pydantic-settings",
     "sqlmodel",
-    "numpy"
+    "numpy",
+    "pydantic_numpy",
+    "psycopg_binary",
 ]
 
 [project.optional-dependencies]

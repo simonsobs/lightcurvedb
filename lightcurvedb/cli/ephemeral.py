@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, CliApp
 from datetime import datetime, timedelta
 from time import sleep
 import os
+import tqdm
 
 class CLISettings(BaseSettings):
     """
@@ -24,7 +25,7 @@ class CLISettings(BaseSettings):
             password="password",
             dbname="lightcurvedb",
         ) as postgres:
-            print("Postgres connection details:")
+            print("----- Postgres connection details -----")
             print(f"Host: {postgres.get_container_host_ip()}")
             print(f"Port: {postgres.get_exposed_port(5432)}")
             print("Username: postgres")
@@ -70,7 +71,7 @@ class CLISettings(BaseSettings):
                 ]
                 bands = session.query(BandTable).all()
 
-                for source in sources:
+                for source in tqdm.tqdm(sources):
                     fluxes.generate_fluxes_fixed_source(
                         source=source,
                         bands=bands,
