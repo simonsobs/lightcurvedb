@@ -2,12 +2,14 @@
 For generating an ephemeral light curve server using testcontainers.
 """
 
-from testcontainers.postgres import PostgresContainer
-from pydantic_settings import BaseSettings, CliApp
+import os
 from datetime import datetime, timedelta
 from time import sleep
-import os
+
 import tqdm
+from pydantic_settings import BaseSettings, CliApp
+from testcontainers.postgres import PostgresContainer
+
 
 class CLISettings(BaseSettings):
     """
@@ -37,16 +39,16 @@ class CLISettings(BaseSettings):
             os.environ["LIGHTCURVEDB_POSTGRES_PASSWORD"] = "password"
             os.environ["LIGHTCURVEDB_POSTGRES_DB"] = "lightcurvedb"
             os.environ["LIGHTCURVEDB_POSTGRES_HOST"] = postgres.get_container_host_ip()
-            os.environ["LIGHTCURVEDB_POSTGRES_PORT"] = str(postgres.get_exposed_port(5432))
-            
-            from lightcurvedb.config import settings
-            from lightcurvedb.simulation import sources, fluxes
+            os.environ["LIGHTCURVEDB_POSTGRES_PORT"] = str(
+                postgres.get_exposed_port(5432)
+            )
+
+            from lightcurvedb.models import BandTable, FluxMeasurementTable, SourceTable
+            from lightcurvedb.simulation import cutouts, fluxes, sources
             from lightcurvedb.sync import get_session, setup_tables
-            from lightcurvedb.models import BandTable, SourceTable, FluxMeasurementTable
 
             # Create tables
             setup_tables()
-
 
             source_ids = sources.create_fixed_sources(self.number)
 
@@ -81,12 +83,26 @@ class CLISettings(BaseSettings):
                         session=session,
                     )
 
+                    # Get the most recent 30 flux measurements.
+                    useful_fluxes = (
+                        session.query(FluxMeasurementTable)
+                        .filter(FluxMeasurementTable.source_id == source.id)
+                        .order_by(FluxMeasurementTable.time.desc())
+                        .limit(30)
+                        .all()
+                    )
+
+                    for flux in useful_fluxes:
+                        cutouts.create_cutout(
+                            nside=64,
+                            flux=flux,
+                            session=session,
+                        )
+
             # Keep that session alive!
             while True:
                 sleep(10)
 
 
 def main():
-    s = CliApp.run(CLISettings)
-
-
+    _ = CliApp.run(CLISettings)
