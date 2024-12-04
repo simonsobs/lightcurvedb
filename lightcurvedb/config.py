@@ -1,5 +1,6 @@
 """
-Configuration options for the lightcurvedb
+Configuration options for the lightcurvedb when running in a fixed
+environment.
 """
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
