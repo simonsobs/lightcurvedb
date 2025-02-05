@@ -23,8 +23,15 @@ class FluxMeasurement(BaseModel):
 
     time: datetime
 
-    flux: float
-    error: float
+    i_flux: float
+    i_uncertainty: float
+
+    q_flux: float
+    q_uncertainty: float
+
+    u_flux: float
+    u_uncertainty: float
+    
 
 
 class FluxMeasurementTable(FluxMeasurement, SQLModel, table=True):

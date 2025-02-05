@@ -41,7 +41,7 @@ def create_cutout(
     flux: FluxMeasurementTable,
     session: Session,
 ):
-    cutout = create_cutout_core(nside, flux.flux, flux.error)
+    cutout = create_cutout_core(nside, flux.i_flux, flux.i_uncertainty)
 
     cutout_table = CutoutTable(
         band=flux.band,

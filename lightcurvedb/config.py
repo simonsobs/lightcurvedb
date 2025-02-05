@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     postgres_user: str = "postgres"
     postgres_password: str = "password"
     postgres_port: int = 5432
-    postgres_host: str = "localhost"
+    postgres_host: str = "127.0.0.1"
     postgres_db: str = "lightcurvedb"
 
     postgres_echo: bool = False
