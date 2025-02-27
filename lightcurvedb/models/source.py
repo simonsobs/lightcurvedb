@@ -16,7 +16,7 @@ class Source(BaseModel):
     A source as tracked in socat
     """
 
-    id: int
+    id: int | None = None
     # The ID in socat
 
     ra: float | None

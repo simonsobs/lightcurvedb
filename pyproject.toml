@@ -13,11 +13,14 @@ dependencies = [
     "numpy",
     "pydantic_numpy",
     "psycopg_binary",
+    "asyncpg",
+    "sqlalchemy[asyncio]"
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "pytest-asyncio",
     "ruff",
     "coverage",
     "pytest-cov",
