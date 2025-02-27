@@ -34,3 +34,6 @@ class SourceTable(SQLModel, Source, table=True):
     flux_measurements: list["FluxMeasurementTable"] = Relationship(
         back_populates="source"
     )
+
+    def to_model(self) -> Source:
+        return Source(**self.model_dump())

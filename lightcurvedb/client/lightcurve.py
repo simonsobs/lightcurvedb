@@ -58,7 +58,7 @@ async def lightcurve_read_band(
 
     outputs = {x: [] for x in BAND_RESULT_ITEMS}
 
-    for item in res.all():
+    for item in res.scalars().all():
         for x in BAND_RESULT_ITEMS:
             outputs[x].append(getattr(item, x))
 
@@ -72,10 +72,10 @@ async def lightcurve_read_source(id: int, conn: AsyncConnection) -> LightcurveRe
     query = query.filter(FluxMeasurementTable.source_id == id)
     query = query.distinct()
 
-    band_names = (await conn.execute(query)).all()
+    band_names = (await conn.execute(query)).scalars().all()
 
     bands = [lightcurve_read_band(id=id, band_name=b, conn=conn) for b in band_names]
-    bands = await asyncio.wait(bands)
+    bands = await asyncio.gather(*bands)
 
     source = await conn.get(SourceTable, id)
 
