@@ -18,8 +18,9 @@ class FluxMeasurement(BaseModel):
     An individual flux measurement, potentially registered to a source.
     """
 
-    id: int
-    band: str  # Band should not be str. It should be an enumeration or a linked table
+    id: int | None = None
+    band_name: str
+    source_id: int
 
     time: datetime
 

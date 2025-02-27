@@ -7,9 +7,7 @@ from pytest import fixture as sync_fixture
 from pytest_asyncio import fixture as async_fixture
 from testcontainers.postgres import PostgresContainer
 
-from lightcurvedb.client.source import source_add, source_delete
-from lightcurvedb.managers import AsyncSessionManager
-from lightcurvedb.models.source import Source
+from lightcurvedb.managers import AsyncSessionManager, SyncSessionManager
 
 
 @sync_fixture(scope="session")
@@ -21,26 +19,88 @@ def base_server():
     with PostgresContainer() as container:
         conn_url = container.get_connection_url()
 
-        yield conn_url.replace("psycopg2", "asyncpg")
+        yield conn_url
 
 
-@async_fixture(loop_scope="session", scope="session")
-async def client(base_server):
-    manager = AsyncSessionManager(base_server)
+@sync_fixture(scope="session")
+def sync_client(base_server):
+    manager = SyncSessionManager(base_server.replace("psycopg2", "psycopg"))
 
-    await manager.create_all()
+    manager.create_all()
 
     yield manager
 
-    await manager.drop_all()
+    manager.drop_all()
+
+
+@sync_fixture(scope="session")
+def source_ids(sync_client):
+    import random
+    from datetime import datetime, timedelta
+
+    from lightcurvedb.models.band import BandTable
+    from lightcurvedb.models.flux import FluxMeasurementTable
+    from lightcurvedb.models.source import SourceTable
+    from lightcurvedb.simulation import cutouts, fluxes, sources
+
+    source_ids = sources.create_fixed_sources(8, manager=sync_client)
+
+    bands = [
+        BandTable(
+            name=f"f{band_frequency:03d}",
+            frequency=band_frequency,
+            instrument="LATR",
+            telescope="SOLAT",
+        )
+        for band_frequency in [27, 39, 93, 145, 225, 280]
+    ]
+
+    with sync_client.session() as session:
+        session.add_all(bands)
+        session.commit()
+
+        sources = [session.get(SourceTable, source_id) for source_id in source_ids]
+        bands = session.query(BandTable).all()
+
+        for source in sources:
+            # Not all sources should have all bands.
+            usable_band_ids = set(random.choices(range(len(bands)), k=4))
+            usable_bands = [bands[x] for x in usable_band_ids]
+
+            fluxes.generate_fluxes_fixed_source(
+                source=source,
+                bands=usable_bands,
+                start_time=datetime.now(),
+                cadence=timedelta(days=1),
+                number=random.randint(10, 16),
+                session=session,
+            )
+
+            # Get the most recent 30 flux measurements.
+            useful_fluxes = (
+                session.query(FluxMeasurementTable)
+                .filter(FluxMeasurementTable.source_id == source.id)
+                .order_by(FluxMeasurementTable.time.desc())
+                .limit(random.randint(3, 9))
+                .all()
+            )
+
+            for flux in useful_fluxes:
+                cutouts.create_cutout(
+                    nside=64,
+                    flux=flux,
+                    session=session,
+                )
+
+        yield source_ids
+
+        with sync_client.session() as session:
+            for source_id in source_ids:
+                session.delete(session.get(SourceTable, source_id))
+            session.commit()
 
 
 @async_fixture(loop_scope="session", scope="session")
-async def client_full(client):
-    async with client.session() as conn:
-        source_id = await source_add(Source(ra=44.4, dec=44.4, variable=False), conn)
-
-    yield client
-
-    async with client.session() as conn:
-        await source_delete(id=source_id, conn=conn)
+async def client(base_server, source_ids):
+    manager = AsyncSessionManager(base_server.replace("psycopg2", "asyncpg"))
+    yield manager
