@@ -4,11 +4,11 @@ Source generation.
 
 from random import random
 
+from ..managers import SyncSessionManager
 from ..models import SourceTable
-from ..sync import get_session
 
 
-def create_fixed_sources(number: int) -> list[int]:
+def create_fixed_sources(number: int, manager: SyncSessionManager) -> list[int]:
     """
     Create a number of fixed sources in the database.
 
@@ -32,7 +32,7 @@ def create_fixed_sources(number: int) -> list[int]:
         for _ in range(number)
     ]
 
-    with get_session() as session:
+    with manager.session() as session:
         session.add_all(sources)
         session.commit()
 

@@ -43,14 +43,16 @@ class CLISettings(BaseSettings):
                 postgres.get_exposed_port(5432)
             )
 
+            from lightcurvedb.config import settings
             from lightcurvedb.models import BandTable, FluxMeasurementTable, SourceTable
             from lightcurvedb.simulation import cutouts, fluxes, sources
-            from lightcurvedb.sync import get_session, setup_tables
+
+            manager = settings.sync_manager()
 
             # Create tables
-            setup_tables()
+            manager.create_all()
 
-            source_ids = sources.create_fixed_sources(self.number)
+            source_ids = sources.create_fixed_sources(self.number, manager=manager)
 
             # Create bands
             bands = [
@@ -63,11 +65,11 @@ class CLISettings(BaseSettings):
                 for band_frequency in [27, 39, 93, 145, 225, 280]
             ]
 
-            with get_session() as session:
+            with manager.session() as session:
                 session.add_all(bands)
                 session.commit()
 
-            with get_session() as session:
+            with manager.session() as session:
                 sources = [
                     session.get(SourceTable, source_id) for source_id in source_ids
                 ]

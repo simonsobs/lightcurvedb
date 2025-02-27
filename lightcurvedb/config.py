@@ -5,6 +5,8 @@ environment.
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .managers import AsyncSessionManager, SyncSessionManager
+
 
 class Settings(BaseSettings):
     postgres_user: str = "postgres"
@@ -21,9 +23,19 @@ class Settings(BaseSettings):
     def postgres_uri(self) -> str:
         return f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
 
+    def sync_manager(self) -> SyncSessionManager:
+        return SyncSessionManager(
+            connection_url=self.postgres_uri, echo=self.postgres_echo
+        )
+
     @property
     def async_postgres_uri(self) -> str:
         return f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+
+    def async_manager(self) -> SyncSessionManager:
+        return AsyncSessionManager(
+            connection_url=self.postgres_uri, echo=self.postgres_echo
+        )
 
 
 settings = Settings()

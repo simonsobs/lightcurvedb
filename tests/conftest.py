@@ -7,8 +7,8 @@ from pytest import fixture as sync_fixture
 from pytest_asyncio import fixture as async_fixture
 from testcontainers.postgres import PostgresContainer
 
-from lightcurvedb.client.core import SessionManager
 from lightcurvedb.client.source import source_add, source_delete
+from lightcurvedb.managers import AsyncSessionManager
 from lightcurvedb.models.source import Source
 
 
@@ -26,7 +26,7 @@ def base_server():
 
 @async_fixture(loop_scope="session", scope="session")
 async def client(base_server):
-    manager = SessionManager(base_server)
+    manager = AsyncSessionManager(base_server)
 
     await manager.create_all()
 
