@@ -2,14 +2,19 @@
 Core client, including session management.
 """
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession, AsyncEngine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlmodel import SQLModel
+
 
 class SessionManager:
     """
     A manager for asynchronous sessions. Expected usage of this class to interact
     with the LightcurveDB API is as follows:
-    
+
     manager = SessionManager(conn_url)
 
     async with manager.session() as conn:
@@ -20,6 +25,7 @@ class SessionManager:
     database, used by a number of pieces of software, having global variables
     that require database connections is highly undesirable.
     """
+
     connection_url: str
     engine: AsyncEngine
     session: async_sessionmaker
@@ -28,7 +34,7 @@ class SessionManager:
         self.connection_url = connection_url
         self.engine = create_async_engine(self.connection_url)
         self.session = async_sessionmaker(self.engine)
-    
+
     async def create_all(self):
         """
         Run the `SQLModel.metadata.create_all` migration tool. Required
@@ -45,6 +51,3 @@ class SessionManager:
         """
         async with self.engine.begin() as conn:
             await conn.run_sync(SQLModel.metadata.drop_all)
-
-
-

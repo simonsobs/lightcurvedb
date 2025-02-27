@@ -1,4 +1,3 @@
 """
 For individual measurements.
 """
-

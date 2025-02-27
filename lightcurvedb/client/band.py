@@ -2,14 +2,15 @@
 Extensions to core for sources.
 """
 
-
-from sqlalchemy.ext.asyncio import AsyncSession
-from lightcurvedb.models.band import BandTable, Band
-from lightcurvedb.models.flux import FluxMeasurementTable
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from lightcurvedb.models.band import Band, BandTable
+
 
 class BandNotFound(Exception):
     pass
+
 
 async def band_read(name: str, conn: AsyncSession) -> BandTable:
     """
@@ -21,6 +22,7 @@ async def band_read(name: str, conn: AsyncSession) -> BandTable:
         raise BandNotFound
 
     return res
+
 
 async def band_read_all(conn: AsyncSession) -> list[BandTable]:
     """
@@ -42,7 +44,7 @@ async def band_add(band: Band, conn: AsyncSession) -> str:
         name=band.name,
         telescope=band.telescope,
         instrument=band.instrument,
-        frequency=band.frequency
+        frequency=band.frequency,
     )
 
     conn.add(table)

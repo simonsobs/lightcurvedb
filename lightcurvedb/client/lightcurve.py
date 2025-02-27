@@ -2,20 +2,27 @@
 A client for extracting complete light-curves.
 """
 
-from psycopg import AsyncConnection
-from pydantic import BaseModel
 import asyncio
-
-from lightcurvedb.models.source import SourceTable
-from lightcurvedb.models.flux import FluxMeasurementTable
-from lightcurvedb.models.band import Band, BandTable
-from lightcurvedb.models.source import Source
-from sqlalchemy import select
 from datetime import datetime
 
+from psycopg import AsyncConnection
+from pydantic import BaseModel
+from sqlalchemy import select
+
+from lightcurvedb.models.band import Band, BandTable
+from lightcurvedb.models.flux import FluxMeasurementTable
+from lightcurvedb.models.source import Source, SourceTable
+
 BAND_RESULT_ITEMS = [
-    "time", "i_flux", "i_uncertainty", "q_flux", "q_uncertainty", "u_flux", "u_uncertainty"
+    "time",
+    "i_flux",
+    "i_uncertainty",
+    "q_flux",
+    "q_uncertainty",
+    "u_flux",
+    "u_uncertainty",
 ]
+
 
 class LightcurveBandResult(BaseModel):
     band: Band
@@ -36,7 +43,10 @@ class LightcurveResult(BaseModel):
     source: Source
     bands: list[LightcurveBandResult]
 
-async def lightcurve_read_band(id: int, band_name: str, conn: AsyncConnection) -> LightcurveBandResult:
+
+async def lightcurve_read_band(
+    id: int, band_name: str, conn: AsyncConnection
+) -> LightcurveBandResult:
     query = select(FluxMeasurementTable)
 
     query = query.filter(FluxMeasurementTable.source_id == id)
@@ -54,10 +64,8 @@ async def lightcurve_read_band(id: int, band_name: str, conn: AsyncConnection) -
 
     band = await conn.get(BandTable, band_name)
 
-    return LightcurveBandResult(
-        band=band.to_model(),
-        **outputs
-    )
+    return LightcurveBandResult(band=band.to_model(), **outputs)
+
 
 async def lightcurve_read_source(id: int, conn: AsyncConnection) -> LightcurveResult:
     query = select(FluxMeasurementTable.band_name)
@@ -72,4 +80,3 @@ async def lightcurve_read_source(id: int, conn: AsyncConnection) -> LightcurveRe
     source = await conn.get(SourceTable, id)
 
     return LightcurveResult(source=source.to_model(), bands=bands)
-

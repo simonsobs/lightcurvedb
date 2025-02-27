@@ -2,14 +2,16 @@
 Extensions to core for sources.
 """
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from lightcurvedb.models import SourceTable, Source
-
-from lightcurvedb.models.flux import FluxMeasurementTable
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from lightcurvedb.models import Source, SourceTable
+from lightcurvedb.models.flux import FluxMeasurementTable
+
 
 class SourceNotFound(Exception):
     pass
+
 
 async def source_read(id: int, conn: AsyncSession) -> SourceTable:
     """
@@ -21,7 +23,8 @@ async def source_read(id: int, conn: AsyncSession) -> SourceTable:
         raise SourceNotFound
 
     return res
-    
+
+
 async def source_read_bands(id: int, conn: AsyncSession) -> list[str]:
     """
     Read the bands that are available for a source.
@@ -38,15 +41,12 @@ async def source_read_bands(id: int, conn: AsyncSession) -> list[str]:
 
     return result.all()
 
+
 async def source_add(source: Source, conn: AsyncSession) -> int:
     """
     Add a source, returning its primary key.
     """
-    table = SourceTable(
-        ra=source.ra,
-        dec=source.dec,
-        variable=source.variable
-    )
+    table = SourceTable(ra=source.ra, dec=source.dec, variable=source.variable)
 
     conn.add(table)
     await conn.commit()
@@ -54,7 +54,8 @@ async def source_add(source: Source, conn: AsyncSession) -> int:
 
     return table.id
 
-async def source_delete(id: int, conn:AsyncSession) -> int:
+
+async def source_delete(id: int, conn: AsyncSession) -> int:
     """
     Delete a source (and all of its measurements!) from the system.
     """

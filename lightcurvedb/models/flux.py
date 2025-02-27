@@ -31,7 +31,6 @@ class FluxMeasurement(BaseModel):
 
     u_flux: float
     u_uncertainty: float
-    
 
 
 class FluxMeasurementTable(FluxMeasurement, SQLModel, table=True):
