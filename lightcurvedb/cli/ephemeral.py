@@ -91,6 +91,8 @@ def core(number: int = 128, keepalive: bool = True):
         if keepalive:
             while True:
                 sleep(10)
+        else:
+            yield postgres
 
 
 def main():
