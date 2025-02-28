@@ -8,9 +8,10 @@ from time import sleep
 
 import tqdm
 from testcontainers.postgres import PostgresContainer
+from contextlib import contextmanager
 
-
-def core(number: int = 128, keepalive: bool = True):
+@contextmanager
+def core(number: int = 128):
     with PostgresContainer(
         port=5432,
         username="postgres",
@@ -87,12 +88,7 @@ def core(number: int = 128, keepalive: bool = True):
                         session=session,
                     )
 
-        # Keep that session alive!
-        if keepalive:
-            while True:
-                sleep(10)
-        else:
-            yield postgres
+        yield postgres
 
 
 def main():
@@ -115,4 +111,7 @@ def main():
 
     args = parser.parse_args()
 
-    core(number=args.number, keepalive=args.keepalive)
+    with core(number=args.number) as _:
+        while args.keepalive:
+            sleep(10)
+
