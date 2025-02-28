@@ -16,6 +16,7 @@ from lightcurvedb.models.flux import FluxMeasurementTable
 from lightcurvedb.models.source import Source, SourceTable
 
 BAND_RESULT_ITEMS = [
+    "id",
     "time",
     "i_flux",
     "i_uncertainty",
@@ -29,6 +30,7 @@ BAND_RESULT_ITEMS = [
 class LightcurveBandResult(BaseModel):
     band: Band
 
+    id: list[int]
     time: list[datetime]
 
     i_flux: list[float]
