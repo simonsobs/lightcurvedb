@@ -12,7 +12,7 @@ from testcontainers.postgres import PostgresContainer
 
 
 @contextmanager
-def core(number: int = 128):
+def core(number: int = 128, probability_of_flare: float = 0.1):
     with PostgresContainer(
         port=5432,
         username="postgres",
@@ -71,6 +71,7 @@ def core(number: int = 128):
                     cadence=timedelta(days=1),
                     number=365,
                     session=session,
+                    probability_of_flare=probability_of_flare
                 )
 
                 # Get the most recent 30 flux measurements.
