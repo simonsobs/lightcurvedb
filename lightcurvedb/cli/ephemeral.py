@@ -88,8 +88,9 @@ def core(number: int = 128, keepalive: bool = True):
                     )
 
         # Keep that session alive!
-        while True:
-            sleep(10)
+        if keepalive:
+            while True:
+                sleep(10)
 
 
 def main():
