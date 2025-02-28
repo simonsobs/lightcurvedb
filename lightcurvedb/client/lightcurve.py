@@ -61,11 +61,14 @@ async def lightcurve_read_band(
 
     query.order_by(FluxMeasurementTable.time)
 
-    res = await conn.execute(query)
+    res = (await conn.execute(query)).scalars().all()
+
+    if len(res) == 0:
+        raise SourceNotFound
 
     outputs = {x: [] for x in BAND_RESULT_ITEMS}
 
-    for item in res.scalars().all():
+    for item in res:
         for x in BAND_RESULT_ITEMS:
             outputs[x].append(getattr(item, x))
 
