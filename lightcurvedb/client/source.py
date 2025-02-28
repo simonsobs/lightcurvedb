@@ -59,7 +59,11 @@ async def source_delete(id: int, conn: AsyncSession) -> int:
     """
     Delete a source (and all of its measurements!) from the system.
     """
-    res = await source_read(id=id, conn=conn)
+
+    res = await conn.get(SourceTable, id)
+
+    if res is None:  # pragma: no cover
+        raise SourceNotFound
 
     await conn.delete(res)
     await conn.commit()

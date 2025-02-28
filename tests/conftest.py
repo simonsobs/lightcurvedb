@@ -38,11 +38,12 @@ def source_ids(sync_client):
     import random
     from datetime import datetime, timedelta
 
+    from sqlalchemy import select
+
     from lightcurvedb.models.band import BandTable
     from lightcurvedb.models.flux import FluxMeasurementTable
     from lightcurvedb.models.source import SourceTable
     from lightcurvedb.simulation import cutouts, fluxes, sources
-    from sqlalchemy import select
 
     source_ids = sources.create_fixed_sources(8, manager=sync_client)
 
@@ -59,7 +60,7 @@ def source_ids(sync_client):
 
         session.add_all(bands)
         session.commit()
-        
+
         sources = [session.get(SourceTable, source_id) for source_id in source_ids]
         bands = session.execute(select(BandTable)).scalars().all()
 

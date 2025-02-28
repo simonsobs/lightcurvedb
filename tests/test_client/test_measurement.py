@@ -2,13 +2,17 @@
 Tests adding and removing a measurement.
 """
 
+import datetime
 import random
 
 import pytest
-from lightcurvedb.models.flux import FluxMeasurement
-from lightcurvedb.client.measurement import measurement_flux_add, measurement_flux_delete
+
+from lightcurvedb.client.measurement import (
+    measurement_flux_add,
+    measurement_flux_delete,
+)
 from lightcurvedb.client.source import source_read_bands
-import datetime
+from lightcurvedb.models.flux import FluxMeasurement
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -28,12 +32,10 @@ async def test_lightcurve_read_source(client, source_ids):
             q_flux=0.0,
             q_uncertainty=0.0,
             u_flux=0.0,
-            u_uncertainty=0.0
+            u_uncertainty=0.0,
         )
 
         measurement_id = await measurement_flux_add(measurement=measurement, conn=conn)
 
     async with client.session() as conn:
         await measurement_flux_delete(id=measurement_id, conn=conn)
-
-    

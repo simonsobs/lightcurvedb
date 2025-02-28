@@ -16,12 +16,12 @@ async def band_read(name: str, conn: AsyncSession) -> BandTable:
     """
     Read core metadata about a band.
     """
-    res = await conn.get(BandTable, id)
+    res = await conn.get(BandTable, name)
 
     if res is None:
         raise BandNotFound
 
-    return res
+    return res.to_model()
 
 
 async def band_read_all(conn: AsyncSession) -> list[BandTable]:
@@ -32,7 +32,7 @@ async def band_read_all(conn: AsyncSession) -> list[BandTable]:
 
     res = await conn.execute(query)
 
-    return res.all()
+    return [x.to_model() for x in res.scalars().all()]
 
 
 async def band_add(band: Band, conn: AsyncSession) -> str:
@@ -49,16 +49,20 @@ async def band_add(band: Band, conn: AsyncSession) -> str:
 
     conn.add(table)
     await conn.commit()
+    await conn.refresh(table)
 
     return table.name
 
 
-async def band_delete(band_name: str, conn: AsyncSession):
+async def band_delete(name: str, conn: AsyncSession):
     """
     Delete a band from the system.
     """
 
-    res = await band_read(band_name)
+    res = await conn.get(BandTable, name)
+
+    if res is None:  # pragma: no cover
+        raise BandNotFound
 
     await conn.delete(res)
     await conn.commit()
