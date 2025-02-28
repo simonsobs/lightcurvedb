@@ -132,8 +132,9 @@ def generate_fluxes_fixed_source(
             for i in range(number)
         ]
 
-    session.add_all(band_fluxes)
-    session.commit()
+        session.add_all(band_fluxes)
+        session.commit()
+        band_fluxes = []
 
     flux_ids = [flux.id for flux in band_fluxes]
 

@@ -13,7 +13,7 @@ class SourceNotFound(Exception):
     pass
 
 
-async def source_read(id: int, conn: AsyncSession) -> SourceTable:
+async def source_read(id: int, conn: AsyncSession) -> Source:
     """
     Read core metadata about a source.
     """
@@ -22,7 +22,7 @@ async def source_read(id: int, conn: AsyncSession) -> SourceTable:
     if res is None:
         raise SourceNotFound
 
-    return res
+    return res.to_model()
 
 
 async def source_read_bands(id: int, conn: AsyncSession) -> list[str]:
@@ -31,7 +31,7 @@ async def source_read_bands(id: int, conn: AsyncSession) -> list[str]:
     """
     query = select(FluxMeasurementTable.band_name)
 
-    query = query.filter_by(
+    query = query.filter(
         FluxMeasurementTable.source_id == id,
     )
 
@@ -39,7 +39,7 @@ async def source_read_bands(id: int, conn: AsyncSession) -> list[str]:
 
     result = await conn.execute(query)
 
-    return result.all()
+    return result.scalars().all()
 
 
 async def source_add(source: Source, conn: AsyncSession) -> int:

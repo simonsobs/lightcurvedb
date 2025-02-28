@@ -8,7 +8,7 @@ from lightcurvedb.models.flux import FluxMeasurement, FluxMeasurementTable
 
 
 async def measurement_flux_add(measurement: FluxMeasurement, conn: AsyncSession) -> int:
-    table = FluxMeasurementTable(**measurement)
+    table = FluxMeasurementTable(**measurement.model_dump())
 
     conn.add(table)
     await conn.commit()

@@ -42,25 +42,26 @@ def source_ids(sync_client):
     from lightcurvedb.models.flux import FluxMeasurementTable
     from lightcurvedb.models.source import SourceTable
     from lightcurvedb.simulation import cutouts, fluxes, sources
+    from sqlalchemy import select
 
     source_ids = sources.create_fixed_sources(8, manager=sync_client)
 
-    bands = [
-        BandTable(
-            name=f"f{band_frequency:03d}",
-            frequency=band_frequency,
-            instrument="LATR",
-            telescope="SOLAT",
-        )
-        for band_frequency in [27, 39, 93, 145, 225, 280]
-    ]
-
     with sync_client.session() as session:
+        bands = [
+            BandTable(
+                name=f"f{band_frequency:03d}",
+                frequency=band_frequency,
+                instrument="LATR",
+                telescope="SOLAT",
+            )
+            for band_frequency in [27, 39, 93, 145, 225, 280]
+        ]
+
         session.add_all(bands)
         session.commit()
-
+        
         sources = [session.get(SourceTable, source_id) for source_id in source_ids]
-        bands = session.query(BandTable).all()
+        bands = session.execute(select(BandTable)).scalars().all()
 
         for source in sources:
             # Not all sources should have all bands.

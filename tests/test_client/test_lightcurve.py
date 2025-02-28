@@ -9,7 +9,7 @@ import pytest
 from lightcurvedb.client.lightcurve import lightcurve_read_source
 
 
-@pytest.mark.asyncio(scope="session")
+@pytest.mark.asyncio(loop_scope="session")
 async def test_lightcurve_read_source(client, source_ids):
     for source_id in random.choices(source_ids, k=4):
         async with client.session() as conn:
