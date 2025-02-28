@@ -3,12 +3,13 @@ For generating an ephemeral light curve server using testcontainers.
 """
 
 import os
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from time import sleep
 
 import tqdm
 from testcontainers.postgres import PostgresContainer
-from contextlib import contextmanager
+
 
 @contextmanager
 def core(number: int = 128):
@@ -114,4 +115,3 @@ def main():
     with core(number=args.number) as _:
         while args.keepalive:
             sleep(10)
-
