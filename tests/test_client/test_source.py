@@ -12,6 +12,7 @@ from lightcurvedb.client.source import (
     source_delete,
     source_read,
     source_read_all,
+    source_read_in_radius,
     source_read_summary,
 )
 from lightcurvedb.models.source import Source
@@ -51,6 +52,25 @@ async def test_source_read_summary(client, source_ids):
                 > source_summary.measurements[0].start
             )
             assert source_summary.measurements[0].count > 0
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_source_read_in_radius(client, source_ids):
+    async with client.session() as conn:
+        sources_in_radius = await source_read_in_radius((0, 0), 80.0, conn)
+        assert len(sources_in_radius) > 0
+
+        for source in sources_in_radius:
+            assert source.ra > -80.0
+            assert source.ra < 80.0
+            assert source.dec > -80.0
+            assert source.dec < 80.0
+
+        with pytest.raises(ValueError):
+            await source_read_in_radius((0, 0), -80.0, conn)
+
+        with pytest.raises(ValueError):
+            await source_read_in_radius((0, -100), 1.0, conn)
 
 
 @pytest.mark.asyncio(loop_scope="session")

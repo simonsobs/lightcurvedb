@@ -71,7 +71,7 @@ def core(number: int = 128, probability_of_flare: float = 0.1):
                     cadence=timedelta(days=1),
                     number=365,
                     session=session,
-                    probability_of_flare=probability_of_flare
+                    probability_of_flare=probability_of_flare,
                 )
 
                 # Get the most recent 30 flux measurements.

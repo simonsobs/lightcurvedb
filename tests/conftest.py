@@ -45,7 +45,7 @@ def source_ids(sync_client):
     from lightcurvedb.models.source import SourceTable
     from lightcurvedb.simulation import cutouts, fluxes, sources
 
-    source_ids = sources.create_fixed_sources(8, manager=sync_client)
+    source_ids = sources.create_fixed_sources(64, manager=sync_client)
 
     with sync_client.session() as session:
         bands = [
