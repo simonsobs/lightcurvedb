@@ -36,7 +36,7 @@ def create_cutout_core(
         np.linspace(-3, 3, nside),
         np.linspace(-3, 3, nside),
     )
-    out += flux * np.exp(-np.sqrt(xs ** 2 + ys ** 2) ** 2)
+    out += flux * np.exp(-(np.sqrt(xs**2 + ys**2) ** 2))
 
     return out
 
