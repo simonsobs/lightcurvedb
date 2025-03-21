@@ -31,7 +31,12 @@ def create_cutout_core(
         The cut-out.
     """
     out = np.random.normal(error * error, np.sqrt(error), size=(nside, nside))
-    out[nside // 2, nside // 2] = flux
+    # Use an extended source otherwise it's impossible to see.
+    xs, ys = np.meshgrid(
+        np.linspace(-3, 3, nside),
+        np.linspace(-3, 3, nside),
+    )
+    out += flux * np.exp(-np.sqrt(xs ** 2 + ys ** 2) ** 2)
 
     return out
 
