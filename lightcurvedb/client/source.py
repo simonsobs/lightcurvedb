@@ -2,7 +2,7 @@
 Extensions to core for sources.
 """
 
-from math import cos
+from math import cos, pi
 
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -108,6 +108,8 @@ async def source_read_in_radius(
         raise ValueError(
             f"Radius value {radius} unacceptable, must be strictly positive"
         )
+    
+    cos_dec = cos(pi * dec / 180.0)
 
     bottom_left = (ra - radius / cos(dec), dec - radius)
     top_right = (ra + radius / cos(dec), dec + radius)
