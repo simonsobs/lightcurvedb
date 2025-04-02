@@ -25,7 +25,7 @@ def create_fixed_sources(number: int, manager: SyncSessionManager) -> list[int]:
 
     sources = [
         SourceTable(
-            ra=random() * 360.0,
+            ra=random() * 360.0 - 180.0,
             dec=random() * 180.0 - 90.0,
             variable=False,
         )
