@@ -29,6 +29,7 @@ dev = [
 
 [project.scripts]
 lightcurvedb-ephemeral = "lightcurvedb.cli.ephemeral:main"
+lightcurvedb-setup = "lightcurvedb.cli.setup:main"
 
 [tool.ruff.lint]
 extend-select = ["I"]
