@@ -8,5 +8,5 @@ from lightcurvedb.config import settings
 def main():
     manager = settings.sync_manager()
 
-    if not manager.engine.dialect.has_table("sources"):
+    if not manager.engine.dialect.has_table(manager.engine, "sources"):
         manager.create_all()
