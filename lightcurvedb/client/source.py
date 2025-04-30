@@ -108,11 +108,11 @@ async def source_read_in_radius(
         raise ValueError(
             f"Radius value {radius} unacceptable, must be strictly positive"
         )
-    
+
     cos_dec = cos(pi * dec / 180.0)
 
-    bottom_left = (ra - radius / cos(dec), dec - radius)
-    top_right = (ra + radius / cos(dec), dec + radius)
+    bottom_left = (ra - radius / cos_dec, dec - radius)
+    top_right = (ra + radius / cos_dec, dec + radius)
 
     # Swap top and bottom in extreme cases:
     if bottom_left[0] < -180.0:

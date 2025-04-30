@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class Cutout(BaseModel):
-    id: int
+    id: int | None = None
     data: list[list[float]]
 
     time: datetime

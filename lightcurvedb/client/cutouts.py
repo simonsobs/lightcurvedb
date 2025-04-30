@@ -25,6 +25,22 @@ async def cutout_read(id: int, conn: AsyncSession) -> Cutout:
     return table.to_model()
 
 
+async def cutout_add(cutout: Cutout, conn: AsyncSession) -> int:
+    """
+    Add a cutout to the database.
+    """
+
+    table = CutoutTable(
+        **cutout.model_dump(),
+    )
+
+    conn.add(table)
+    await conn.commit()
+    await conn.refresh(table)
+
+    return table.id
+
+
 async def cutout_read_from_flux_id(
     flux_measurement_id: int, conn: AsyncSession
 ) -> Cutout:
