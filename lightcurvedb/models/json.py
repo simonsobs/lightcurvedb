@@ -18,6 +18,8 @@ class JSONEncodedPydantic(TypeDecorator):
     def process_bind_param(self, value, dialect):
         if value is None:
             return None
+        if isinstance(value, dict):
+            return value
         return value.model_dump()
 
     def process_result_value(self, value, dialect):
