@@ -29,10 +29,10 @@ async def test_lightcurve_read_source(client, source_ids):
             time=datetime.datetime.now(),
             i_flux=0.0,
             i_uncertainty=0.0,
-            q_flux=0.0,
-            q_uncertainty=0.0,
-            u_flux=0.0,
-            u_uncertainty=0.0,
+            ra=0.0,
+            dec=0.0,
+            ra_uncertainty=0.0,
+            dec_uncertainty=0.0,
         )
 
         measurement_id = await measurement_flux_add(measurement=measurement, conn=conn)

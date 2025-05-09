@@ -12,7 +12,7 @@ from sqlalchemy import select
 from lightcurvedb.client.band import BandNotFound
 from lightcurvedb.client.source import SourceNotFound
 from lightcurvedb.models.band import Band, BandTable
-from lightcurvedb.models.flux import FluxMeasurementTable
+from lightcurvedb.models.flux import FluxMeasurementTable, MeasurementMetadata
 from lightcurvedb.models.source import Source, SourceTable
 
 BAND_RESULT_ITEMS = [
@@ -20,10 +20,11 @@ BAND_RESULT_ITEMS = [
     "time",
     "i_flux",
     "i_uncertainty",
-    "q_flux",
-    "q_uncertainty",
-    "u_flux",
-    "u_uncertainty",
+    "ra",
+    "dec",
+    "ra_uncertainty",
+    "dec_uncertainty",
+    "extra",
 ]
 
 
@@ -36,11 +37,13 @@ class LightcurveBandResult(BaseModel):
     i_flux: list[float]
     i_uncertainty: list[float]
 
-    q_flux: list[float]
-    q_uncertainty: list[float]
+    ra: list[float]
+    dec: list[float]
 
-    u_flux: list[float]
-    u_uncertainty: list[float]
+    ra_uncertainty: list[float]
+    dec_uncertainty: list[float]
+
+    extra: list[MeasurementMetadata | None]
 
 
 class LightcurveResult(BaseModel):

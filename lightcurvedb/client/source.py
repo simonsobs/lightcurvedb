@@ -137,7 +137,9 @@ async def source_add(source: Source, conn: AsyncSession) -> int:
     """
     Add a source, returning its primary key.
     """
-    table = SourceTable(ra=source.ra, dec=source.dec, variable=source.variable, id=source.id)
+    table = SourceTable(
+        ra=source.ra, dec=source.dec, variable=source.variable, id=source.id
+    )
 
     conn.add(table)
     await conn.commit()

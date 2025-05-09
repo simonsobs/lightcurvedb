@@ -2,10 +2,10 @@
 Source generation.
 """
 
-from random import random
+from random import randint, random
 
 from ..managers import SyncSessionManager
-from ..models import SourceTable
+from ..models.source import CrossMatch, SourceMetadata, SourceTable
 
 
 def create_fixed_sources(number: int, manager: SyncSessionManager) -> list[int]:
@@ -28,6 +28,9 @@ def create_fixed_sources(number: int, manager: SyncSessionManager) -> list[int]:
             ra=random() * 360.0 - 180.0,
             dec=random() * 180.0 - 90.0,
             variable=False,
+            extra=SourceMetadata(
+                cross_matches=[CrossMatch(name=f"ACT-{randint(0, 10_000):05d}")]
+            ),
         )
         for _ in range(number)
     ]

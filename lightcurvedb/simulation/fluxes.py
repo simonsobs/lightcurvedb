@@ -10,6 +10,7 @@ import numpy as np
 from sqlmodel import Session
 
 from ..models import BandTable, FluxMeasurementTable, SourceTable
+from ..models.flux import MeasurementMetadata
 
 
 def generate_fluxes_fixed_source_core(
@@ -115,19 +116,25 @@ def generate_fluxes_fixed_source(
     band_fluxes = []
 
     for fluxes, band in zip(fluxes, bands):
+        if random.random() < 0.1:
+            metadata = MeasurementMetadata(flags=["test_flag"])
+        else:
+            metadata = None
+
         band_fluxes += [
             FluxMeasurementTable(
                 band=band,
                 time=times[i],
                 i_flux=fluxes[i],
                 i_uncertainty=math.sqrt(noise_floor),
-                q_flux=0.0,
-                q_uncertainty=0.0,
-                u_flux=0.0,
-                u_uncertainty=0.0,
+                ra=source.ra,
+                dec=source.dec,
+                ra_uncertainty=random.random(),
+                dec_uncertainty=random.random(),
                 source=source,
                 source_id=source.id,
                 band_name=band.name,
+                extra=metadata,
             )
             for i in range(number)
         ]
