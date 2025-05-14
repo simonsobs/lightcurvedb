@@ -4,12 +4,12 @@ based upon some algorithm. For now, we just return sources ordered
 by ID descending in a paginated way.
 """
 
-
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from lightcurvedb.models.feed import FeedResult, FeedResultItem
 from lightcurvedb.models.flux import FluxMeasurementTable
+from lightcurvedb.models.source import SourceTable
 
 
 async def feed_read(
@@ -75,6 +75,14 @@ async def feed_read(
             )
         )
 
+    total_number_of_sources = (
+        await conn.execute(select(func.count()).select_from(SourceTable))
+    ).scalar_one()
+
     return FeedResult(
-        items=results, start=start, stop=start + number, band_name=band_name
+        items=results,
+        start=start,
+        stop=start + number,
+        band_name=band_name,
+        total_number_of_sources=total_number_of_sources,
     )
