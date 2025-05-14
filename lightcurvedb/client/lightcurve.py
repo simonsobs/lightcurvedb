@@ -64,7 +64,7 @@ async def lightcurve_read_band(
     query = query.filter(FluxMeasurementTable.source_id == id)
     query = query.filter(FluxMeasurementTable.band_name == band_name)
 
-    query.order_by(FluxMeasurementTable.time)
+    query = query.order_by(FluxMeasurementTable.time)
 
     res = (await conn.execute(query)).scalars().all()
 
