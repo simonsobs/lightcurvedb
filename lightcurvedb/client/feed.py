@@ -50,7 +50,7 @@ async def feed_read(
                 FluxMeasurementTable.source_id == source_id,
                 FluxMeasurementTable.band_name == band_name,
             )
-            .order_by(FluxMeasurementTable.time)
+            .order_by(FluxMeasurementTable.time.desc())
             .limit(30)
         )
 
