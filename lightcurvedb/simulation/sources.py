@@ -25,6 +25,7 @@ def create_fixed_sources(number: int, manager: SyncSessionManager) -> list[int]:
 
     sources = [
         SourceTable(
+            name=f"SIM-{i:05d}",
             ra=random() * 360.0 - 180.0,
             dec=random() * 180.0 - 90.0,
             variable=False,
@@ -32,7 +33,7 @@ def create_fixed_sources(number: int, manager: SyncSessionManager) -> list[int]:
                 cross_matches=[CrossMatch(name=f"ACT-{randint(0, 10_000):05d}")]
             ),
         )
-        for _ in range(number)
+        for i in range(number)
     ]
 
     with manager.session() as session:

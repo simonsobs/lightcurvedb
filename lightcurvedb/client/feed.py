@@ -64,7 +64,7 @@ async def feed_read(
 
         if len(ras) <= 1:
             continue
-
+        source_result = await conn.get(SourceTable, source_id)
         results.append(
             FeedResultItem(
                 time=[x.time for x in scalar],
@@ -72,6 +72,7 @@ async def feed_read(
                 ra=sum(ras) / len(ras),
                 dec=sum(decs) / len(decs),
                 source_id=source_id,
+                source_name=source_result.name,
             )
         )
 

@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 class FeedResultItem(BaseModel):
     source_id: int
+    source_name: str | None = None
     ra: float
     dec: float
 
