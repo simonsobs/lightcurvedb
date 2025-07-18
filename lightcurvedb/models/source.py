@@ -38,7 +38,7 @@ class Source(BaseModel):
 
     id: int | None = None
     # The ID in socat
-
+    name: str | None = None
     ra: float | None
     dec: float | None
 
@@ -53,6 +53,8 @@ class SourceTable(SQLModel, Source, table=True):
     __tablename__ = "sources"
 
     id: int = Field(primary_key=True)
+    name: str | None = Field(default=None)
+
     flux_measurements: list["FluxMeasurementTable"] = Relationship(
         back_populates="source"
     )
