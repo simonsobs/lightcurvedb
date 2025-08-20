@@ -46,7 +46,7 @@ async def feed_read(
                 FluxMeasurementTable.ra,
                 FluxMeasurementTable.dec,
                 SourceTable.name,
-            ).select_from(FluxMeasurementTable.join(SourceTable))
+            ).join(SourceTable)
             .filter(
                 FluxMeasurementTable.source_id == source_id,
                 FluxMeasurementTable.band_name == band_name,
