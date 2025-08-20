@@ -45,7 +45,8 @@ async def feed_read(
                 FluxMeasurementTable.i_flux,
                 FluxMeasurementTable.ra,
                 FluxMeasurementTable.dec,
-            )
+                SourceTable.name,
+            ).select_from(FluxMeasurementTable.join(SourceTable))
             .filter(
                 FluxMeasurementTable.source_id == source_id,
                 FluxMeasurementTable.band_name == band_name,
@@ -64,7 +65,6 @@ async def feed_read(
 
         if len(ras) <= 1:
             continue
-        source_result = await conn.get(SourceTable, source_id)
         results.append(
             FeedResultItem(
                 time=[x.time for x in scalar],
@@ -72,7 +72,7 @@ async def feed_read(
                 ra=sum(ras) / len(ras),
                 dec=sum(decs) / len(decs),
                 source_id=source_id,
-                source_name=source_result.name,
+                source_name=scalar[0].name,
             )
         )
 
