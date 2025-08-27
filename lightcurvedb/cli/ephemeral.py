@@ -6,7 +6,7 @@ import os
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from time import sleep
-
+from sqlalchemy import text
 import tqdm
 from testcontainers.postgres import PostgresContainer
 
@@ -14,6 +14,7 @@ from testcontainers.postgres import PostgresContainer
 @contextmanager
 def core(number: int = 128, probability_of_flare: float = 0.1):
     with PostgresContainer(
+        image="timescale/timescaledb:latest-pg16",
         port=5432,
         username="postgres",
         password="password",
@@ -41,6 +42,18 @@ def core(number: int = 128, probability_of_flare: float = 0.1):
 
         # Create tables
         manager.create_all()
+        # Enable TimescaleDB extension
+        with manager.session() as session:
+            session.execute(text("CREATE EXTENSION IF NOT EXISTS timescaledb;"))
+            session.execute(text("""
+                    SELECT create_hypertable(
+                        'flux_measurements',
+                        'time',
+                        chunk_time_interval => INTERVAL '6 months',
+                        if_not_exists => TRUE
+                    );
+                     """))
+            session.commit()
 
         source_ids = sources.create_fixed_sources(number, manager=manager)
 
@@ -89,6 +102,9 @@ def core(number: int = 128, probability_of_flare: float = 0.1):
                         flux=flux,
                         session=session,
                     )
+
+
+
 
         yield postgres
 

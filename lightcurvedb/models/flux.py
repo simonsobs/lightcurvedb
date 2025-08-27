@@ -49,8 +49,8 @@ class FluxMeasurement(BaseModel):
 
 class FluxMeasurementTable(FluxMeasurement, SQLModel, table=True):
     __tablename__ = "flux_measurements"
-    id: int = Field(primary_key=True)
-
+    id: int = Field(primary_key=True, sa_column_kwargs={"autoincrement": True})
+    time: datetime = Field(primary_key=True)
     source_id: int | None = Field(default=None, foreign_key="sources.id")
     source: "SourceTable" = Relationship(back_populates="flux_measurements")
 
@@ -60,3 +60,4 @@ class FluxMeasurementTable(FluxMeasurement, SQLModel, table=True):
     extra: MeasurementMetadata | None = Field(
         default=None, sa_type=JSONEncodedPydantic(MeasurementMetadata)
     )
+
