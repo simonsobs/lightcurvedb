@@ -36,7 +36,8 @@ async def get_band_statistics(
     
     query = text(f"""
         SELECT
-            SUM(band_statistics_weekly.sum_flux) / SUM(band_statistics_weekly.data_points) as mean_flux,
+            SUM(band_statistics_weekly.sum_flux_over_uncertainty_squared) / SUM(band_statistics_weekly.sum_inverse_uncertainty_squared) as weighted_mean_flux,
+            1/SQRT(SUM(band_statistics_weekly.sum_inverse_uncertainty_squared)) as weighted_error_on_mean_flux,
             MIN(band_statistics_weekly.min_flux) as min_flux,
             MAX(band_statistics_weekly.max_flux) as max_flux,
             SUM(band_statistics_weekly.data_points) as data_points
@@ -61,8 +62,7 @@ async def get_band_statistics(
     print(row.data_points)
     if not row or row.data_points == 0:
         return BandStatistics(
-            mean_flux=None, min_flux=None, max_flux=None,
-            std_flux=None, median_flux=None, data_points=0
+            weighted_mean_flux=None, weighted_error_on_mean_flux=None, min_flux=None, max_flux=None, data_points=0
         )
 
     return BandStatistics(**row._asdict())
@@ -81,7 +81,8 @@ async def get_band_statistics_wo_ca(
     
     query = text(f"""
         SELECT
-            AVG(i_flux) as mean_flux,
+            SUM(i_flux/i_uncertainty^2) / SUM(1/i_uncertainty^2) as weighted_mean_flux,
+            1/SQRT(SUM(1/i_uncertainty^2)) as weighted_error_on_mean_flux,
             MIN(i_flux) as min_flux,
             MAX(i_flux) as max_flux,
             COUNT(*) as data_points
@@ -106,9 +107,7 @@ async def get_band_statistics_wo_ca(
     print(row.data_points)
     if not row or row.data_points == 0:
         return BandStatistics(
-            mean_flux=None, min_flux=None, max_flux=None,
-            std_flux=None, median_flux=None, data_points=0
+            weighted_mean_flux=None, weighted_error_on_mean_flux=None, min_flux=None, max_flux=None, data_points=0
         )
 
     return BandStatistics(**row._asdict())
-

@@ -20,7 +20,8 @@ def create_continuous_aggregates(session: Session):
             time_bucket('1 week', time) as bucket,
             source_id,
             band_name,
-            SUM(i_flux) as sum_flux,
+            SUM(i_flux/i_uncertainty^2) as sum_flux_over_uncertainty_squared,
+            SUM(1/i_uncertainty^2) as sum_inverse_uncertainty_squared,
             MIN(i_flux) as min_flux,
             MAX(i_flux) as max_flux,
             COUNT(*) as data_points
