@@ -210,12 +210,7 @@ async def get_band_statistics(
     """
     Calculate band statistics for given source and time range using continuous aggregates.
     """
-    if not band_name:
-        raise ValueError("band_name cannot be empty")
-
-    if start_time and end_time and start_time >= end_time:
-        raise ValueError("start_time must be before end_time")
-
+    
     table = DERIVED_STATISTICS_REGISTRY.get_statistics_table()
     columns = table.c
     expressions = DERIVED_STATISTICS_REGISTRY.get_statistic_expressions(columns)
