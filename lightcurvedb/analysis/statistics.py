@@ -241,7 +241,7 @@ async def get_band_statistics_wo_ca(
     end_time: datetime | None = None,
 ) -> BandStatistics:
     """
-    Legacy wrapper - calculates statistics without continuous aggregates.
+    calculates statistics without continuous aggregates.
     """
 
     table = RAW_STATISTICS_REGISTRY.get_statistics_table()
