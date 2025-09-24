@@ -16,8 +16,8 @@ class AggregateConfig:
     """
     view_name: str                        # Name of the materialized view table
     bucket_interval: str                  # Time window for grouping data
-    retention_drop_after: str             # How old data must be before deletion
-    retention_schedule_interval: str      # How often to check for and delete old data
+    drop_after_interval: str             # How old data must be before deletion
+    drop_schedule_interval: str      # How often to check for and delete old data
     refresh_start_offset: str             # How far back to look for new raw data
     refresh_end_offset: str               # Exclude recent data to avoid incomplete buckets
     refresh_schedule_interval: str        # How often to update the aggregate with new data
