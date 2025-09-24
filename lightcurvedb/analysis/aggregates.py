@@ -12,28 +12,29 @@ from lightcurvedb.models import FluxMeasurementTable
 @dataclass
 class AggregateConfig:
     """
-    Configuration for a continuous aggregate.
+    Configuration for a continuous aggregate
     """
-    view_name: str
-    bucket_interval: str
-    retention_drop_after: str
-    retention_schedule_interval: str
-    refresh_start_offset: str
-    refresh_end_offset: str
-    refresh_schedule_interval: str
+    view_name: str                        # Name of the materialized view table
+    bucket_interval: str                  # Time window for grouping data
+    retention_drop_after: str             # How old data must be before deletion
+    retention_schedule_interval: str      # How often to check for and delete old data
+    refresh_start_offset: str             # How far back to look for new raw data
+    refresh_end_offset: str               # Exclude recent data to avoid incomplete buckets
+    refresh_schedule_interval: str        # How often to update the aggregate with new data
+
 
 
 class AggregateConfigurations:
     """
-    Configurations for different time buckets.
+    Configurations for different time buckets
     """
     
     CONFIGS: List[AggregateConfig] = [
         AggregateConfig(
             view_name="band_statistics_daily",
             bucket_interval="1 day",
-            retention_drop_after="1 month",
-            retention_schedule_interval="7 days",
+            drop_after_interval="1 month",
+            drop_schedule_interval="7 days",
             refresh_start_offset="7 days",
             refresh_end_offset="1 day", 
             refresh_schedule_interval="1 day"
@@ -41,8 +42,8 @@ class AggregateConfigurations:
         AggregateConfig(
             view_name="band_statistics_weekly", 
             bucket_interval="1 week",
-            retention_drop_after="6 months",
-            retention_schedule_interval="1 month",
+            drop_after_interval="6 months",
+            drop_schedule_interval="1 month",
             refresh_start_offset="3 weeks",
             refresh_end_offset="1 week",
             refresh_schedule_interval="1 week"
@@ -50,8 +51,8 @@ class AggregateConfigurations:
         AggregateConfig(
             view_name="band_statistics_monthly",
             bucket_interval="1 month", 
-            retention_drop_after="3 years",
-            retention_schedule_interval="4 months",
+            drop_after_interval="3 years",
+            drop_schedule_interval="4 months",
             refresh_start_offset="3 months",
             refresh_end_offset="1 month",
             refresh_schedule_interval="1 week"
@@ -112,9 +113,9 @@ class MetricsRegistry:
     def data_points_count(table):
         return func.count()
 
-    def get_continuous_aggregate_table(self):
+    def get_continuous_aggregate_table(self, view_name: str):
         """
-        Generate table reference for band_statistics_monthly.
+        Generate table reference for specified aggregate table.
         """
         base_columns = [
             column('bucket'),
@@ -123,7 +124,7 @@ class MetricsRegistry:
         ]
         metric_columns = [column(metric["aggregate_column"]) for metric in self.metrics.values()]
 
-        return table('band_statistics_monthly', *(base_columns + metric_columns))
+        return table(view_name, *(base_columns + metric_columns))
 
     def get_metric_expressions(self, table_ref):
         """
@@ -140,14 +141,13 @@ class ContinuousAggregateBuilder:
     Builds TimescaleDB continuous aggregates.
     """
 
-    def __init__(self, metrics_registry: MetricsRegistry, config: ):
+    def __init__(self, metrics_registry: MetricsRegistry, config: AggregateConfig):
         self.metrics_registry = metrics_registry
-        self.view_name = "band_statistics_monthly"
-        self.bucket_interval = "1 month"
+        self.config = config
 
     def build_aggregate_query(self, engine):
         ftable = FluxMeasurementTable
-        bucket = func.time_bucket(text(f"INTERVAL '{self.bucket_interval}'"), ftable.time).label("bucket")
+        bucket = func.time_bucket(text(f"INTERVAL '{self.config.bucket_interval}'"), ftable.time).label("bucket")
         group_cols = [bucket, ftable.source_id, ftable.band_name]
 
         metric_exprs = self.metrics_registry.get_metric_expressions(ftable)
@@ -171,7 +171,7 @@ class ContinuousAggregateBuilder:
         """
 
         return f"""
-        CREATE MATERIALIZED VIEW IF NOT EXISTS {self.view_name}
+        CREATE MATERIALIZED VIEW IF NOT EXISTS {self.config.view_name}
         WITH (
             timescaledb.continuous,
             timescaledb.materialized_only = false
@@ -186,10 +186,10 @@ class ContinuousAggregateBuilder:
         """
 
         return f"""
-        SELECT add_continuous_aggregate_policy('{self.view_name}',
-            start_offset => INTERVAL '3 months',
-            end_offset => INTERVAL '1 month',
-            schedule_interval => INTERVAL '1 week'
+        SELECT add_continuous_aggregate_policy('{self.config.view_name}',
+            start_offset => INTERVAL '{self.config.refresh_start_offset}',
+            end_offset => INTERVAL '{self.config.refresh_end_offset}',
+            schedule_interval => INTERVAL '{self.config.refresh_schedule_interval}'
         );
         """
     
@@ -199,9 +199,9 @@ class ContinuousAggregateBuilder:
         """
 
         return f"""
-        SELECT add_retention_policy('{self.view_name}'),
-          drop_after => INTERVAL '3 years',
-          schedule_interval => INTERVAL '4 months');
+        SELECT add_retention_policy('{self.config.view_name}',
+            drop_after => INTERVAL '{self.config.drop_after_interval}',
+            schedule_interval => INTERVAL '{self.config.drop_schedule_interval}',
         """
 
     def create_aggregate(self, session: Session) -> None:
