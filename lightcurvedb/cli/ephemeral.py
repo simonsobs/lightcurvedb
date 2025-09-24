@@ -83,7 +83,7 @@ def core(number: int = 128, probability_of_flare: float = 0.1):
                     bands=bands,
                     start_time=datetime.now(),
                     cadence=timedelta(days=1),
-                    number=365,
+                    number=1825, # 5 years
                     session=session,
                     probability_of_flare=probability_of_flare,
                 )
