@@ -46,8 +46,23 @@ class DerivedStatisticsRegistry:
             },
         }
 
-    def get_statistics_table(self):
-        return METRICS_REGISTRY.get_continuous_aggregate_table()
+    def get_statistics_table(self, start_time: datetime | None = None, end_time: datetime | None = None):
+        """
+        Selects the appropriate table that actually holds data for the requested range.
+        """
+        if not start_time or not end_time:
+            return METRICS_REGISTRY.get_continuous_aggregate_table("band_statistics_monthly")
+
+        today = datetime.today()
+        delta_start = (today - start_time).days
+
+        if delta_start < 31:
+            view_name = "band_statistics_daily"
+        elif delta_start < 186:
+            view_name = "band_statistics_weekly"
+        else:
+            view_name = "band_statistics_monthly"
+        return METRICS_REGISTRY.get_continuous_aggregate_table(view_name)
 
     def get_statistic_expressions(self, columns: Any) -> Dict[str, Any]:
         return {
@@ -211,7 +226,7 @@ async def get_band_statistics(
     Calculate band statistics for given source and time range using continuous aggregates.
     """
     
-    table = DERIVED_STATISTICS_REGISTRY.get_statistics_table()
+    table = DERIVED_STATISTICS_REGISTRY.get_statistics_table(start_time, end_time)
     columns = table.c
     expressions = DERIVED_STATISTICS_REGISTRY.get_statistic_expressions(columns)
     filters = (columns.source_id, columns.band_name, columns.bucket)
