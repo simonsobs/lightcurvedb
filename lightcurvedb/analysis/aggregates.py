@@ -59,7 +59,6 @@ class AggregateConfigurations:
         )
     ]
 
-
 class MetricsRegistry:
     """
     Registry for statistical metrics and their SQLAlchemy expressions.
@@ -201,7 +200,7 @@ class ContinuousAggregateBuilder:
         return f"""
         SELECT add_retention_policy('{self.config.view_name}',
             drop_after => INTERVAL '{self.config.drop_after_interval}',
-            schedule_interval => INTERVAL '{self.config.drop_schedule_interval}',
+            schedule_interval => INTERVAL '{self.config.drop_schedule_interval}');
         """
 
     def create_aggregate(self, session: Session) -> None:
@@ -228,3 +227,14 @@ def create_continuous_aggregates(session: Session) -> None:
     for config in AggregateConfigurations.CONFIGS:
         builder = ContinuousAggregateBuilder(METRICS_REGISTRY, config)
         builder.create_aggregate(session)
+
+
+def refresh_continuous_aggregates(session: Session) -> None:
+    """
+    Manually refresh all continuous aggregates for historical data.
+    """
+    engine = session.get_bind()
+
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+        for config in AggregateConfigurations.CONFIGS:
+            conn.execute(text(f"CALL refresh_continuous_aggregate('{config.view_name}', NULL, NULL)"))
