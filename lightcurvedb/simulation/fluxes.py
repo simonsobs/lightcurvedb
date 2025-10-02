@@ -11,6 +11,7 @@ from sqlmodel import Session
 
 from ..models import BandTable, FluxMeasurementTable, SourceTable
 from ..models.flux import MeasurementMetadata
+from ..analysis.aggregates import refresh_continuous_aggregates
 
 
 def generate_fluxes_fixed_source_core(
@@ -142,6 +143,9 @@ def generate_fluxes_fixed_source(
         session.add_all(band_fluxes)
         session.commit()
         band_fluxes = []
+
+    # Refresh continuous aggregates
+    refresh_continuous_aggregates(session)
 
     flux_ids = [flux.id for flux in band_fluxes]
 
