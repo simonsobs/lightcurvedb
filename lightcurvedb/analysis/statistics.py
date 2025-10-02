@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from lightcurvedb.models.analysis import BandStatistics
 from lightcurvedb.models.flux import FluxMeasurementTable
 from lightcurvedb.analysis.aggregates import METRICS_REGISTRY
-
+from sqlalchemy import text
 
 class DerivedStatisticsRegistry:
     """
@@ -51,24 +51,50 @@ class DerivedStatisticsRegistry:
         Selects the appropriate table that actually holds data for the requested range.
         """
         if not start_time or not end_time:
-            return METRICS_REGISTRY.get_continuous_aggregate_table("band_statistics_monthly")
-
-        today = datetime.today()
-        delta_start = (today - start_time).days
-
-        if delta_start < 31:
-            view_name = "band_statistics_daily"
-        elif delta_start < 186:
-            view_name = "band_statistics_weekly"
-        else:
             view_name = "band_statistics_monthly"
-        return METRICS_REGISTRY.get_continuous_aggregate_table(view_name)
+            bucket_interval = "1 month"
+        else:
+            today = datetime.today()
+            delta_start = (today - start_time).days
 
-    def get_statistic_expressions(self, columns: Any) -> Dict[str, Any]:
-        return {
+            if delta_start <= 30:
+                view_name = "band_statistics_daily"
+                bucket_interval = "1 day"
+            elif delta_start <= 180:
+                view_name = "band_statistics_weekly"
+                bucket_interval = "1 week"
+            else:
+                view_name = "band_statistics_monthly"
+                bucket_interval = "1 month"
+
+        table = METRICS_REGISTRY.get_continuous_aggregate_table(view_name)
+        return table, bucket_interval
+
+    def get_statistic_expressions(self, columns: Any, bucket_interval: str) -> Dict[str, Any]:
+        expressions = {
             name: meta["method"](columns).label(meta["column"])
             for name, meta in self.statistics.items()
         }
+        # Bucket range
+        expressions["bucket_start"] = func.min(columns.bucket).label("bucket_start")
+        expressions["bucket_end"] = self._calculate_bucket_end(columns, bucket_interval)
+        return expressions
+
+    @staticmethod
+    def _calculate_bucket_end(columns, bucket_interval: str):
+        """
+        Calculate the end of the bucket range based on interval type.
+        """
+        max_bucket = func.max(columns.bucket)
+
+        if bucket_interval == "1 day":
+            return max_bucket.label("bucket_end")
+        elif bucket_interval == "1 week":
+            return (max_bucket + text("INTERVAL '6 days'")).label("bucket_end")
+        elif bucket_interval == "1 month":
+            return (max_bucket + text("INTERVAL '1 month'") - text("INTERVAL '1 day'")).label("bucket_end")
+        else:
+            return max_bucket.label("bucket_end")
 
     @staticmethod
     def weighted_mean_flux(columns):
@@ -173,7 +199,7 @@ def _build_time_filters(column, start_time: datetime | None, end_time: datetime 
     if start_time:
         filters.append(column >= start_time)
     if end_time:
-        filters.append(column < end_time)
+        filters.append(column <= end_time)
     return filters
 
 
@@ -187,7 +213,7 @@ async def _run_band_statistics_query(
     conn: AsyncSession,
     start_time: datetime | None,
     end_time: datetime | None,
-) -> BandStatistics:
+) -> tuple[BandStatistics, datetime | None, datetime | None]:
     """
     Execute the band statistics query and build a BandStatistics result.
     """
@@ -206,13 +232,18 @@ async def _run_band_statistics_query(
     result = await conn.execute(select_query)
     row = result.first()
 
-    return BandStatistics(
+    statistics = BandStatistics(
         weighted_mean_flux=row.weighted_mean_flux,
         weighted_error_on_mean_flux=row.weighted_error_on_mean_flux,
         min_flux=row.min_flux,
         max_flux=row.max_flux,
         data_points=row.data_points,
     )
+
+    bucket_start = getattr(row, 'bucket_start', None)
+    bucket_end = getattr(row, 'bucket_end', None)
+
+    return statistics, bucket_start, bucket_end
 
 
 async def get_band_statistics(
@@ -221,14 +252,14 @@ async def get_band_statistics(
     conn: AsyncSession,
     start_time: datetime | None = None,
     end_time: datetime | None = None,
-) -> BandStatistics:
+) -> tuple[BandStatistics, datetime | None, datetime | None]:
     """
     Calculate band statistics for given source and time range using continuous aggregates.
     """
-    
-    table = DERIVED_STATISTICS_REGISTRY.get_statistics_table(start_time, end_time)
+
+    table, bucket_interval = DERIVED_STATISTICS_REGISTRY.get_statistics_table(start_time, end_time)
     columns = table.c
-    expressions = DERIVED_STATISTICS_REGISTRY.get_statistic_expressions(columns)
+    expressions = DERIVED_STATISTICS_REGISTRY.get_statistic_expressions(columns, bucket_interval)
     filters = (columns.source_id, columns.band_name, columns.bucket)
 
     return await _run_band_statistics_query(
@@ -249,7 +280,7 @@ async def get_band_statistics_wo_ca(
     conn: AsyncSession,
     start_time: datetime | None = None,
     end_time: datetime | None = None,
-) -> BandStatistics:
+) -> tuple[BandStatistics, datetime | None, datetime | None]:
     """
     calculates statistics without continuous aggregates.
     """
