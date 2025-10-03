@@ -54,44 +54,44 @@ class DerivedStatisticsRegistry:
         """
         if not start_time or not end_time:
             view_name = "band_statistics_monthly"
-            bucket_interval = "1 month"
+            time_resolution = "monthly"
         else:
             today = datetime.today()
             delta_start = (today - start_time).days
 
             if delta_start <= 30:
                 view_name = "band_statistics_daily"
-                bucket_interval = "1 day"
+                time_resolution = "daily"
             elif delta_start <= 180:
                 view_name = "band_statistics_weekly"
-                bucket_interval = "1 week"
+                time_resolution = "weekly"
             else:
                 view_name = "band_statistics_monthly"
-                bucket_interval = "1 month"
+                time_resolution = "monthly"
 
         table = METRICS_REGISTRY.get_continuous_aggregate_table(view_name)
-        return table, bucket_interval
+        return table, time_resolution
 
-    def get_statistic_expressions(self, columns: Any, bucket_interval: str) -> Dict[str, Any]:
+    def get_statistic_expressions(self, columns: Any, time_resolution: str) -> Dict[str, Any]:
         expressions = {
             name: meta["method"](columns).label(meta["column"])
             for name, meta in self.statistics.items()
         }
         # Bucket range
         expressions["bucket_start"] = func.min(columns.bucket).label("bucket_start")
-        expressions["bucket_end"] = self._calculate_bucket_end(columns, bucket_interval)
+        expressions["bucket_end"] = self._calculate_bucket_end(columns, time_resolution)
         return expressions
 
     @staticmethod
-    def _calculate_bucket_end(columns, bucket_interval: str):
+    def _calculate_bucket_end(columns, time_resolution: str):
         """
-        Calculate the end of the bucket range based on interval type.
+        Calculate the end of the bucket range based on time resolution.
         """
         max_bucket = func.max(columns.bucket)
 
-        if bucket_interval == "1 day":
+        if time_resolution == "daily":
             return max_bucket.label("bucket_end")
-        elif bucket_interval == "1 week":
+        elif time_resolution == "weekly":
             return (max_bucket + text("INTERVAL '6 days'")).label("bucket_end")
         else:
             return (max_bucket + text("INTERVAL '1 month'") - text("INTERVAL '1 day'")).label("bucket_end")
@@ -240,8 +240,8 @@ async def _run_band_statistics_query(
         data_points=row.data_points,
     )
 
-    bucket_start = getattr(row, 'bucket_start', None)
-    bucket_end = getattr(row, 'bucket_end', None)
+    bucket_start = getattr(row, 'bucket_start')
+    bucket_end = getattr(row, 'bucket_end')
 
     return statistics, bucket_start, bucket_end
 
@@ -252,17 +252,17 @@ async def get_band_statistics(
     conn: AsyncSession,
     start_time: datetime | None = None,
     end_time: datetime | None = None,
-) -> tuple[BandStatistics, datetime | None, datetime | None]:
+) -> tuple[BandStatistics, datetime | None, datetime | None, str]:
     """
     Calculate band statistics for given source and time range using continuous aggregates.
     """
 
-    table, bucket_interval = DERIVED_STATISTICS_REGISTRY.get_statistics_table(start_time, end_time)
+    table, time_resolution = DERIVED_STATISTICS_REGISTRY.get_statistics_table(start_time, end_time)
     columns = table.c
-    expressions = DERIVED_STATISTICS_REGISTRY.get_statistic_expressions(columns, bucket_interval)
+    expressions = DERIVED_STATISTICS_REGISTRY.get_statistic_expressions(columns, time_resolution)
     filters = (columns.source_id, columns.band_name, columns.bucket)
 
-    return await _run_band_statistics_query(
+    statistics, bucket_start, bucket_end = await _run_band_statistics_query(
         table=table,
         expressions=expressions,
         filter_columns=filters,
@@ -272,6 +272,8 @@ async def get_band_statistics(
         start_time=start_time,
         end_time=end_time,
     )
+
+    return statistics, bucket_start, bucket_end, time_resolution
 
 
 async def get_band_statistics_wo_ca(
