@@ -5,12 +5,14 @@ Database-side analysis functions for lightcurve data.
 
 from datetime import datetime
 from typing import Any, Dict, Iterable
-from sqlalchemy import func, select
+
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from lightcurvedb.analysis.aggregates import METRICS_REGISTRY
 from lightcurvedb.models.analysis import BandStatistics
 from lightcurvedb.models.flux import FluxMeasurementTable
-from lightcurvedb.analysis.aggregates import METRICS_REGISTRY
-from sqlalchemy import text
+
 
 class DerivedStatisticsRegistry:
     """
@@ -91,10 +93,8 @@ class DerivedStatisticsRegistry:
             return max_bucket.label("bucket_end")
         elif bucket_interval == "1 week":
             return (max_bucket + text("INTERVAL '6 days'")).label("bucket_end")
-        elif bucket_interval == "1 month":
-            return (max_bucket + text("INTERVAL '1 month'") - text("INTERVAL '1 day'")).label("bucket_end")
         else:
-            return max_bucket.label("bucket_end")
+            return (max_bucket + text("INTERVAL '1 month'") - text("INTERVAL '1 day'")).label("bucket_end")
 
     @staticmethod
     def weighted_mean_flux(columns):

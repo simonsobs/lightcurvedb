@@ -3,6 +3,7 @@ Server-side analysis functions.
 """
 from pydantic import BaseModel
 
+
 class BandStatistics(BaseModel):
     """
     Statistics over a band.

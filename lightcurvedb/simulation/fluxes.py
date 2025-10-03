@@ -9,9 +9,9 @@ from datetime import datetime, timedelta
 import numpy as np
 from sqlmodel import Session
 
+from ..analysis.aggregates import refresh_continuous_aggregates
 from ..models import BandTable, FluxMeasurementTable, SourceTable
 from ..models.flux import MeasurementMetadata
-from ..analysis.aggregates import refresh_continuous_aggregates
 
 
 def generate_fluxes_fixed_source_core(

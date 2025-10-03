@@ -6,9 +6,10 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
+from sqlalchemy.schema import ForeignKeyConstraint
 from sqlalchemy.types import ARRAY, FLOAT
 from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy.schema import ForeignKeyConstraint
+
 if TYPE_CHECKING:
     from .band import BandTable
     from .flux import FluxMeasurementTable

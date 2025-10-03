@@ -6,10 +6,14 @@ import os
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from time import sleep
-from sqlalchemy import text
+
 import tqdm
+from loguru import logger
+from sqlalchemy import text
 from testcontainers.postgres import PostgresContainer
+
 from lightcurvedb.analysis.aggregates import create_continuous_aggregates
+
 
 @contextmanager
 def core(number: int = 128, probability_of_flare: float = 0.1):
@@ -55,7 +59,8 @@ def core(number: int = 128, probability_of_flare: float = 0.1):
                      """))
             session.commit()
             create_continuous_aggregates(session)
-
+        logger.warning("Test TimescaleDB setup: The database refresh schedule and" \
+        " drop schedule depend on drop_schedule_interval and refresh_schedule_interval")
         source_ids = sources.create_fixed_sources(number, manager=manager)
 
         # Create bands

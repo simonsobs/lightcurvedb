@@ -2,10 +2,11 @@
 Create the database tables if they do not exist.
 """
 
+from sqlalchemy import text
+
+from lightcurvedb.analysis.aggregates import create_continuous_aggregates
 from lightcurvedb.config import settings
 from lightcurvedb.models import *  # noqa: F403
-from lightcurvedb.analysis.aggregates import create_continuous_aggregates
-from sqlalchemy import text
 
 
 def main():

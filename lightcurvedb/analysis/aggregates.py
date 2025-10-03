@@ -3,11 +3,15 @@ Functions for creating and managing TimescaleDB continuous aggregates.
 """
 
 from __future__ import annotations
-from typing import Dict,Any,List
+
 from dataclasses import dataclass
-from sqlalchemy import func, select, text, table, column
+from typing import Any, Dict, List
+
+from sqlalchemy import column, func, select, table, text
 from sqlalchemy.orm import Session
+
 from lightcurvedb.models import FluxMeasurementTable
+
 
 @dataclass
 class AggregateConfig:
