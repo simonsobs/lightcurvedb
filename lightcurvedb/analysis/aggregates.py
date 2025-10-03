@@ -95,6 +95,16 @@ class MetricsRegistry:
                 "aggregate_column": "data_points",
                 "description": "Number of data points in the time period"
             },
+            "sum_flux": {
+                "method": self.sum_flux,
+                "aggregate_column": "sum_flux",
+                "description": "Sum of flux values in the time period"
+            },
+            "sum_flux_squared": {
+                "method": self.sum_flux_squared,
+                "aggregate_column": "sum_flux_squared",
+                "description": "Sum of squared flux values for variance calculation"
+            },
         }
     @staticmethod
     def sum_flux_over_uncertainty_squared(table):
@@ -115,6 +125,14 @@ class MetricsRegistry:
     @staticmethod
     def data_points_count(table):
         return func.count()
+
+    @staticmethod
+    def sum_flux(table):
+        return func.sum(table.i_flux)
+
+    @staticmethod
+    def sum_flux_squared(table):
+        return func.sum(table.i_flux * table.i_flux)
 
     def get_continuous_aggregate_table(self, view_name: str):
         """

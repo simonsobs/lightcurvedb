@@ -10,7 +10,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lightcurvedb.analysis.aggregates import METRICS_REGISTRY
-from lightcurvedb.models.analysis import BandStatistics
+from lightcurvedb.models.analysis import BandStatistics, BandTimeSeries
 from lightcurvedb.models.flux import FluxMeasurementTable
 
 
@@ -25,26 +25,43 @@ class DerivedStatisticsRegistry:
                 "method": self.weighted_mean_flux,
                 "column": "weighted_mean_flux",
                 "description": "Weighted mean of flux measurements",
+                "mode": "aggregate",
             },
             "weighted_error_on_mean_flux": {
                 "method": self.weighted_error_on_mean_flux,
                 "column": "weighted_error_on_mean_flux",
                 "description": "Uncertainty on the weighted mean flux",
+                "mode": "aggregate",
             },
             "min_flux": {
                 "method": self.min_flux,
                 "column": "min_flux",
                 "description": "Minimum flux value in the time period",
+                "mode": "aggregate",
             },
             "max_flux": {
                 "method": self.max_flux,
                 "column": "max_flux",
                 "description": "Maximum flux value in the time period",
+                "mode": "aggregate",
             },
             "data_points": {
                 "method": self.data_points,
                 "column": "data_points",
                 "description": "Number of data points contributing to the aggregate",
+                "mode": "aggregate",
+            },
+            "mean_flux": {
+                "method": self.mean_flux,
+                "column": "mean_flux",
+                "description": "Mean flux per bucket",
+                "mode": "timeseries",
+            },
+            "variance_flux": {
+                "method": self.variance_flux,
+                "column": "variance_flux",
+                "description": "Variance of flux across all measurements",
+                "mode": "aggregate",
             },
         }
 
@@ -72,14 +89,18 @@ class DerivedStatisticsRegistry:
         table = METRICS_REGISTRY.get_continuous_aggregate_table(view_name)
         return table, time_resolution
 
-    def get_statistic_expressions(self, columns: Any, time_resolution: str) -> Dict[str, Any]:
+    def get_statistic_expressions(self, columns: Any, time_resolution: str, mode: str = "aggregate") -> Dict[str, Any]:
         expressions = {
             name: meta["method"](columns).label(meta["column"])
             for name, meta in self.statistics.items()
+            if meta["mode"] == mode
         }
         # Bucket range
-        expressions["bucket_start"] = func.min(columns.bucket).label("bucket_start")
-        expressions["bucket_end"] = self._calculate_bucket_end(columns, time_resolution)
+        if mode == "aggregate":
+            expressions["bucket_start"] = func.min(columns.bucket).label("bucket_start")
+            expressions["bucket_end"] = self._calculate_bucket_end(columns, time_resolution)
+        elif mode == "timeseries":
+            expressions["bucket"] = columns.bucket
         return expressions
 
     @staticmethod
@@ -119,6 +140,21 @@ class DerivedStatisticsRegistry:
     def data_points(columns):
         return func.sum(columns.data_points)
 
+    @staticmethod
+    def mean_flux(columns):
+        return columns.sum_flux / columns.data_points
+
+    @staticmethod
+    def variance_flux(columns):
+        total_sum = func.sum(columns.sum_flux)
+        total_count = func.sum(columns.data_points)
+        total_sum_squared = func.sum(columns.sum_flux_squared)
+
+        mean = total_sum / total_count
+        sum_of_squared_deviations = total_sum_squared - total_count * mean * mean
+
+        return sum_of_squared_deviations / (total_count - 1)
+
 
 class RawMeasurementStatisticsRegistry:
     """
@@ -151,6 +187,11 @@ class RawMeasurementStatisticsRegistry:
                 "method": self.data_points,
                 "column": "data_points",
                 "description": "Number of raw measurements contributing to the statistics",
+            },
+            "variance_flux": {
+                "method": self.variance_flux,
+                "column": "variance_flux",
+                "description": "Variance of flux across all raw measurements",
             },
         }
 
@@ -185,6 +226,17 @@ class RawMeasurementStatisticsRegistry:
     @staticmethod
     def data_points(table_ref):
         return METRICS_REGISTRY.data_points_count(table_ref)
+
+    @staticmethod
+    def variance_flux(table_ref):
+        total_sum = METRICS_REGISTRY.sum_flux(table_ref)
+        total_count = METRICS_REGISTRY.data_points_count(table_ref)
+        total_sum_squared = METRICS_REGISTRY.sum_flux_squared(table_ref)
+
+        mean = total_sum / total_count
+        sum_of_squared_deviations = total_sum_squared - total_count * mean * mean
+
+        return sum_of_squared_deviations / (total_count - 1)
 
 
 DERIVED_STATISTICS_REGISTRY = DerivedStatisticsRegistry()
@@ -238,12 +290,49 @@ async def _run_band_statistics_query(
         min_flux=row.min_flux,
         max_flux=row.max_flux,
         data_points=row.data_points,
+        variance_flux=row.variance_flux,
     )
 
-    bucket_start = getattr(row, 'bucket_start')
-    bucket_end = getattr(row, 'bucket_end')
+    bucket_start = getattr(row, 'bucket_start', None)
+    bucket_end = getattr(row, 'bucket_end', None)
 
     return statistics, bucket_start, bucket_end
+
+
+async def _run_band_timeseries_query(
+    table,
+    expressions: Dict[str, Any],
+    filter_columns: Iterable[Any],
+    source_id: int,
+    band_name: str,
+    conn: AsyncSession,
+    start_time: datetime | None,
+    end_time: datetime | None,
+) -> BandTimeSeries:
+    """
+    Execute the band timeseries query and build a BandTimeSeries result.
+    """
+
+    source_column, band_column, time_column = filter_columns
+
+    select_query = select(*expressions.values()).select_from(table).where(
+        source_column == source_id,
+        band_column == band_name,
+    )
+
+    time_filters = _build_time_filters(time_column, start_time, end_time)
+    for filter_condition in time_filters:
+        select_query = select_query.where(filter_condition)
+
+    select_query = select_query.order_by(time_column)
+
+    result = await conn.execute(select_query)
+    rows = result.all()
+
+    timestamps = [row.bucket for row in rows]
+    mean_flux_values = [row.mean_flux for row in rows]
+
+    return BandTimeSeries(timestamps=timestamps, mean_flux=mean_flux_values)
 
 
 async def get_band_statistics(
@@ -259,7 +348,7 @@ async def get_band_statistics(
 
     table, time_resolution = DERIVED_STATISTICS_REGISTRY.get_statistics_table(start_time, end_time)
     columns = table.c
-    expressions = DERIVED_STATISTICS_REGISTRY.get_statistic_expressions(columns, time_resolution)
+    expressions = DERIVED_STATISTICS_REGISTRY.get_statistic_expressions(columns, time_resolution, mode="aggregate")
     filters = (columns.source_id, columns.band_name, columns.bucket)
 
     statistics, bucket_start, bucket_end = await _run_band_statistics_query(
@@ -274,6 +363,36 @@ async def get_band_statistics(
     )
 
     return statistics, bucket_start, bucket_end, time_resolution
+
+
+async def get_band_timeseries(
+    source_id: int,
+    band_name: str,
+    conn: AsyncSession,
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
+) -> BandTimeSeries:
+    """
+    Get timeseries of mean flux values per bucket for given source and time range.
+    """
+
+    table, time_resolution = DERIVED_STATISTICS_REGISTRY.get_statistics_table(start_time, end_time)
+    columns = table.c
+    expressions = DERIVED_STATISTICS_REGISTRY.get_statistic_expressions(columns, time_resolution, mode="timeseries")
+    filters = (columns.source_id, columns.band_name, columns.bucket)
+
+    timeseries = await _run_band_timeseries_query(
+        table=table,
+        expressions=expressions,
+        filter_columns=filters,
+        source_id=source_id,
+        band_name=band_name,
+        conn=conn,
+        start_time=start_time,
+        end_time=end_time,
+    )
+
+    return timeseries
 
 
 async def get_band_statistics_wo_ca(
