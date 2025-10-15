@@ -341,15 +341,26 @@ async def get_band_statistics(
     conn: AsyncSession,
     start_time: datetime | None = None,
     end_time: datetime | None = None,
+    use_continuous_aggregates: bool = False,
 ) -> tuple[BandStatistics, datetime | None, datetime | None, str]:
     """
-    Calculate band statistics for given source and time range using continuous aggregates.
+    Calculate band statistics for given source and time range.
+    use_continuous_aggregates: If True, use continuous aggregate tables.
+                                   If False, use raw flux measurements.
     """
 
-    table, time_resolution = DERIVED_STATISTICS_REGISTRY.get_statistics_table(start_time, end_time)
-    columns = table.c
-    expressions = DERIVED_STATISTICS_REGISTRY.get_statistic_expressions(columns, time_resolution, mode="aggregate")
-    filters = (columns.source_id, columns.band_name, columns.bucket)
+    if use_continuous_aggregates:
+        table, time_resolution = DERIVED_STATISTICS_REGISTRY.get_statistics_table(start_time, end_time)
+        columns = table.c
+        expressions = DERIVED_STATISTICS_REGISTRY.get_statistic_expressions(columns, time_resolution, mode="aggregate")
+        filters = (columns.source_id, columns.band_name, columns.bucket)
+    else:
+        table = RAW_STATISTICS_REGISTRY.get_statistics_table()
+        expressions = RAW_STATISTICS_REGISTRY.get_statistic_expressions(table)
+        expressions["bucket_start"] = func.min(table.time).label("bucket_start")
+        expressions["bucket_end"] = func.max(table.time).label("bucket_end")
+        filters = (table.source_id, table.band_name, table.time)
+        time_resolution = "daily"
 
     statistics, bucket_start, bucket_end = await _run_band_statistics_query(
         table=table,
@@ -393,29 +404,3 @@ async def get_band_timeseries(
     )
 
     return timeseries
-
-
-async def get_band_statistics_wo_ca(
-    source_id: int,
-    band_name: str,
-    conn: AsyncSession,
-    start_time: datetime | None = None,
-    end_time: datetime | None = None,
-) -> tuple[BandStatistics, datetime | None, datetime | None]:
-    """
-    calculates statistics without continuous aggregates.
-    """
-
-    table = RAW_STATISTICS_REGISTRY.get_statistics_table()
-    expressions = RAW_STATISTICS_REGISTRY.get_statistic_expressions(table)
-    filters = (table.source_id, table.band_name, table.time)
-    return await _run_band_statistics_query(
-        table=table,
-        expressions=expressions,
-        filter_columns=filters,
-        source_id=source_id,
-        band_name=band_name,
-        conn=conn,
-        start_time=start_time,
-        end_time=end_time,
-    )

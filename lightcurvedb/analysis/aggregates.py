@@ -2,7 +2,6 @@
 Functions for creating and managing TimescaleDB continuous aggregates.
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Dict, List
@@ -18,22 +17,24 @@ class AggregateConfig:
     """
     Configuration for a continuous aggregate
     """
-    view_name: str                        # Name of the materialized view table
-    bucket_interval: str                  # Time window for grouping data
-    drop_after_interval: str             # How old data must be before deletion
-    drop_schedule_interval: str      # How often to check for and delete old data
-    refresh_start_offset: str             # How far back to look for new raw data
-    refresh_end_offset: str               # Exclude recent data to avoid incomplete buckets
-    refresh_schedule_interval: str        # How often to update the aggregate with new data
+    view_name: str
+    # Name of the materialized view table
+    bucket_interval: str                  
+    # Time window for grouping data
+    drop_after_interval: str             
+    # How old data must be before deletion
+    drop_schedule_interval: str      
+    # How often to check for and delete old data
+    refresh_start_offset: str             
+    # How far back to look for new raw data
+    refresh_end_offset: str               
+    # Exclude recent data to avoid incomplete buckets
+    refresh_schedule_interval: str        
+    # How often to update the aggregate with new data
 
 
 
-class AggregateConfigurations:
-    """
-    Configurations for different time buckets
-    """
-    
-    CONFIGS: List[AggregateConfig] = [
+AggregateConfigurations: List[AggregateConfig] = [
         AggregateConfig(
             view_name="band_statistics_daily",
             bucket_interval="1 day",
@@ -246,7 +247,7 @@ def create_continuous_aggregates(session: Session) -> None:
     """
     Create all continuous aggregates (daily, weekly, monthly).
     """
-    for config in AggregateConfigurations.CONFIGS:
+    for config in AggregateConfigurations:
         builder = ContinuousAggregateBuilder(METRICS_REGISTRY, config)
         builder.create_aggregate(session)
 
@@ -258,5 +259,5 @@ def refresh_continuous_aggregates(session: Session) -> None:
     engine = session.get_bind()
 
     with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-        for config in AggregateConfigurations.CONFIGS:
+        for config in AggregateConfigurations:
             conn.execute(text(f"CALL refresh_continuous_aggregate('{config.view_name}', NULL, NULL)"))
