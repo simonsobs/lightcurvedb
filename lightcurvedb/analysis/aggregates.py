@@ -19,50 +19,69 @@ class AggregateConfig:
     """
     view_name: str
     # Name of the materialized view table
-    bucket_interval: str                  
+    time_resolution: str
+    # Time resolution label (daily, weekly, monthly)
+    bucket_interval: str
     # Time window for grouping data
-    drop_after_interval: str             
+    drop_after_interval: str
     # How old data must be before deletion
-    drop_schedule_interval: str      
+    drop_schedule_interval: str
     # How often to check for and delete old data
-    refresh_start_offset: str             
+    refresh_start_offset: str
     # How far back to look for new raw data
-    refresh_end_offset: str               
+    refresh_end_offset: str
     # Exclude recent data to avoid incomplete buckets
-    refresh_schedule_interval: str        
+    refresh_schedule_interval: str
     # How often to update the aggregate with new data
+    evaluate_threshold_days: int 
+    # Maximum age in days for this aggregate to be selected
 
 
 
 AggregateConfigurations: List[AggregateConfig] = [
         AggregateConfig(
             view_name="band_statistics_daily",
+            time_resolution="daily",
             bucket_interval="1 day",
             drop_after_interval="1 month",
             drop_schedule_interval="7 days",
             refresh_start_offset="7 days",
-            refresh_end_offset="1 day", 
-            refresh_schedule_interval="1 day"
+            refresh_end_offset="1 day",
+            refresh_schedule_interval="1 day",
+            evaluate_threshold_days=30
         ),
         AggregateConfig(
-            view_name="band_statistics_weekly", 
+            view_name="band_statistics_weekly",
+            time_resolution="weekly",
             bucket_interval="1 week",
             drop_after_interval="6 months",
             drop_schedule_interval="1 month",
             refresh_start_offset="3 weeks",
             refresh_end_offset="1 week",
-            refresh_schedule_interval="1 week"
+            refresh_schedule_interval="1 week",
+            evaluate_threshold_days=180
         ),
         AggregateConfig(
             view_name="band_statistics_monthly",
-            bucket_interval="1 month", 
+            time_resolution="monthly",
+            bucket_interval="1 month",
             drop_after_interval="3 years",
             drop_schedule_interval="4 months",
             refresh_start_offset="3 months",
             refresh_end_offset="1 month",
-            refresh_schedule_interval="1 week"
+            refresh_schedule_interval="1 week",
+            evaluate_threshold_days=3650  
         )
     ]
+
+
+def select_aggregate_config(delta_days: int) -> AggregateConfig:
+    """
+    Select appropriate aggregate configuration based on time delta in days.
+    """
+    for config in AggregateConfigurations:
+        if delta_days <= config.evaluate_threshold_days:
+            return config
 
 class MetricsRegistry:
     """

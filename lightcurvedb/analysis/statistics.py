@@ -67,27 +67,20 @@ class DerivedStatisticsRegistry:
 
     def get_statistics_table(self, start_time: datetime | None = None, end_time: datetime | None = None):
         """
-        Selects the appropriate table that actually holds data for the requested range.
+        Selects the appropriate table based on time range and configured thresholds.
         """
+        from lightcurvedb.analysis.aggregates import AggregateConfigurations, select_aggregate_config
+
         if not start_time or not end_time:
-            view_name = "band_statistics_monthly"
-            time_resolution = "monthly"
+            # Default to monthly when no time range specified
+            config = next(c for c in AggregateConfigurations if c.time_resolution == "monthly")
         else:
             today = datetime.today()
-            delta_start = (today - start_time).days
+            delta_days = (today - start_time).days
+            config = select_aggregate_config(delta_days)
 
-            if delta_start <= 30:
-                view_name = "band_statistics_daily"
-                time_resolution = "daily"
-            elif delta_start <= 180:
-                view_name = "band_statistics_weekly"
-                time_resolution = "weekly"
-            else:
-                view_name = "band_statistics_monthly"
-                time_resolution = "monthly"
-
-        table = METRICS_REGISTRY.get_continuous_aggregate_table(view_name)
-        return table, time_resolution
+        table = METRICS_REGISTRY.get_continuous_aggregate_table(config.view_name)
+        return table, config.time_resolution
 
     def get_statistic_expressions(self, columns: Any, time_resolution: str, mode: str = "aggregate") -> Dict[str, Any]:
         expressions = {
@@ -199,10 +192,13 @@ class RawMeasurementStatisticsRegistry:
         return FluxMeasurementTable
 
     def get_statistic_expressions(self, table_ref: Any) -> Dict[str, Any]:
-        return {
+        expressions = {
             name: meta["method"](table_ref).label(meta["column"])
             for name, meta in self.statistics.items()
         }
+        expressions["bucket_start"] = func.min(table_ref.time).label("bucket_start")
+        expressions["bucket_end"] = func.max(table_ref.time).label("bucket_end")
+        return expressions
 
     @staticmethod
     def weighted_mean_flux(table_ref):
@@ -341,7 +337,7 @@ async def get_band_statistics(
     conn: AsyncSession,
     start_time: datetime | None = None,
     end_time: datetime | None = None,
-    use_continuous_aggregates: bool = False,
+    use_continuous_aggregates: bool = True,
 ) -> tuple[BandStatistics, datetime | None, datetime | None, str]:
     """
     Calculate band statistics for given source and time range.
@@ -357,8 +353,6 @@ async def get_band_statistics(
     else:
         table = RAW_STATISTICS_REGISTRY.get_statistics_table()
         expressions = RAW_STATISTICS_REGISTRY.get_statistic_expressions(table)
-        expressions["bucket_start"] = func.min(table.time).label("bucket_start")
-        expressions["bucket_end"] = func.max(table.time).label("bucket_end")
         filters = (table.source_id, table.band_name, table.time)
         time_resolution = "daily"
 
