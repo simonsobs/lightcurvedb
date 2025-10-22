@@ -33,8 +33,10 @@ class AggregateConfig:
     # Exclude recent data to avoid incomplete buckets
     refresh_schedule_interval: str
     # How often to update the aggregate with new data
-    evaluate_threshold_days: int 
+    evaluate_threshold_days: int
     # Maximum age in days for this aggregate to be selected
+    display_date_correction: str
+    # SQL interval expression for bucket_end display correction
 
 
 
@@ -48,7 +50,8 @@ AggregateConfigurations: List[AggregateConfig] = [
             refresh_start_offset="7 days",
             refresh_end_offset="1 day",
             refresh_schedule_interval="1 day",
-            evaluate_threshold_days=30
+            evaluate_threshold_days=30,
+            display_date_correction=""
         ),
         AggregateConfig(
             view_name="band_statistics_weekly",
@@ -59,7 +62,8 @@ AggregateConfigurations: List[AggregateConfig] = [
             refresh_start_offset="3 weeks",
             refresh_end_offset="1 week",
             refresh_schedule_interval="1 week",
-            evaluate_threshold_days=180
+            evaluate_threshold_days=180,
+            display_date_correction="INTERVAL '6 days'"
         ),
         AggregateConfig(
             view_name="band_statistics_monthly",
@@ -70,7 +74,8 @@ AggregateConfigurations: List[AggregateConfig] = [
             refresh_start_offset="3 months",
             refresh_end_offset="1 month",
             refresh_schedule_interval="1 week",
-            evaluate_threshold_days=3650  
+            evaluate_threshold_days=3650,
+            display_date_correction="INTERVAL '1 month' - INTERVAL '1 day'"
         )
     ]
 

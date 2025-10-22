@@ -80,9 +80,20 @@ class DerivedStatisticsRegistry:
             config = select_aggregate_config(delta_days)
 
         table = METRICS_REGISTRY.get_continuous_aggregate_table(config.view_name)
-        return table, config.time_resolution
+        return table, config.time_resolution, config.display_date_correction
 
-    def get_statistic_expressions(self, columns: Any, time_resolution: str, mode: str = "aggregate") -> Dict[str, Any]:
+    def get_filter_columns(self, table: Any) -> tuple[Any, Any, Any]:
+        """
+        Get filter column references for queries.
+        """
+        columns = table.c
+        return (columns.source_id, columns.band_name, columns.bucket)
+
+    def get_statistic_expressions(self, table: Any, display_date_correction: str, mode: str = "aggregate") -> Dict[str, Any]:
+        """
+        Build SQLAlchemy expressions for statistics.
+        """
+        columns = table.c
         expressions = {
             name: meta["method"](columns).label(meta["column"])
             for name, meta in self.statistics.items()
@@ -91,24 +102,22 @@ class DerivedStatisticsRegistry:
         # Bucket range
         if mode == "aggregate":
             expressions["bucket_start"] = func.min(columns.bucket).label("bucket_start")
-            expressions["bucket_end"] = self._calculate_bucket_end(columns, time_resolution)
+            expressions["bucket_end"] = self._calculate_bucket_end(columns, display_date_correction)
         elif mode == "timeseries":
             expressions["bucket"] = columns.bucket
         return expressions
 
     @staticmethod
-    def _calculate_bucket_end(columns, time_resolution: str):
+    def _calculate_bucket_end(columns, display_date_correction: str):
         """
         Calculate the end of the bucket range based on time resolution.
         """
         max_bucket = func.max(columns.bucket)
 
-        if time_resolution == "daily":
-            return max_bucket.label("bucket_end")
-        elif time_resolution == "weekly":
-            return (max_bucket + text("INTERVAL '6 days'")).label("bucket_end")
+        if display_date_correction:
+            return (max_bucket + text(display_date_correction)).label("bucket_end")
         else:
-            return (max_bucket + text("INTERVAL '1 month'") - text("INTERVAL '1 day'")).label("bucket_end")
+            return max_bucket.label("bucket_end")
 
     @staticmethod
     def weighted_mean_flux(columns):
@@ -160,44 +169,74 @@ class RawMeasurementStatisticsRegistry:
                 "method": self.weighted_mean_flux,
                 "column": "weighted_mean_flux",
                 "description": "Weighted mean of flux measurements computed from raw data",
+                "mode": "aggregate",
             },
             "weighted_error_on_mean_flux": {
                 "method": self.weighted_error_on_mean_flux,
                 "column": "weighted_error_on_mean_flux",
                 "description": "Uncertainty on the weighted mean flux computed from raw data",
+                "mode": "aggregate",
             },
             "min_flux": {
                 "method": self.min_flux,
                 "column": "min_flux",
                 "description": "Minimum flux value in the raw measurements",
+                "mode": "aggregate",
             },
             "max_flux": {
                 "method": self.max_flux,
                 "column": "max_flux",
                 "description": "Maximum flux value in the raw measurements",
+                "mode": "aggregate",
             },
             "data_points": {
                 "method": self.data_points,
                 "column": "data_points",
                 "description": "Number of raw measurements contributing to the statistics",
+                "mode": "aggregate",
             },
             "variance_flux": {
                 "method": self.variance_flux,
                 "column": "variance_flux",
                 "description": "Variance of flux across all raw measurements",
+                "mode": "aggregate",
+            },
+            "mean_flux": {
+                "method": self.mean_flux,
+                "column": "mean_flux",
+                "description": "Mean flux per time bucket",
+                "mode": "timeseries",
             },
         }
 
-    def get_statistics_table(self):
-        return FluxMeasurementTable
+    def get_statistics_table(self, start_time: datetime | None = None, end_time: datetime | None = None):
+        """
+        Get raw measurements table.
+        """
+        return FluxMeasurementTable, "daily", ""
 
-    def get_statistic_expressions(self, table_ref: Any) -> Dict[str, Any]:
+    def get_filter_columns(self, table: Any) -> tuple[Any, Any, Any]:
+        """
+        Get filter column references for queries.
+        """
+        return (table.source_id, table.band_name, table.time)
+
+    def get_statistic_expressions(self, table: Any, display_date_correction: str, mode: str = "aggregate") -> Dict[str, Any]:
+        """
+        Build SQLAlchemy expressions for statistics.
+        """
         expressions = {
-            name: meta["method"](table_ref).label(meta["column"])
+            name: meta["method"](table).label(meta["column"])
             for name, meta in self.statistics.items()
+            if meta["mode"] == mode
         }
-        expressions["bucket_start"] = func.min(table_ref.time).label("bucket_start")
-        expressions["bucket_end"] = func.max(table_ref.time).label("bucket_end")
+
+        if mode == "aggregate":
+            expressions["bucket_start"] = func.min(table.time).label("bucket_start")
+            expressions["bucket_end"] = func.max(table.time).label("bucket_end")
+        elif mode == "timeseries":
+            expressions["bucket"] = table.time.label("bucket")
+
         return expressions
 
     @staticmethod
@@ -234,9 +273,77 @@ class RawMeasurementStatisticsRegistry:
 
         return sum_of_squared_deviations / (total_count - 1)
 
+    @staticmethod
+    def mean_flux(table_ref):
+        return table_ref.i_flux
 
-DERIVED_STATISTICS_REGISTRY = DerivedStatisticsRegistry()
-RAW_STATISTICS_REGISTRY = RawMeasurementStatisticsRegistry()
+
+class BandStatisticsCalculator:
+    """
+    Calculator for band statistics.
+    """
+
+    def __init__(self, registry):
+        """
+        Initialize calculator with a statistics registry.
+        """
+        self.registry = registry
+
+    async def get_statistics(
+        self,
+        source_id: int,
+        band_name: str,
+        conn: AsyncSession,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+    ) -> tuple[BandStatistics, datetime | None, datetime | None, str]:
+        """
+        Calculate band statistics for given source and time range.
+        """
+        table, time_resolution, display_date_correction = self.registry.get_statistics_table(start_time, end_time)
+        expressions = self.registry.get_statistic_expressions(table, display_date_correction, mode="aggregate")
+        filters = self.registry.get_filter_columns(table)
+
+        statistics, bucket_start, bucket_end = await _run_band_statistics_query(
+            table=table,
+            expressions=expressions,
+            filter_columns=filters,
+            source_id=source_id,
+            band_name=band_name,
+            conn=conn,
+            start_time=start_time,
+            end_time=end_time,
+        )
+
+        return statistics, bucket_start, bucket_end, time_resolution
+
+    async def get_timeseries(
+        self,
+        source_id: int,
+        band_name: str,
+        conn: AsyncSession,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+    ) -> tuple[BandTimeSeries, str]:
+        """
+        Get timeseries of mean flux values per bucket.
+        """
+        table, time_resolution, display_date_correction = self.registry.get_statistics_table(start_time, end_time)
+        expressions = self.registry.get_statistic_expressions(table, display_date_correction, mode="timeseries")
+        filters = self.registry.get_filter_columns(table)
+
+        timeseries = await _run_band_timeseries_query(
+            table=table,
+            expressions=expressions,
+            filter_columns=filters,
+            source_id=source_id,
+            band_name=band_name,
+            conn=conn,
+            start_time=start_time,
+            end_time=end_time,
+        )
+
+        return timeseries, time_resolution
 
 
 def _build_time_filters(column, start_time: datetime | None, end_time: datetime | None):
@@ -337,37 +444,12 @@ async def get_band_statistics(
     conn: AsyncSession,
     start_time: datetime | None = None,
     end_time: datetime | None = None,
-    use_continuous_aggregates: bool = True,
 ) -> tuple[BandStatistics, datetime | None, datetime | None, str]:
     """
     Calculate band statistics for given source and time range.
-    use_continuous_aggregates: If True, use continuous aggregate tables.
-                                   If False, use raw flux measurements.
     """
-
-    if use_continuous_aggregates:
-        table, time_resolution = DERIVED_STATISTICS_REGISTRY.get_statistics_table(start_time, end_time)
-        columns = table.c
-        expressions = DERIVED_STATISTICS_REGISTRY.get_statistic_expressions(columns, time_resolution, mode="aggregate")
-        filters = (columns.source_id, columns.band_name, columns.bucket)
-    else:
-        table = RAW_STATISTICS_REGISTRY.get_statistics_table()
-        expressions = RAW_STATISTICS_REGISTRY.get_statistic_expressions(table)
-        filters = (table.source_id, table.band_name, table.time)
-        time_resolution = "daily"
-
-    statistics, bucket_start, bucket_end = await _run_band_statistics_query(
-        table=table,
-        expressions=expressions,
-        filter_columns=filters,
-        source_id=source_id,
-        band_name=band_name,
-        conn=conn,
-        start_time=start_time,
-        end_time=end_time,
-    )
-
-    return statistics, bucket_start, bucket_end, time_resolution
+    calculator = BandStatisticsCalculator(RawMeasurementStatisticsRegistry())
+    return await calculator.get_statistics(source_id, band_name, conn, start_time, end_time)
 
 
 async def get_band_timeseries(
@@ -376,25 +458,9 @@ async def get_band_timeseries(
     conn: AsyncSession,
     start_time: datetime | None = None,
     end_time: datetime | None = None,
-) -> BandTimeSeries:
+) -> tuple[BandTimeSeries, str]:
     """
     Get timeseries of mean flux values per bucket for given source and time range.
     """
-
-    table, time_resolution = DERIVED_STATISTICS_REGISTRY.get_statistics_table(start_time, end_time)
-    columns = table.c
-    expressions = DERIVED_STATISTICS_REGISTRY.get_statistic_expressions(columns, time_resolution, mode="timeseries")
-    filters = (columns.source_id, columns.band_name, columns.bucket)
-
-    timeseries = await _run_band_timeseries_query(
-        table=table,
-        expressions=expressions,
-        filter_columns=filters,
-        source_id=source_id,
-        band_name=band_name,
-        conn=conn,
-        start_time=start_time,
-        end_time=end_time,
-    )
-
-    return timeseries
+    calculator = BandStatisticsCalculator(RawMeasurementStatisticsRegistry())
+    return await calculator.get_timeseries(source_id, band_name, conn, start_time, end_time)
