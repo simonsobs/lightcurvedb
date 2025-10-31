@@ -226,41 +226,53 @@ class ContinuousAggregateBuilder:
         WITH DATA;
         """
 
-    def get_refresh_policy_sql(self) -> str:
+    def get_refresh_policy_sql(self) -> text:
         """
         Build refresh policy SQL for the continuous aggregate.
         """
-
-        return f"""
-        SELECT add_continuous_aggregate_policy('{self.config.view_name}',
-            start_offset => INTERVAL '{self.config.refresh_start_offset}',
-            end_offset => INTERVAL '{self.config.refresh_end_offset}',
-            schedule_interval => INTERVAL '{self.config.refresh_schedule_interval}'
-        );
-        """
+        return text("""
+            SELECT add_continuous_aggregate_policy(
+                :view_name::regclass,
+                start_offset => :start_offset::INTERVAL,
+                end_offset => :end_offset::INTERVAL,
+                schedule_interval => :schedule_interval::INTERVAL
+            )
+        """)
     
-    def get_retention_policy_sql(self) -> str:
+    def get_retention_policy_sql(self) -> text:
         """
-        Build retention policy SQL for continuous aggregate
+        Build retention policy SQL for continuous aggregate.
         """
-
-        return f"""
-        SELECT add_retention_policy('{self.config.view_name}',
-            drop_after => INTERVAL '{self.config.drop_after_interval}',
-            schedule_interval => INTERVAL '{self.config.drop_schedule_interval}');
-        """
+        return text("""
+            SELECT add_retention_policy(
+                :view_name::regclass,
+                drop_after => :drop_after::INTERVAL,
+                schedule_interval => :schedule_interval::INTERVAL
+            )
+        """)
 
     def create_aggregate(self, session: Session) -> None:
         engine = session.bind
         select_query = self.build_aggregate_query(engine)
         create_view_sql = self.get_create_view_sql(select_query)
-        refresh_policy_sql = self.get_refresh_policy_sql()
-        retention_policy_sql = self.get_retention_policy_sql()
+
+        refresh_params = {
+            "view_name": self.config.view_name,
+            "start_offset": self.config.refresh_start_offset,
+            "end_offset": self.config.refresh_end_offset,
+            "schedule_interval": self.config.refresh_schedule_interval
+        }
+
+        retention_params = {
+            "view_name": self.config.view_name,
+            "drop_after": self.config.drop_after_interval,
+            "schedule_interval": self.config.drop_schedule_interval
+        }
 
         with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
             conn.execute(text(create_view_sql))
-            conn.execute(text(refresh_policy_sql))
-            conn.execute(text(retention_policy_sql))
+            conn.execute(self.get_refresh_policy_sql(), refresh_params)
+            conn.execute(self.get_retention_policy_sql(), retention_params)
 
 
 

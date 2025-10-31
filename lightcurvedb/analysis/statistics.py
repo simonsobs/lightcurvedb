@@ -448,7 +448,7 @@ async def get_band_statistics(
     """
     Calculate band statistics for given source and time range.
     """
-    calculator = BandStatisticsCalculator(RawMeasurementStatisticsRegistry())
+    calculator = BandStatisticsCalculator(DerivedStatisticsRegistry())
     return await calculator.get_statistics(source_id, band_name, conn, start_time, end_time)
 
 
@@ -462,5 +462,5 @@ async def get_band_timeseries(
     """
     Get timeseries of mean flux values per bucket for given source and time range.
     """
-    calculator = BandStatisticsCalculator(RawMeasurementStatisticsRegistry())
+    calculator = BandStatisticsCalculator(DerivedStatisticsRegistry())
     return await calculator.get_timeseries(source_id, band_name, conn, start_time, end_time)
