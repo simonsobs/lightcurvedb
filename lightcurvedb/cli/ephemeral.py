@@ -12,7 +12,7 @@ from loguru import logger
 from sqlalchemy import text
 from testcontainers.postgres import PostgresContainer
 
-from lightcurvedb.analysis.aggregates import create_continuous_aggregates
+# from lightcurvedb.analysis.aggregates import create_continuous_aggregates
 
 
 @contextmanager
@@ -58,7 +58,7 @@ def core(number: int = 128, probability_of_flare: float = 0.1):
                     );
                      """))
             session.commit()
-            create_continuous_aggregates(session)
+            #create_continuous_aggregates(session)
         logger.warning("Test TimescaleDB setup: The database refresh schedule and" \
         " drop schedule depend on drop_schedule_interval and refresh_schedule_interval")
         source_ids = sources.create_fixed_sources(number, manager=manager)
@@ -86,9 +86,9 @@ def core(number: int = 128, probability_of_flare: float = 0.1):
                 fluxes.generate_fluxes_fixed_source(
                     source=source,
                     bands=bands,
-                    start_time=datetime.now()- timedelta(days=1825), # generate data with past timestamps
+                    start_time=datetime.now()- timedelta(days=3650), 
                     cadence=timedelta(days=1),
-                    number=1825,
+                    number=3650,  
                     session=session,
                     probability_of_flare=probability_of_flare,
                 )

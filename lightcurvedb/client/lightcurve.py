@@ -6,6 +6,7 @@ import asyncio
 from datetime import datetime
 
 from psycopg import AsyncConnection
+from psycopg.rows import dict_row
 from pydantic import BaseModel
 from sqlalchemy import select
 
@@ -104,3 +105,91 @@ async def lightcurve_read_source(id: int, conn: AsyncConnection) -> LightcurveRe
     band_data_list = await asyncio.gather(*bands)
 
     return LightcurveResult(source=source.to_model(),bands=band_data_list)
+
+
+async def _get_band_sql(band_name: str, conn: AsyncConnection) -> Band:
+    async with conn.cursor(row_factory=dict_row) as cursor:
+        await cursor.execute(
+            "SELECT * FROM bands WHERE name = %s",
+            [band_name]
+        )
+        row = await cursor.fetchone()
+        if not row:
+            raise BandNotFound
+        return Band(**row)
+
+
+async def _get_source_sql(source_id: int, conn: AsyncConnection) -> Source:
+    async with conn.cursor(row_factory=dict_row) as cursor:
+        await cursor.execute(
+            "SELECT * FROM sources WHERE id = %s",
+            [source_id]
+        )
+        row = await cursor.fetchone()
+        if not row:
+            raise SourceNotFound
+        return Source(**row)
+
+
+async def _get_band_names_sql(source_id: int, conn: AsyncConnection) -> list[str]:
+    async with conn.cursor(row_factory=dict_row) as cursor:
+        await cursor.execute(
+            """
+            SELECT DISTINCT band_name
+            FROM flux_measurements
+            WHERE source_id = %s
+            ORDER BY band_name
+            """,
+            [source_id]
+        )
+        rows = await cursor.fetchall()
+        return [row['band_name'] for row in rows]
+
+
+async def _read_lightcurve_band_data_sql(
+    id: int, band_name: str, conn: AsyncConnection
+) -> LightcurveBandData:
+    band = await _get_band_sql(band_name, conn)
+
+    columns_sql = ",\n".join([
+        f"ARRAY_AGG({col} ORDER BY time) as {col}"
+        for col in BAND_RESULT_ITEMS
+    ])
+
+    query = f"""
+        SELECT
+            {columns_sql}
+        FROM flux_measurements
+        WHERE source_id = %s AND band_name = %s
+    """
+
+    async with conn.cursor(row_factory=dict_row) as cursor:
+        await cursor.execute(query, [id, band_name])
+        row = await cursor.fetchone()
+
+        if not row:
+            raise BandNotFound
+
+    return LightcurveBandData(band=band, **row)
+
+
+async def lightcurve_read_band_sql(
+    id: int, band_name: str, conn: AsyncConnection
+) -> LightcurveBandResult:
+    source = await _get_source_sql(id, conn)
+    band_data = await _read_lightcurve_band_data_sql(id, band_name, conn)
+    return LightcurveBandResult(source=source, **band_data.model_dump())
+
+
+async def lightcurve_read_source_sql(
+    id: int, conn: AsyncConnection
+) -> LightcurveResult:
+    source = await _get_source_sql(id, conn)
+    band_names = await _get_band_names_sql(id, conn)
+
+    bands = []
+    for band_name in band_names:
+        band_data = await _read_lightcurve_band_data_sql(id, band_name, conn)
+        bands.append(band_data)
+
+    return LightcurveResult(source=source, bands=bands)

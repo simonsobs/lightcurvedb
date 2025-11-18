@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import numpy as np
 from sqlmodel import Session
 
-from ..analysis.aggregates import refresh_continuous_aggregates
+# from ..analysis.aggregates import refresh_continuous_aggregates
 from ..models import BandTable, FluxMeasurementTable, SourceTable
 from ..models.flux import MeasurementMetadata
 
@@ -145,7 +145,7 @@ def generate_fluxes_fixed_source(
         band_fluxes = []
 
     # Refresh continuous aggregates
-    refresh_continuous_aggregates(session)
+    # refresh_continuous_aggregates(session)
 
     flux_ids = [flux.id for flux in band_fluxes]
 

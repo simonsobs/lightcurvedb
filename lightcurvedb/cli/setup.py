@@ -4,7 +4,7 @@ Create the database tables if they do not exist.
 
 from sqlalchemy import text
 
-from lightcurvedb.analysis.aggregates import create_continuous_aggregates
+# from lightcurvedb.analysis.aggregates import create_continuous_aggregates
 from lightcurvedb.config import settings
 from lightcurvedb.models import *  # noqa: F403
 
@@ -23,5 +23,5 @@ def main():
                     if_not_exists => TRUE
                 );
                     """))
-        create_continuous_aggregates(session)
+        # create_continuous_aggregates(session)
         session.commit()
