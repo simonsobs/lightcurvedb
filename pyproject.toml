@@ -14,7 +14,9 @@ dependencies = [
     "pydantic_numpy",
     "psycopg_binary",
     "asyncpg",
-    "sqlalchemy[asyncio]"
+    "sqlalchemy[asyncio]",
+    "socat @ git+https://github.com/simonsobs/socat",
+    "astropy"
 ]
 
 [project.optional-dependencies]

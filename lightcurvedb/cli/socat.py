@@ -1,0 +1,17 @@
+"""
+Update the sources registered in lightcurvedb to match those from socat.
+"""
+
+
+def main():
+    from lightserve.socat.upsert import upsert_sources
+    from socat.client import settings as socat_settings
+
+    from lightcurvedb.config import settings as lightcurvedb_settings
+
+    with lightcurvedb_settings.sync_manager.session() as session:
+        upsert_sources(client=socat_settings.client, session=session, progress_bar=True)
+
+
+if __name__ == "__main__":
+    main()

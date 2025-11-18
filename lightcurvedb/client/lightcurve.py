@@ -27,6 +27,7 @@ BAND_RESULT_ITEMS = [
     "extra",
 ]
 
+
 class LightcurveBandData(BaseModel):
     band: Band
 
@@ -44,12 +45,15 @@ class LightcurveBandData(BaseModel):
 
     extra: list[MeasurementMetadata | None]
 
+
 class LightcurveBandResult(LightcurveBandData):
     source: Source
+
 
 class LightcurveResult(BaseModel):
     source: Source
     bands: list[LightcurveBandData]
+
 
 async def _read_lightcurve_band_data(
     id: int, band_name: str, conn: AsyncConnection
@@ -77,6 +81,7 @@ async def _read_lightcurve_band_data(
 
     return LightcurveBandData(band=band.to_model(), **outputs)
 
+
 async def lightcurve_read_band(
     id: int, band_name: str, conn: AsyncConnection
 ) -> LightcurveBandResult:
@@ -87,6 +92,7 @@ async def lightcurve_read_band(
     band_data = await _read_lightcurve_band_data(id=id, band_name=band_name, conn=conn)
 
     return LightcurveBandResult(source=source.to_model(), **band_data.model_dump())
+
 
 async def lightcurve_read_source(id: int, conn: AsyncConnection) -> LightcurveResult:
     source = await conn.get(SourceTable, id)
@@ -100,7 +106,9 @@ async def lightcurve_read_source(id: int, conn: AsyncConnection) -> LightcurveRe
 
     band_names = (await conn.execute(query)).scalars().all()
 
-    bands = [_read_lightcurve_band_data(id=id, band_name=b, conn=conn) for b in band_names]
+    bands = [
+        _read_lightcurve_band_data(id=id, band_name=b, conn=conn) for b in band_names
+    ]
     band_data_list = await asyncio.gather(*bands)
 
-    return LightcurveResult(source=source.to_model(),bands=band_data_list)
+    return LightcurveResult(source=source.to_model(), bands=band_data_list)
