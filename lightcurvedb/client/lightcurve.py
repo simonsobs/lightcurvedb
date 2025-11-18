@@ -28,21 +28,6 @@ BAND_RESULT_ITEMS = [
     "extra",
 ]
 
-_LIGHTCURVE_QUERY = """
-    SELECT
-        ARRAY_AGG(id ORDER BY time) as id,
-        ARRAY_AGG(time ORDER BY time) as time,
-        ARRAY_AGG(i_flux ORDER BY time) as i_flux,
-        ARRAY_AGG(i_uncertainty ORDER BY time) as i_uncertainty,
-        ARRAY_AGG(ra ORDER BY time) as ra,
-        ARRAY_AGG(dec ORDER BY time) as dec,
-        ARRAY_AGG(ra_uncertainty ORDER BY time) as ra_uncertainty,
-        ARRAY_AGG(dec_uncertainty ORDER BY time) as dec_uncertainty,
-        ARRAY_AGG(extra ORDER BY time) as extra
-    FROM flux_measurements
-    WHERE source_id = %s AND band_name = %s
-"""
-
 class LightcurveBandData(BaseModel):
     band: Band
 
@@ -165,7 +150,20 @@ async def _read_lightcurve_band_data_sql(
     id: int, band_name: str, conn: AsyncConnection
 ) -> LightcurveBandData:
     band = await _get_band_sql(band_name, conn)
-
+    _LIGHTCURVE_QUERY = """
+        SELECT
+            ARRAY_AGG(id ORDER BY time) as id,
+            ARRAY_AGG(time ORDER BY time) as time,
+            ARRAY_AGG(i_flux ORDER BY time) as i_flux,
+            ARRAY_AGG(i_uncertainty ORDER BY time) as i_uncertainty,
+            ARRAY_AGG(ra ORDER BY time) as ra,
+            ARRAY_AGG(dec ORDER BY time) as dec,
+            ARRAY_AGG(ra_uncertainty ORDER BY time) as ra_uncertainty,
+            ARRAY_AGG(dec_uncertainty ORDER BY time) as dec_uncertainty,
+            ARRAY_AGG(extra ORDER BY time) as extra
+        FROM flux_measurements
+        WHERE source_id = %s AND band_name = %s
+    """
     async with conn.cursor(row_factory=dict_row) as cursor:
         await cursor.execute(_LIGHTCURVE_QUERY, [id, band_name])
         row = await cursor.fetchone()
