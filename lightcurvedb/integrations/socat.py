@@ -78,6 +78,12 @@ def upsert_sources(
             lightcurvedb_source.dec = source.position.dec.to_value("deg")
             lightcurvedb_source.name = source.name
 
+            if lightcurvedb_source.extra is not None:
+                raise ValueError(
+                    f"Unable to handle upsert for source {lightcurvedb_source.id} due to "
+                    f"presence of extra: {lightcurvedb_source.extra}"
+                )
+
             session.add(lightcurvedb_source)
             sources_modified += 1
 

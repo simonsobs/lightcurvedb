@@ -4,9 +4,9 @@ Update the sources registered in lightcurvedb to match those from socat.
 
 
 def main():
-    from lightserve.socat.upsert import upsert_sources
     from socat.client import settings as socat_settings
 
+    from lightcurvedb.integrations.socat import upsert_sources
     from lightcurvedb.config import settings as lightcurvedb_settings
 
     with lightcurvedb_settings.sync_manager.session() as session:
