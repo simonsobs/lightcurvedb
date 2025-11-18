@@ -85,9 +85,9 @@ def core(number: int = 128, probability_of_flare: float = 0.1):
                 fluxes.generate_fluxes_fixed_source(
                     source=source,
                     bands=bands,
-                    start_time=datetime.now()- timedelta(days=3650), 
+                    start_time=datetime.now()- timedelta(days=1865), 
                     cadence=timedelta(days=1),
-                    number=3650,  
+                    number=1865,  
                     session=session,
                     probability_of_flare=probability_of_flare,
                 )
