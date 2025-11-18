@@ -59,8 +59,7 @@ def core(number: int = 128, probability_of_flare: float = 0.1):
                      """))
             session.commit()
             #create_continuous_aggregates(session)
-        logger.warning("Test TimescaleDB setup: The database refresh schedule and" \
-        " drop schedule depend on drop_schedule_interval and refresh_schedule_interval")
+        logger.warning("Test TimescaleDB setup")
         source_ids = sources.create_fixed_sources(number, manager=manager)
 
         # Create bands
