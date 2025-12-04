@@ -24,6 +24,7 @@ BAND_RESULT_ITEMS = [
     "extra",
 ]
 
+
 class LightcurveBandData(BaseModel):
     band: Band
 
@@ -41,8 +42,10 @@ class LightcurveBandData(BaseModel):
 
     extra: list[MeasurementMetadata | None]
 
+
 class LightcurveBandResult(LightcurveBandData):
     source: Source
+
 
 class LightcurveResult(BaseModel):
     source: Source
