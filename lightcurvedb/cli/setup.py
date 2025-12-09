@@ -2,26 +2,21 @@
 Create the database tables if they do not exist.
 """
 
-from sqlalchemy import text
-
-# from lightcurvedb.analysis.aggregates import create_continuous_aggregates
+import asyncio
+from loguru import logger
+from lightcurvedb.storage import get_storage
 from lightcurvedb.config import settings
-from lightcurvedb.models import *  # noqa: F403
+
+
+async def setup_database():
+    logger.info(f"Setting up database with backend: {settings.backend_type}")
+    logger.info(f"Database URL: {settings.database_url}")
+
+    async with get_storage() as backend:
+        logger.info("Creating schema...")
+        await backend.create_schema()
+        logger.success("Schema created successfully!")
 
 
 def main():
-    manager = settings.sync_manager()
-    manager.create_all()
-
-    with manager.session() as session:
-        session.execute(text("CREATE EXTENSION IF NOT EXISTS timescaledb;"))
-        session.execute(text("""
-                SELECT create_hypertable(
-                    'flux_measurements',
-                    'time',
-                    chunk_time_interval => INTERVAL '7 days',
-                    if_not_exists => TRUE
-                );
-                    """))
-        # create_continuous_aggregates(session)
-        session.commit()
+    asyncio.run(setup_database())
