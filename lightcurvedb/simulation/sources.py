@@ -1,30 +1,33 @@
 """
-Source generation.
+Source generation
 """
 
 from random import randint, random
 
-from ..managers import SyncSessionManager
-from ..models.source import CrossMatch, SourceMetadata, SourceTable
+from lightcurvedb.models.source import CrossMatch, SourceCreate, SourceMetadata
+from lightcurvedb.protocols.storage import FluxStorageBackend
 
 
-def create_fixed_sources(number: int, manager: SyncSessionManager) -> list[int]:
+async def create_fixed_sources(
+    number: int, backend: FluxStorageBackend
+) -> list[int]:
     """
     Create a number of fixed sources in the database.
 
     Parameters
     ----------
     number : int
-        The number of sources to create.
+        Number of sources to create
+    backend : FluxStorageBackend
+        Storage backend from factory
 
     Returns
     -------
     list[int]
         The IDs of the created sources.
     """
-
     sources = [
-        SourceTable(
+        SourceCreate(
             name=f"SIM-{i:05d}",
             ra=random() * 360.0 - 180.0,
             dec=random() * 180.0 - 90.0,
@@ -36,10 +39,5 @@ def create_fixed_sources(number: int, manager: SyncSessionManager) -> list[int]:
         for i in range(number)
     ]
 
-    with manager.session() as session:
-        session.add_all(sources)
-        session.commit()
 
-        source_ids = [source.id for source in sources]
-
-    return source_ids
+    return await backend.sources.create_batch(sources)
