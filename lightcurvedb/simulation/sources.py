@@ -1,5 +1,5 @@
 """
-Source generation
+Source generation.
 """
 
 from random import randint, random

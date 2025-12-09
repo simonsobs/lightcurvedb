@@ -131,8 +131,8 @@ async def generate_fluxes_fixed_source(
                 dec=source.dec,
                 ra_uncertainty=random.random(),
                 dec_uncertainty=random.random(),
-                i_flux=float(flux_values[i]),
-                i_uncertainty=math.sqrt(noise_floor),
+                i_flux=flux_values[i],
+                i_uncertainty=noise_floor,
                 extra=metadata,
             )
             for i in range(number)
