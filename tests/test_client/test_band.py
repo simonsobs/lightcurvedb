@@ -5,26 +5,25 @@ Tests for band client interface.
 import pytest
 
 from lightcurvedb.client.band import (
-    BandNotFound,
     band_add,
     band_delete,
     band_read,
     band_read_all,
 )
 from lightcurvedb.models.band import Band
+from lightcurvedb.models.exceptions import BandNotFoundException
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_band_read_all(client):
-    async with client.session() as conn:
-        bands = await band_read_all(conn)
+async def test_band_read_all(test_backend_with_bands):
+    bands = await band_read_all(backend=test_backend_with_bands)
 
     assert len(bands) > 0
     assert isinstance(bands[0], Band)
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_band_creation_deletion_flow(client):
+async def test_band_creation_deletion_flow(test_backend):
     band = Band(
         name="test_band",
         telescope="hubble",
@@ -32,16 +31,19 @@ async def test_band_creation_deletion_flow(client):
         frequency=9.99,
     )
 
-    async with client.session() as conn:
-        await band_add(band=band, conn=conn)
+    # Add band
+    band_name = await band_add(band=band, backend=test_backend)
+    assert band_name == band.name
 
-    async with client.session() as conn:
-        read_band = await band_read(band.name, conn=conn)
-        assert read_band == band
+    # Read band back
+    read_band = await band_read(band.name, backend=test_backend)
+    assert read_band.name == band.name
+    assert read_band.telescope == band.telescope
+    assert read_band.instrument == band.instrument
+    assert read_band.frequency == band.frequency
 
-    async with client.session() as conn:
-        await band_delete(name=band.name, conn=conn)
+    # Delete band
+    await band_delete(name=band.name, backend=test_backend)
 
-    with pytest.raises(BandNotFound):
-        async with client.session() as conn:
-            await band_read(name=band.name, conn=conn)
+    with pytest.raises(BandNotFoundException):
+        await band_read(name=band.name, backend=test_backend)
