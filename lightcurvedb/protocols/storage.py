@@ -129,6 +129,12 @@ class BandStorage(Protocol):
         """
         ...
 
+    async def delete(self, band_name: str) -> None:
+        """
+        Delete a band by name.
+        """
+        ...
+
 
 class FluxStorageBackend(Protocol):
     """
