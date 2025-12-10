@@ -80,3 +80,19 @@ class PostgresBandStorage:
             await cur.execute(query)
             rows = await cur.fetchall()
             return [Band(**row) for row in rows]
+
+    async def delete(self, band_name: str) -> None:
+        """
+        Delete a band by name.
+        """
+
+        try:
+            await self.get(band_name)
+        except Exception:
+            from lightcurvedb.models.exceptions import BandNotFoundException
+            raise BandNotFoundException(f"Band {band_name} not found")
+
+        query = "DELETE FROM bands WHERE name = %(band_name)s"
+
+        async with self.conn.cursor() as cur:
+            await cur.execute(query, {"band_name": band_name})
