@@ -38,6 +38,8 @@ class PostgresSourceStorage:
             if row['extra']:
                 row['extra'] = SourceMetadata(**row['extra'])
 
+            await self.conn.commit()
+
             return Source(**row)
 
     async def create_batch(self, sources: list[SourceCreate]) -> list[int]:
@@ -63,6 +65,8 @@ class PostgresSourceStorage:
                 await cur.execute(query, params)
                 row = await cur.fetchone()
                 source_ids.append(row[0])
+
+        await self.conn.commit()
 
         return source_ids
 
@@ -99,6 +103,58 @@ class PostgresSourceStorage:
 
         async with self.conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(query)
+            rows = await cur.fetchall()
+
+            sources = []
+            for row in rows:
+                if row['extra']:
+                    row['extra'] = SourceMetadata(**row['extra'])
+                sources.append(Source(**row))
+
+            return sources
+
+    async def delete(self, source_id: int) -> None:
+        """
+        Delete a source by ID.
+        """
+        # Check if source exists first
+        try:
+            await self.get(source_id)
+        except Exception:
+            from lightcurvedb.models.exceptions import SourceNotFoundException
+            raise SourceNotFoundException(f"Source {source_id} not found")
+
+        query = "DELETE FROM sources WHERE id = %(source_id)s"
+
+        async with self.conn.cursor() as cur:
+            await cur.execute(query, {"source_id": source_id})
+
+        await self.conn.commit()
+
+    async def get_in_bounds(
+        self, ra_min: float, ra_max: float, dec_min: float, dec_max: float
+    ) -> list[Source]:
+        """
+        Get all sources within rectangular RA/Dec bounds.
+        """
+        query = """
+            SELECT id, name, ra, dec, variable, extra
+            FROM sources
+            WHERE ra > %(ra_min)s
+              AND ra < %(ra_max)s
+              AND dec > %(dec_min)s
+              AND dec < %(dec_max)s
+        """
+
+        params = {
+            "ra_min": ra_min,
+            "ra_max": ra_max,
+            "dec_min": dec_min,
+            "dec_max": dec_max,
+        }
+
+        async with self.conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(query, params)
             rows = await cur.fetchall()
 
             sources = []

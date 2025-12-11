@@ -50,6 +50,7 @@ class PostgresFluxMeasurementStorage:
             if row['extra']:
                 row['extra'] = MeasurementMetadata(**row['extra'])
 
+            await self.conn.commit()
             return FluxMeasurement(**row)
 
     async def create_batch(self, measurements: list[FluxMeasurementCreate]) -> int:
@@ -79,6 +80,7 @@ class PostgresFluxMeasurementStorage:
         async with self.conn.cursor() as cur:
             await cur.executemany(query, params_list)
 
+        await self.conn.commit()
         return len(measurements)
 
     async def get_band_data(self, source_id: int, band_name: str) -> LightcurveBandData:
@@ -162,3 +164,29 @@ class PostgresFluxMeasurementStorage:
             await cur.execute(query, {"source_id": source_id, "band_name": band_name})
             row = await cur.fetchone()
             return SourceStatistics(**row)
+
+    async def delete(self, id: int) -> None:
+        """
+        Delete a flux measurement by ID.
+        """
+        query = "DELETE FROM flux_measurements WHERE id = %(id)s"
+
+        async with self.conn.cursor() as cur:
+            await cur.execute(query, {"id": id})
+
+        await self.conn.commit()
+
+    async def get_bands_for_source(self, source_id: int) -> list[str]:
+        """
+        Get distinct band names that have measurements for a given source.
+        """
+        query = """
+            SELECT DISTINCT band_name
+            FROM flux_measurements
+            WHERE source_id = %(source_id)s
+        """
+
+        async with self.conn.cursor() as cur:
+            await cur.execute(query, {"source_id": source_id})
+            rows = await cur.fetchall()
+            return [row[0] for row in rows]
