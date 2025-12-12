@@ -16,10 +16,10 @@ from lightcurvedb.models.flux import FluxMeasurement
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_lightcurve_read_source(get_backend):
+async def test_measurement_add_and_delete(get_backend, setup_test_data):
+    source_ids = setup_test_data
     async with get_backend() as backend:
-        all_sources = await backend.sources.get_all()
-        source_id = random.choice([s.id for s in all_sources])
+        source_id = random.choice(source_ids)
 
         bands = await source_read_bands(source_id, backend=backend)
         band = random.choice(bands)
