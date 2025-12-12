@@ -5,6 +5,8 @@ Response models.
 from datetime import datetime
 
 from pydantic import BaseModel
+from lightcurvedb.models.band import Band
+from lightcurvedb.models.source import Source
 
 
 class LightcurveBandData(BaseModel):
@@ -20,6 +22,16 @@ class LightcurveBandData(BaseModel):
     dec_uncertainty: list[float | None]
     i_flux: list[float]
     i_uncertainty: list[float | None]
+
+
+class LightcurveBandResult(LightcurveBandData):
+    source: Source
+    band: Band
+
+
+class LightcurveResult(BaseModel):
+    source: Source
+    bands: list[LightcurveBandData]
 
 
 class SourceStatistics(BaseModel):
