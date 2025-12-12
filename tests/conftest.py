@@ -3,7 +3,6 @@ Sets up a testcontainer with a few lightcurves and cut-outs in it for
 testing purposes.
 """
 
-import os
 from pytest import fixture as sync_fixture
 from pytest_asyncio import fixture as async_fixture
 from testcontainers.postgres import PostgresContainer
@@ -19,21 +18,28 @@ def test_database():
         username="postgres",
         password="password",
         dbname="test_lightcurvedb",
-    ).with_bind_ports(5432, 5432) as container:
-        os.environ["LIGHTCURVEDB_POSTGRES_HOST"] = container.get_container_host_ip()
-        os.environ["LIGHTCURVEDB_POSTGRES_PORT"] = str(container.get_exposed_port(5432))
-        os.environ["LIGHTCURVEDB_POSTGRES_USER"] = "postgres"
-        os.environ["LIGHTCURVEDB_POSTGRES_PASSWORD"] = "password"
-        os.environ["LIGHTCURVEDB_POSTGRES_DB"] = "test_lightcurvedb"
-        os.environ["LIGHTCURVEDB_BACKEND_TYPE"] = "postgres"
-
+    ) as container:
         yield container
 
 
 @sync_fixture(scope="session")
 def get_backend(test_database):
     from lightcurvedb.storage import get_storage
-    return get_storage
+    from lightcurvedb.config import Settings
+
+    def factory():
+        return get_storage(
+            Settings(
+                postgres_host=test_database.get_container_host_ip(),
+                postgres_port=test_database.get_exposed_port(5432),
+                postgres_user="postgres",
+                postgres_password="password",
+                postgres_db="test_lightcurvedb",
+                backend_type="postgres",
+            )
+        )
+
+    return factory
 
 
 @async_fixture(scope="session", autouse=True)
@@ -41,11 +47,21 @@ async def setup_test_data(test_database):
     import random
     from datetime import datetime, timedelta
     from lightcurvedb.storage import get_storage
+    from lightcurvedb.config import Settings
     from lightcurvedb.models.band import Band
     from lightcurvedb.simulation import sources as sim_sources
     from lightcurvedb.simulation import fluxes as sim_fluxes
 
-    async with get_storage() as backend:
+    settings = Settings(
+        postgres_host=test_database.get_container_host_ip(),
+        postgres_port=test_database.get_exposed_port(5432),
+        postgres_user="postgres",
+        postgres_password="password",
+        postgres_db="test_lightcurvedb",
+        backend_type="postgres",
+    )
+
+    async with get_storage(settings) as backend:
         await backend.create_schema()
 
         test_bands = [

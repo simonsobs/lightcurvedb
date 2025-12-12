@@ -8,14 +8,17 @@ from psycopg import AsyncConnection
 
 from lightcurvedb.protocols.storage import FluxStorageBackend
 from lightcurvedb.storage.postgres.backend import PostgresBackend
-from lightcurvedb.config import settings
+from lightcurvedb.config import Settings
 
 
 @asynccontextmanager
-async def get_storage() -> AsyncIterator[FluxStorageBackend]:
+async def get_storage(settings: Settings | None = None) -> AsyncIterator[FluxStorageBackend]:
     """
     Get storage backend.
     """
+    if settings is None:
+        settings = Settings()
+
     async with await AsyncConnection.connect(settings.database_url) as conn:
         if settings.backend_type == "postgres":
             yield PostgresBackend(conn)

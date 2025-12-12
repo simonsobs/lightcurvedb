@@ -36,7 +36,7 @@ def _get_container_for_backend(backend_type: str):
             username="postgres",
             password="password",
             dbname="lightcurvedb",
-        ).with_bind_ports(5432, 5432)
+        )
     elif backend_type == "timescaledb":
         return PostgresContainer(
             image="timescale/timescaledb:latest-pg16",
@@ -44,9 +44,9 @@ def _get_container_for_backend(backend_type: str):
             username="postgres",
             password="password",
             dbname="lightcurvedb",
-        ).with_bind_ports(5432, 5432)
+        )
     elif backend_type == "numpy":
-        return None 
+        return None
     else:
         raise ValueError(f"Unknown backend: {backend_type}")
 
@@ -104,7 +104,7 @@ def core(backend_type: str = "postgres", number: int = 128, probability_of_flare
 
     container = _get_container_for_backend(backend_type)
 
-    # Numpy backend
+
     if container is None:
         print(f"----- {backend_type.upper()} Backend -----")
         _setup_backend_env(backend_type)
@@ -112,7 +112,6 @@ def core(backend_type: str = "postgres", number: int = 128, probability_of_flare
         logger.warning(f"Ephemeral {backend_type} backend ready with {number} sources")
         yield None
 
-    # Database backends: postgres, timescaledb
     else:
         with container as db:
             print(f"----- {backend_type.upper()} Backend -----")
@@ -137,7 +136,7 @@ def main():
         type=str,
         default="postgres",
         choices=["postgres", "timescaledb", "numpy"],
-        help="Backend type to use (default: postgres)",
+        help="Backend type to use",
     )
     parser.add_argument(
         "--number",
