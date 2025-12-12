@@ -57,6 +57,18 @@ class FluxMeasurementStorage(Protocol):
         """
         ...
 
+    async def delete(self, id: int) -> None:
+        """
+        Delete a flux measurement by ID.
+        """
+        ...
+
+    async def get_bands_for_source(self, source_id: int) -> list[str]:
+        """
+        Get distinct band names that have measurements for a given source.
+        """
+        ...
+
 
 class DatabaseSetup(Protocol):
     """
@@ -96,6 +108,20 @@ class SourceStorage(Protocol):
     async def get_all(self) -> list[Source]:
         """
         Get all sources.
+        """
+        ...
+
+    async def delete(self, source_id: int) -> None:
+        """
+        Delete a source by ID.
+        """
+        ...
+
+    async def get_in_bounds(
+        self, ra_min: float, ra_max: float, dec_min: float, dec_max: float
+    ) -> list[Source]:
+        """
+        Get all sources within rectangular RA/Dec bounds.
         """
         ...
 

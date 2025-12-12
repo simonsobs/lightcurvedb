@@ -31,7 +31,6 @@ class PostgresBandStorage:
         async with self.conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(query, params)
             row = await cur.fetchone()
-            await self.conn.commit()
             return Band(**row)
 
     async def create_batch(self, bands: list[Band]) -> int:
@@ -49,7 +48,6 @@ class PostgresBandStorage:
         async with self.conn.cursor() as cur:
             await cur.executemany(query, params_list)
 
-        await self.conn.commit()
         return len(bands)
 
     async def get(self, band_name: str) -> Band:
@@ -98,5 +96,3 @@ class PostgresBandStorage:
 
         async with self.conn.cursor() as cur:
             await cur.execute(query, {"band_name": band_name})
-
-        await self.conn.commit()

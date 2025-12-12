@@ -50,7 +50,6 @@ class PostgresFluxMeasurementStorage:
             if row['extra']:
                 row['extra'] = MeasurementMetadata(**row['extra'])
 
-            await self.conn.commit()
             return FluxMeasurement(**row)
 
     async def create_batch(self, measurements: list[FluxMeasurementCreate]) -> int:
@@ -80,7 +79,6 @@ class PostgresFluxMeasurementStorage:
         async with self.conn.cursor() as cur:
             await cur.executemany(query, params_list)
 
-        await self.conn.commit()
         return len(measurements)
 
     async def get_band_data(self, source_id: int, band_name: str) -> LightcurveBandData:
@@ -173,8 +171,6 @@ class PostgresFluxMeasurementStorage:
 
         async with self.conn.cursor() as cur:
             await cur.execute(query, {"id": id})
-
-        await self.conn.commit()
 
     async def get_bands_for_source(self, source_id: int) -> list[str]:
         """
