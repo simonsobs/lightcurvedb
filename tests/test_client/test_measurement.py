@@ -16,11 +16,12 @@ from lightcurvedb.models.flux import FluxMeasurement
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_lightcurve_read_source(client, source_ids):
-    source_id = random.choice(source_ids)
+async def test_lightcurve_read_source(get_backend):
+    async with get_backend() as backend:
+        all_sources = await backend.sources.get_all()
+        source_id = random.choice([s.id for s in all_sources])
 
-    async with client.session() as conn:
-        bands = await source_read_bands(source_id, conn=conn)
+        bands = await source_read_bands(source_id, backend=backend)
         band = random.choice(bands)
 
         measurement = FluxMeasurement(
@@ -35,7 +36,8 @@ async def test_lightcurve_read_source(client, source_ids):
             dec_uncertainty=0.0,
         )
 
-        measurement_id = await measurement_flux_add(measurement=measurement, conn=conn)
+        measurement_id = await measurement_flux_add(measurement=measurement, backend=backend)
+        await backend.conn.commit()
 
-    async with client.session() as conn:
-        await measurement_flux_delete(id=measurement_id, conn=conn)
+        await measurement_flux_delete(id=measurement_id, backend=backend)
+        await backend.conn.commit()

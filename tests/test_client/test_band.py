@@ -15,35 +15,39 @@ from lightcurvedb.models.exceptions import BandNotFoundException
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_band_read_all(test_backend_with_bands):
-    bands = await band_read_all(backend=test_backend_with_bands)
+async def test_band_read_all(get_backend):
+    async with get_backend() as backend:
+        bands = await band_read_all(backend=backend)
 
-    assert len(bands) > 0
-    assert isinstance(bands[0], Band)
+        assert len(bands) > 0
+        assert isinstance(bands[0], Band)
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_band_creation_deletion_flow(test_backend):
-    band = Band(
-        name="test_band",
-        telescope="hubble",
-        instrument="hypersupremecam",
-        frequency=9.99,
-    )
+async def test_band_creation_deletion_flow(get_backend):
+    async with get_backend() as backend:
+        band = Band(
+            name="test_band",
+            telescope="hubble",
+            instrument="hypersupremecam",
+            frequency=9.99,
+        )
 
-    # Add band
-    band_name = await band_add(band=band, backend=test_backend)
-    assert band_name == band.name
+        # Add band
+        band_name = await band_add(band=band, backend=backend)
+        await backend.conn.commit()
+        assert band_name == band.name
 
-    # Read band back
-    read_band = await band_read(band.name, backend=test_backend)
-    assert read_band.name == band.name
-    assert read_band.telescope == band.telescope
-    assert read_band.instrument == band.instrument
-    assert read_band.frequency == band.frequency
+        # Read band back
+        read_band = await band_read(band.name, backend=backend)
+        assert read_band.name == band.name
+        assert read_band.telescope == band.telescope
+        assert read_band.instrument == band.instrument
+        assert read_band.frequency == band.frequency
 
-    # Delete band
-    await band_delete(name=band.name, backend=test_backend)
+        # Delete band
+        await band_delete(name=band.name, backend=backend)
+        await backend.conn.commit()
 
-    with pytest.raises(BandNotFoundException):
-        await band_read(name=band.name, backend=test_backend)
+        with pytest.raises(BandNotFoundException):
+            await band_read(name=band.name, backend=backend)
