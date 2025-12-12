@@ -12,9 +12,10 @@ def main():
     manager = lightcurvedb_settings.sync_manager()
     manager.create_all()
 
-    with manager.session() as session:
-        upsert_sources(client=socat_settings.client, session=session, progress_bar=True)
+    settings = socat_settings.SOCatClientSettings()
 
+    with manager.session() as session:
+        upsert_sources(client=settings.client, session=session, progress_bar=True)
 
 if __name__ == "__main__":
     main()
