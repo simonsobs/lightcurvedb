@@ -9,7 +9,10 @@ def main():
     from lightcurvedb.integrations.socat import upsert_sources
     from lightcurvedb.config import settings as lightcurvedb_settings
 
-    with lightcurvedb_settings.sync_manager.session() as session:
+    manager = lightcurvedb_settings.sync_manager()
+    manager.create_all()
+
+    with manager.session() as session:
         upsert_sources(client=socat_settings.client, session=session, progress_bar=True)
 
 
