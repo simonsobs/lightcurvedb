@@ -186,3 +186,37 @@ class PostgresFluxMeasurementStorage:
             await cur.execute(query, {"source_id": source_id})
             rows = await cur.fetchall()
             return [row[0] for row in rows]
+
+    async def get_recent_measurements(
+        self, source_id: int, band_name: str, limit: int
+    ) -> LightcurveBandData:
+        """
+        Get most recent N measurements for source/band, ordered by time DESC.
+        """
+        query = """
+            SELECT
+                COALESCE(ARRAY_AGG(id ORDER BY time DESC), ARRAY[]::INTEGER[]) as ids,
+                COALESCE(ARRAY_AGG(time ORDER BY time DESC), ARRAY[]::TIMESTAMPTZ[]) as times,
+                COALESCE(ARRAY_AGG(ra ORDER BY time DESC), ARRAY[]::DOUBLE PRECISION[]) as ra,
+                COALESCE(ARRAY_AGG(dec ORDER BY time DESC), ARRAY[]::DOUBLE PRECISION[]) as dec,
+                COALESCE(ARRAY_AGG(ra_uncertainty ORDER BY time DESC), ARRAY[]::DOUBLE PRECISION[]) as ra_uncertainty,
+                COALESCE(ARRAY_AGG(dec_uncertainty ORDER BY time DESC), ARRAY[]::DOUBLE PRECISION[]) as dec_uncertainty,
+                COALESCE(ARRAY_AGG(i_flux ORDER BY time DESC), ARRAY[]::DOUBLE PRECISION[]) as i_flux,
+                COALESCE(ARRAY_AGG(i_uncertainty ORDER BY time DESC), ARRAY[]::DOUBLE PRECISION[]) as i_uncertainty
+            FROM (
+                SELECT *
+                FROM flux_measurements
+                WHERE source_id = %(source_id)s AND band_name = %(band_name)s
+                ORDER BY time DESC
+                LIMIT %(limit)s
+            ) subquery
+        """
+
+        async with self.conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(query, {
+                "source_id": source_id,
+                "band_name": band_name,
+                "limit": limit
+            })
+            row = await cur.fetchone()
+            return LightcurveBandData(**row)

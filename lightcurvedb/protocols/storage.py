@@ -69,6 +69,14 @@ class FluxMeasurementStorage(Protocol):
         """
         ...
 
+    async def get_recent_measurements(
+        self, source_id: int, band_name: str, limit: int
+    ) -> LightcurveBandData:
+        """
+        Get most recent N measurements for source/band, ordered by time DESC.
+        """
+        ...
+
 
 class DatabaseSetup(Protocol):
     """
