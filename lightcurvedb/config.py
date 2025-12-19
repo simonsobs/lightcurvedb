@@ -16,6 +16,8 @@ class Settings(BaseSettings):
 
     backend_type: Literal["postgres", "timescaledb", "numpy"] = "postgres"
 
+    postgres_partition_count: int = 4
+
     model_config = SettingsConfigDict(env_prefix="LIGHTCURVEDB_")
 
     @property

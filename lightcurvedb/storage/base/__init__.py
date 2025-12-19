@@ -1,17 +1,16 @@
 """
 Base schema definitions.
+
+Only exports shared tables (sources, bands).
+Backend-specific tables (flux_measurements) are defined in backend-specific schema modules.
 """
 
 from lightcurvedb.storage.base.schema import (
-    ALL_TABLES,
     BANDS_TABLE,
-    FLUX_MEASUREMENTS_TABLE,
     SOURCES_TABLE,
 )
 
 __all__ = [
-    "ALL_TABLES",
     "SOURCES_TABLE",
     "BANDS_TABLE",
-    "FLUX_MEASUREMENTS_TABLE",
 ]

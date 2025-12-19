@@ -36,6 +36,7 @@ def get_backend(test_database):
                 postgres_password="password",
                 postgres_db="test_lightcurvedb",
                 backend_type="postgres",
+                postgres_partition_count=4,
             )
         )
 
@@ -59,6 +60,7 @@ async def setup_test_data(test_database):
         postgres_password="password",
         postgres_db="test_lightcurvedb",
         backend_type="postgres",
+        postgres_partition_count=4,
     )
 
     async with get_storage(settings) as backend:
