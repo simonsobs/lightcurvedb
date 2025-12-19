@@ -30,22 +30,14 @@ class FluxMeasurementStorage(Protocol):
         ...
 
     async def get_band_data(
-        self, source_id: int, band_name: str
-    ) -> LightcurveBandData:
-        """
-        Get all measurements for source/band as arrays
-        """
-        ...
-
-    async def get_time_range(
         self,
         source_id: int,
         band_name: str,
-        start_time: datetime,
-        end_time: datetime,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
     ) -> LightcurveBandData:
         """
-        Get measurements in time range.
+        Get measurements optionally filtered by time range.
         """
         ...
 

@@ -7,7 +7,7 @@ Base SQL schema definitions.
 SOURCES_TABLE = """
 CREATE TABLE IF NOT EXISTS sources (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(255),
+    name TEXT,
     ra DOUBLE PRECISION CHECK (ra IS NULL OR (ra >= -180 AND ra <= 180)),
     dec DOUBLE PRECISION CHECK (dec IS NULL OR (dec >= -90 AND dec <= 90)),
     variable BOOLEAN NOT NULL DEFAULT FALSE,
@@ -20,9 +20,9 @@ CREATE INDEX IF NOT EXISTS idx_sources_position ON sources (ra, dec) WHERE ra IS
 
 BANDS_TABLE = """
 CREATE TABLE IF NOT EXISTS bands (
-    name VARCHAR(50) PRIMARY KEY,
-    telescope VARCHAR(100) NOT NULL,
-    instrument VARCHAR(100) NOT NULL,
+    name TEXT PRIMARY KEY,
+    telescope TEXT NOT NULL,
+    instrument TEXT NOT NULL,
     frequency DOUBLE PRECISION NOT NULL
 );
 """
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS bands (
 FLUX_MEASUREMENTS_TABLE = """
 CREATE TABLE IF NOT EXISTS flux_measurements (
     id SERIAL PRIMARY KEY,
-    band_name VARCHAR(50) NOT NULL REFERENCES bands(name),
+    band_name TEXT NOT NULL REFERENCES bands(name),
     source_id INTEGER NOT NULL REFERENCES sources(id),
     time TIMESTAMPTZ NOT NULL,
     ra DOUBLE PRECISION NOT NULL CHECK (ra >= -180 AND ra <= 180),
