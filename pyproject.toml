@@ -9,12 +9,12 @@ requires-python = ">=3.11"
 dependencies = [
     "pydantic",
     "pydantic-settings",
-    "sqlmodel",
     "numpy",
     "pydantic_numpy",
     "psycopg_binary",
-    "asyncpg",
-    "sqlalchemy[asyncio]",
+    "testcontainers",
+    "loguru",
+    "tqdm",
     "socat @ git+https://github.com/simonsobs/socat",
     "astropy"
 ]
