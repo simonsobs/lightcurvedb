@@ -124,11 +124,30 @@ class PostgresFluxMeasurementStorage:
             row = await cur.fetchone()
             return LightcurveBandData(**row)
 
-    async def get_statistics(self, source_id: int, band_name: str) -> SourceStatistics:
+    async def get_statistics(
+        self,
+        source_id: int,
+        band_name: str,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None
+    ) -> SourceStatistics:
         """
         Compute statistics using database-side aggregations.
         """
-        query = """
+        where_clauses = ["source_id = %(source_id)s", "band_name = %(band_name)s"]
+        params: dict[str, int | str | datetime] = {
+            "source_id": source_id,
+            "band_name": band_name
+        }
+
+        if start_time is not None:
+            where_clauses.append("time >= %(start_time)s")
+            params["start_time"] = start_time
+        if end_time is not None:
+            where_clauses.append("time <= %(end_time)s")
+            params["end_time"] = end_time
+
+        query = f"""
             SELECT
                 COUNT(*) as measurement_count,
                 MIN(i_flux) as min_flux,
@@ -136,14 +155,19 @@ class PostgresFluxMeasurementStorage:
                 AVG(i_flux) as mean_flux,
                 STDDEV(i_flux) as stddev_flux,
                 PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY i_flux) as median_flux,
+                SUM(i_flux / NULLIF(POWER(i_uncertainty, 2), 0)) /
+                    NULLIF(SUM(1.0 / NULLIF(POWER(i_uncertainty, 2), 0)), 0)
+                    AS weighted_mean_flux,
+                1.0 / SQRT(NULLIF(SUM(1.0 / NULLIF(POWER(i_uncertainty, 2), 0)), 0))
+                    AS weighted_error_on_mean_flux,
                 MIN(time) as start_time,
                 MAX(time) as end_time
             FROM flux_measurements
-            WHERE source_id = %(source_id)s AND band_name = %(band_name)s
+            WHERE {' AND '.join(where_clauses)}
         """
 
         async with self.conn.cursor(row_factory=dict_row) as cur:
-            await cur.execute(query, {"source_id": source_id, "band_name": band_name})
+            await cur.execute(query, params)
             row = await cur.fetchone()
             return SourceStatistics(**row)
 

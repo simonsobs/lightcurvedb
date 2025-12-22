@@ -42,7 +42,11 @@ class FluxMeasurementStorage(Protocol):
         ...
 
     async def get_statistics(
-        self, source_id: int, band_name: str
+        self,
+        source_id: int,
+        band_name: str,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
     ) -> SourceStatistics:
         """
         Compute statistics (database-side aggregation).
