@@ -3,112 +3,34 @@ A client for extracting complete light-curves.
 """
 
 import asyncio
-from datetime import datetime
-
-from psycopg import AsyncConnection
-from pydantic import BaseModel
-from sqlalchemy import select
-
-from lightcurvedb.client.band import BandNotFound
-from lightcurvedb.client.source import SourceNotFound
-from lightcurvedb.models.band import Band, BandTable
-from lightcurvedb.models.flux import FluxMeasurementTable, MeasurementMetadata
-from lightcurvedb.models.source import Source, SourceTable
-
-BAND_RESULT_ITEMS = [
-    "id",
-    "time",
-    "i_flux",
-    "i_uncertainty",
-    "ra",
-    "dec",
-    "ra_uncertainty",
-    "dec_uncertainty",
-    "extra",
-]
-
-
-class LightcurveBandData(BaseModel):
-    band: Band
-
-    id: list[int]
-    time: list[datetime]
-
-    i_flux: list[float]
-    i_uncertainty: list[float]
-
-    ra: list[float]
-    dec: list[float]
-
-    ra_uncertainty: list[float]
-    dec_uncertainty: list[float]
-
-    extra: list[MeasurementMetadata | None]
-
-
-class LightcurveBandResult(LightcurveBandData):
-    source: Source
-
-
-class LightcurveResult(BaseModel):
-    source: Source
-    bands: list[LightcurveBandData]
-
-
-async def _read_lightcurve_band_data(
-    id: int, band_name: str, conn: AsyncConnection
-) -> LightcurveBandData:
-    band = await conn.get(BandTable, band_name)
-
-    if band is None:
-        raise BandNotFound
-
-    query = select(FluxMeasurementTable)
-    query = query.filter(FluxMeasurementTable.source_id == id)
-    query = query.filter(FluxMeasurementTable.band_name == band_name)
-    query = query.order_by(FluxMeasurementTable.time)
-
-    res = (await conn.execute(query)).scalars().all()
-
-    if len(res) == 0:
-        raise SourceNotFound
-
-    outputs = {x: [] for x in BAND_RESULT_ITEMS}
-
-    for item in res:
-        for x in BAND_RESULT_ITEMS:
-            outputs[x].append(getattr(item, x))
-
-    return LightcurveBandData(band=band.to_model(), **outputs)
+from lightcurvedb.models.responses import LightcurveBandResult, LightcurveResult
+from lightcurvedb.protocols.storage import FluxStorageBackend
 
 
 async def lightcurve_read_band(
-    id: int, band_name: str, conn: AsyncConnection
+    id: int, band_name: str, backend: FluxStorageBackend
 ) -> LightcurveBandResult:
-    source = await conn.get(SourceTable, id)
+    source = await backend.sources.get(id)
+    band = await backend.bands.get(band_name)
+    band_data = await backend.fluxes.get_band_data(id, band_name)
 
-    if source is None:
-        raise SourceNotFound
-    band_data = await _read_lightcurve_band_data(id=id, band_name=band_name, conn=conn)
+    return LightcurveBandResult(
+        source=source,
+        band=band,
+        **band_data.model_dump()
+    )
 
-    return LightcurveBandResult(source=source.to_model(), **band_data.model_dump())
 
+async def lightcurve_read_source(
+    id: int, backend: FluxStorageBackend
+) -> LightcurveResult:
 
-async def lightcurve_read_source(id: int, conn: AsyncConnection) -> LightcurveResult:
-    source = await conn.get(SourceTable, id)
+    source = await backend.sources.get(id)
+    band_names = await backend.fluxes.get_bands_for_source(id)
 
-    if source is None:
-        raise SourceNotFound
+    band_data_list = await asyncio.gather(*[
+        backend.fluxes.get_band_data(id, band_name)
+        for band_name in band_names
+    ])
 
-    query = select(FluxMeasurementTable.band_name)
-    query = query.filter(FluxMeasurementTable.source_id == id)
-    query = query.distinct()
-
-    band_names = (await conn.execute(query)).scalars().all()
-
-    bands = [
-        _read_lightcurve_band_data(id=id, band_name=b, conn=conn) for b in band_names
-    ]
-    band_data_list = await asyncio.gather(*bands)
-
-    return LightcurveResult(source=source.to_model(), bands=band_data_list)
+    return LightcurveResult(source=source, bands=band_data_list)

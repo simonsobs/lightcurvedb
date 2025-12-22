@@ -2,10 +2,23 @@
 Create the database tables if they do not exist.
 """
 
-from lightcurvedb.config import settings
-from lightcurvedb.models import *  # noqa: F403
+import asyncio
+from loguru import logger
+from lightcurvedb.storage import get_storage
+from lightcurvedb.config import Settings
+
+
+async def setup_database():
+    settings = Settings()
+
+    logger.info(f"Setting up database with backend: {settings.backend_type}")
+    logger.info(f"Database URL: {settings.database_url}")
+
+    async with get_storage(settings) as backend:
+        logger.info("Creating schema...")
+        await backend.create_schema()
+        logger.success("Schema created successfully!")
 
 
 def main():
-    manager = settings.sync_manager()
-    manager.create_all()
+    asyncio.run(setup_database())

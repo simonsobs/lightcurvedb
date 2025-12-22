@@ -2,95 +2,127 @@
 For generating an ephemeral light curve server using testcontainers.
 """
 
+import asyncio
 import os
 from contextlib import contextmanager
 from datetime import datetime, timedelta
+
 from time import sleep
 
 import tqdm
+from loguru import logger
 from testcontainers.postgres import PostgresContainer
 
 
-@contextmanager
-def core(number: int = 128, probability_of_flare: float = 0.1):
-    with PostgresContainer(
-        port=5432,
-        username="postgres",
-        password="password",
-        dbname="lightcurvedb",
-    ) as postgres:
-        print("----- Postgres connection details -----")
-        print(f"Host: {postgres.get_container_host_ip()}")
-        print(f"Port: {postgres.get_exposed_port(5432)}")
-        print("Username: postgres")
-        print("Password: password")
-        print("Database: lightcurvedb")
+def _setup_backend_env(backend_type: str, container=None):
+    """
+    Set environment variables for backend.
+    """
+    os.environ["LIGHTCURVEDB_BACKEND_TYPE"] = backend_type
 
-        # Set environment variables
+    if container is not None: 
         os.environ["LIGHTCURVEDB_POSTGRES_USER"] = "postgres"
         os.environ["LIGHTCURVEDB_POSTGRES_PASSWORD"] = "password"
         os.environ["LIGHTCURVEDB_POSTGRES_DB"] = "lightcurvedb"
-        os.environ["LIGHTCURVEDB_POSTGRES_HOST"] = postgres.get_container_host_ip()
-        os.environ["LIGHTCURVEDB_POSTGRES_PORT"] = str(postgres.get_exposed_port(5432))
+        os.environ["LIGHTCURVEDB_POSTGRES_HOST"] = container.get_container_host_ip()
+        os.environ["LIGHTCURVEDB_POSTGRES_PORT"] = str(container.get_exposed_port(5432))
 
-        from lightcurvedb.config import settings
-        from lightcurvedb.models import BandTable, FluxMeasurementTable, SourceTable
-        from lightcurvedb.simulation import cutouts, fluxes, sources
 
-        manager = settings.sync_manager()
+def _get_container_for_backend(backend_type: str):
+    if backend_type == "postgres":
+        return PostgresContainer(
+            image="postgres:16-alpine",
+            port=5432,
+            username="postgres",
+            password="password",
+            dbname="lightcurvedb",
+        )
+    elif backend_type == "timescaledb":
+        return PostgresContainer(
+            image="timescale/timescaledb:latest-pg16",
+            port=5432,
+            username="postgres",
+            password="password",
+            dbname="lightcurvedb",
+        )
+    elif backend_type == "numpy":
+        return None
+    else:
+        raise ValueError(f"Unknown backend: {backend_type}")
 
-        # Create tables
-        manager.create_all()
 
-        source_ids = sources.create_fixed_sources(number, manager=manager)
+@contextmanager
+def core(backend_type: str = "postgres", number: int = 128, probability_of_flare: float = 0.1):
+    from lightcurvedb.storage import get_storage
+    from lightcurvedb.models.band import Band
+    from lightcurvedb.simulation.sources import create_fixed_sources
+    from lightcurvedb.simulation.fluxes import generate_fluxes_fixed_source
 
-        # Create bands
-        bands = [
-            BandTable(
-                name=f"f{band_frequency:03d}",
-                frequency=band_frequency,
-                instrument="LATR",
-                telescope="SOLAT",
-            )
-            for band_frequency in [27, 39, 93, 145, 225, 280]
-        ]
+    async def setup_and_simulate():
+        async with get_storage() as backend:
+            await backend.create_schema()
+            logger.info(f"Schema created for {backend_type}")
 
-        with manager.session() as session:
-            session.add_all(bands)
-            session.commit()
+            # Create bands
+            bands_data = [
+                Band(
+                    name=f"f{band_frequency:03d}",
+                    frequency=float(band_frequency),
+                    instrument="LATR",
+                    telescope="SOLAT",
+                )
+                for band_frequency in [27, 39, 93, 145, 225, 280]
+            ]
+            await backend.bands.create_batch(bands_data)
+            logger.info(f"Created {len(bands_data)} bands")
 
-        with manager.session() as session:
-            sources = [session.get(SourceTable, source_id) for source_id in source_ids]
-            bands = session.query(BandTable).all()
+            # Create sources
+            source_ids = await create_fixed_sources(number, backend)
+            logger.info(f"Created {len(source_ids)} sources")
 
-            for source in tqdm.tqdm(sources):
-                fluxes.generate_fluxes_fixed_source(
+            # Get bands for flux generation
+            bands = await backend.bands.get_all()
+
+            # Generate fluxes for each source
+            start_time = datetime.now() - timedelta(days=1865)
+            cadence = timedelta(days=1)
+            num_measurements = 1865
+
+            for source_id in tqdm.tqdm(source_ids, desc="Generating fluxes"):
+                source = await backend.sources.get(source_id)
+                count = await generate_fluxes_fixed_source(
                     source=source,
                     bands=bands,
-                    start_time=datetime.now(),
-                    cadence=timedelta(days=1),
-                    number=365,
-                    session=session,
+                    backend=backend,
+                    start_time=start_time,
+                    cadence=cadence,
+                    number=num_measurements,
                     probability_of_flare=probability_of_flare,
                 )
 
-                # Get the most recent 30 flux measurements.
-                useful_fluxes = (
-                    session.query(FluxMeasurementTable)
-                    .filter(FluxMeasurementTable.source_id == source.id)
-                    .order_by(FluxMeasurementTable.time.desc())
-                    .limit(30)
-                    .all()
-                )
+            logger.info(f"Generated flux measurements for {len(source_ids)} sources")
 
-                for flux in useful_fluxes:
-                    cutouts.create_cutout(
-                        nside=64,
-                        flux=flux,
-                        session=session,
-                    )
+    container = _get_container_for_backend(backend_type)
 
-        yield postgres
+
+    if container is None:
+        print(f"----- {backend_type.upper()} Backend -----")
+        _setup_backend_env(backend_type)
+        asyncio.run(setup_and_simulate())
+        logger.warning(f"Ephemeral {backend_type} backend ready with {number} sources")
+        yield None
+
+    else:
+        with container as db:
+            print(f"----- {backend_type.upper()} Backend -----")
+            print(f"Host: {db.get_container_host_ip()}")
+            print(f"Port: {db.get_exposed_port(5432)}")
+            print("Database: lightcurvedb")
+
+            _setup_backend_env(backend_type, db)
+            asyncio.run(setup_and_simulate())
+            logger.warning(f"Ephemeral {backend_type} backend ready with {number} sources")
+            yield db
 
 
 def main():
@@ -98,6 +130,13 @@ def main():
 
     parser = ap.ArgumentParser(
         description="Run the ephemeral light curve server for testing"
+    )
+    parser.add_argument(
+        "--backend",
+        type=str,
+        default="postgres",
+        choices=["postgres", "timescaledb", "numpy"],
+        help="Backend type to use",
     )
     parser.add_argument(
         "--number",
@@ -113,6 +152,6 @@ def main():
 
     args = parser.parse_args()
 
-    with core(number=args.number) as _:
+    with core(backend_type=args.backend, number=args.number) as _:
         while args.keepalive:
             sleep(10)

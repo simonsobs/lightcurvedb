@@ -4,16 +4,12 @@ based upon some algorithm. For now, we just return sources ordered
 by ID descending in a paginated way.
 """
 
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncConnection
-
 from lightcurvedb.models.feed import FeedResult, FeedResultItem
-from lightcurvedb.models.flux import FluxMeasurementTable
-from lightcurvedb.models.source import SourceTable
+from lightcurvedb.protocols.storage import FluxStorageBackend
 
 
 async def feed_read(
-    start: int, number: int, band_name: str, conn: AsyncConnection
+    start: int, number: int, band_name: str, backend: FluxStorageBackend
 ) -> FeedResult:
     """
     Reads the 'feed' of sources. Currently just orders by
@@ -27,8 +23,8 @@ async def feed_read(
         Number of results to return (suggest 10 or 16)
     band_name: str
         Band to use
-    conn: AsyncConnection
-        Database session
+    backend: FluxStorageBackend
+        Storage backend
 
     Returns
     -------
@@ -39,47 +35,28 @@ async def feed_read(
     results = []
 
     for source_id in range(start, start + number):
-        query = (
-            select(
-                FluxMeasurementTable.time,
-                FluxMeasurementTable.i_flux,
-                FluxMeasurementTable.ra,
-                FluxMeasurementTable.dec,
-                SourceTable.name,
-            )
-            .join(SourceTable)
-            .filter(
-                FluxMeasurementTable.source_id == source_id,
-                FluxMeasurementTable.band_name == band_name,
-            )
-            .order_by(FluxMeasurementTable.time.desc())
-            .limit(30)
+        measurements = await backend.fluxes.get_recent_measurements(
+            source_id, band_name, limit=30
         )
 
-        scalar = (await conn.execute(query)).all()
-
-        if not scalar:
+        if not measurements.ids or len(measurements.ids) <= 1:
             continue
 
-        ras = [x.ra for x in scalar]
-        decs = [x.dec for x in scalar]
+        source = await backend.sources.get(source_id)
 
-        if len(ras) <= 1:
-            continue
         results.append(
             FeedResultItem(
-                time=[x.time for x in scalar],
-                flux=[x.i_flux for x in scalar],
-                ra=sum(ras) / len(ras),
-                dec=sum(decs) / len(decs),
+                time=measurements.times,
+                flux=measurements.i_flux,
+                ra=sum(measurements.ra) / len(measurements.ra),
+                dec=sum(measurements.dec) / len(measurements.dec),
                 source_id=source_id,
-                source_name=scalar[0].name,
+                source_name=source.name,
             )
         )
 
-    total_number_of_sources = (
-        await conn.execute(select(func.count()).select_from(SourceTable))
-    ).scalar_one()
+    all_sources = await backend.sources.get_all()
+    total_number_of_sources = len(all_sources)
 
     return FeedResult(
         items=results,

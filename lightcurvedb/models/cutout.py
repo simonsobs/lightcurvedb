@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
+from sqlalchemy.schema import ForeignKeyConstraint
 from sqlalchemy.types import ARRAY, FLOAT
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -33,8 +34,14 @@ class CutoutTable(SQLModel, Cutout, table=True):
     band_name: str | None = Field(default=None, foreign_key="bands.name")
     band: "BandTable" = Relationship()
 
-    flux_id: int = Field(foreign_key="flux_measurements.id")
+    flux_id: int = Field()
     flux: "FluxMeasurementTable" = Relationship()
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["flux_id", "time"],
+            ["flux_measurements.id", "flux_measurements.time"],
+        ),
+    )
 
     def to_model(self) -> Cutout:
         return Cutout(
