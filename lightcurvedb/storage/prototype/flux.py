@@ -1,8 +1,12 @@
+from datetime import datetime
 from typing import Protocol
 
-from lightcurvedb.models import FluxMeasurement, FluxMeasurementCreate, MeasurementMetadata
+from lightcurvedb.models import (
+    FluxMeasurement,
+    FluxMeasurementCreate,
+)
 from lightcurvedb.models.responses import LightcurveBandData, SourceStatistics
-from datetime import datetime
+
 
 class ProvidesFluxMeasurementStorage(Protocol):
     async def create(self, measurement: FluxMeasurementCreate) -> FluxMeasurement:
@@ -17,10 +21,13 @@ class ProvidesFluxMeasurementStorage(Protocol):
         """
         ...
 
-    async def get_band_data(self,         source_id: int,
+    async def get_band_data(
+        self,
+        source_id: int,
         band_name: str,
         start_time: datetime | None = None,
-        end_time: datetime | None = None) -> LightcurveBandData:
+        end_time: datetime | None = None,
+    ) -> LightcurveBandData:
         """
         Retrieve lightcurve data for a specific band and source.
         """
@@ -30,7 +37,7 @@ class ProvidesFluxMeasurementStorage(Protocol):
         source_id: int,
         band_name: str,
         start_time: datetime | None = None,
-        end_time: datetime | None = None
+        end_time: datetime | None = None,
     ) -> SourceStatistics:
         """
         Retrieve statistical summary of flux measurements for a specific band and source.

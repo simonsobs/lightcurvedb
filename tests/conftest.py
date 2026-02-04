@@ -24,8 +24,8 @@ def test_database():
 
 @sync_fixture(scope="session")
 def get_backend(test_database):
-    from lightcurvedb.storage import get_storage
     from lightcurvedb.config import Settings
+    from lightcurvedb.storage import get_storage
 
     def factory():
         return get_storage(
@@ -47,11 +47,12 @@ def get_backend(test_database):
 async def setup_test_data(test_database):
     import random
     from datetime import datetime, timedelta
-    from lightcurvedb.storage import get_storage
+
     from lightcurvedb.config import Settings
     from lightcurvedb.models.band import Band
-    from lightcurvedb.simulation import sources as sim_sources
     from lightcurvedb.simulation import fluxes as sim_fluxes
+    from lightcurvedb.simulation import sources as sim_sources
+    from lightcurvedb.storage import get_storage
 
     settings = Settings(
         postgres_host=test_database.get_container_host_ip(),

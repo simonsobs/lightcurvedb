@@ -3,20 +3,20 @@ PostgreSQL storage backend.
 """
 
 from psycopg import AsyncConnection
+
 from lightcurvedb.config import settings
-from lightcurvedb.storage.postgres.source import PostgresSourceStorage
+from lightcurvedb.storage.base.schema import BANDS_TABLE, SOURCES_TABLE
 from lightcurvedb.storage.postgres.band import PostgresBandStorage
 from lightcurvedb.storage.postgres.flux import PostgresFluxMeasurementStorage
-from lightcurvedb.storage.base.schema import SOURCES_TABLE, BANDS_TABLE
 from lightcurvedb.storage.postgres.schema import (
+    FLUX_INDEXES,
     FLUX_MEASUREMENTS_TABLE,
     generate_flux_partitions,
-    FLUX_INDEXES,
 )
+from lightcurvedb.storage.postgres.source import PostgresSourceStorage
 
 
 class PostgresBackend:
-
     def __init__(self, conn: AsyncConnection):
         self.conn = conn
         self.sources = PostgresSourceStorage(conn)

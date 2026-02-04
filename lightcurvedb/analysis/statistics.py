@@ -2,7 +2,6 @@
 Database-side analysis functions for lightcurve data.
 """
 
-
 from datetime import datetime
 from typing import Any, Dict, Iterable
 
@@ -65,15 +64,22 @@ class DerivedStatisticsRegistry:
             },
         }
 
-    def get_statistics_table(self, start_time: datetime | None = None, end_time: datetime | None = None):
+    def get_statistics_table(
+        self, start_time: datetime | None = None, end_time: datetime | None = None
+    ):
         """
         Selects the appropriate table based on time range and configured thresholds.
         """
-        from lightcurvedb.analysis.aggregates import AggregateConfigurations, select_aggregate_config
+        from lightcurvedb.analysis.aggregates import (
+            AggregateConfigurations,
+            select_aggregate_config,
+        )
 
         if not start_time or not end_time:
             # Default to monthly when no time range specified
-            config = next(c for c in AggregateConfigurations if c.time_resolution == "monthly")
+            config = next(
+                c for c in AggregateConfigurations if c.time_resolution == "monthly"
+            )
         else:
             today = datetime.today()
             delta_days = (today - start_time).days
@@ -89,7 +95,9 @@ class DerivedStatisticsRegistry:
         columns = table.c
         return (columns.source_id, columns.band_name, columns.bucket)
 
-    def get_statistic_expressions(self, table: Any, display_date_correction: str, mode: str = "aggregate") -> Dict[str, Any]:
+    def get_statistic_expressions(
+        self, table: Any, display_date_correction: str, mode: str = "aggregate"
+    ) -> Dict[str, Any]:
         """
         Build SQLAlchemy expressions for statistics.
         """
@@ -102,7 +110,9 @@ class DerivedStatisticsRegistry:
         # Bucket range
         if mode == "aggregate":
             expressions["bucket_start"] = func.min(columns.bucket).label("bucket_start")
-            expressions["bucket_end"] = self._calculate_bucket_end(columns, display_date_correction)
+            expressions["bucket_end"] = self._calculate_bucket_end(
+                columns, display_date_correction
+            )
         elif mode == "timeseries":
             expressions["bucket"] = columns.bucket
         return expressions
@@ -209,7 +219,9 @@ class RawMeasurementStatisticsRegistry:
             },
         }
 
-    def get_statistics_table(self, start_time: datetime | None = None, end_time: datetime | None = None):
+    def get_statistics_table(
+        self, start_time: datetime | None = None, end_time: datetime | None = None
+    ):
         """
         Get raw measurements table.
         """
@@ -221,7 +233,9 @@ class RawMeasurementStatisticsRegistry:
         """
         return (table.source_id, table.band_name, table.time)
 
-    def get_statistic_expressions(self, table: Any, display_date_correction: str, mode: str = "aggregate") -> Dict[str, Any]:
+    def get_statistic_expressions(
+        self, table: Any, display_date_correction: str, mode: str = "aggregate"
+    ) -> Dict[str, Any]:
         """
         Build SQLAlchemy expressions for statistics.
         """
@@ -300,8 +314,12 @@ class BandStatisticsCalculator:
         """
         Calculate band statistics for given source and time range.
         """
-        table, time_resolution, display_date_correction = self.registry.get_statistics_table(start_time, end_time)
-        expressions = self.registry.get_statistic_expressions(table, display_date_correction, mode="aggregate")
+        table, time_resolution, display_date_correction = (
+            self.registry.get_statistics_table(start_time, end_time)
+        )
+        expressions = self.registry.get_statistic_expressions(
+            table, display_date_correction, mode="aggregate"
+        )
         filters = self.registry.get_filter_columns(table)
 
         statistics, bucket_start, bucket_end = await _run_band_statistics_query(
@@ -328,8 +346,12 @@ class BandStatisticsCalculator:
         """
         Get timeseries of mean flux values per bucket.
         """
-        table, time_resolution, display_date_correction = self.registry.get_statistics_table(start_time, end_time)
-        expressions = self.registry.get_statistic_expressions(table, display_date_correction, mode="timeseries")
+        table, time_resolution, display_date_correction = (
+            self.registry.get_statistics_table(start_time, end_time)
+        )
+        expressions = self.registry.get_statistic_expressions(
+            table, display_date_correction, mode="timeseries"
+        )
         filters = self.registry.get_filter_columns(table)
 
         timeseries = await _run_band_timeseries_query(
@@ -358,7 +380,6 @@ def _build_time_filters(column, start_time: datetime | None, end_time: datetime 
     return filters
 
 
-
 async def _run_band_statistics_query(
     table,
     expressions: Dict[str, Any],
@@ -375,9 +396,13 @@ async def _run_band_statistics_query(
 
     source_column, band_column, time_column = filter_columns
 
-    select_query = select(*expressions.values()).select_from(table).where(
-        source_column == source_id,
-        band_column == band_name,
+    select_query = (
+        select(*expressions.values())
+        .select_from(table)
+        .where(
+            source_column == source_id,
+            band_column == band_name,
+        )
     )
 
     time_filters = _build_time_filters(time_column, start_time, end_time)
@@ -396,8 +421,8 @@ async def _run_band_statistics_query(
         variance_flux=row.variance_flux,
     )
 
-    bucket_start = getattr(row, 'bucket_start', None)
-    bucket_end = getattr(row, 'bucket_end', None)
+    bucket_start = getattr(row, "bucket_start", None)
+    bucket_end = getattr(row, "bucket_end", None)
 
     return statistics, bucket_start, bucket_end
 
@@ -418,9 +443,13 @@ async def _run_band_timeseries_query(
 
     source_column, band_column, time_column = filter_columns
 
-    select_query = select(*expressions.values()).select_from(table).where(
-        source_column == source_id,
-        band_column == band_name,
+    select_query = (
+        select(*expressions.values())
+        .select_from(table)
+        .where(
+            source_column == source_id,
+            band_column == band_name,
+        )
     )
 
     time_filters = _build_time_filters(time_column, start_time, end_time)
@@ -449,7 +478,9 @@ async def get_band_statistics(
     Calculate band statistics for given source and time range.
     """
     calculator = BandStatisticsCalculator(DerivedStatisticsRegistry())
-    return await calculator.get_statistics(source_id, band_name, conn, start_time, end_time)
+    return await calculator.get_statistics(
+        source_id, band_name, conn, start_time, end_time
+    )
 
 
 async def get_band_timeseries(
@@ -463,4 +494,6 @@ async def get_band_timeseries(
     Get timeseries of mean flux values per bucket for given source and time range.
     """
     calculator = BandStatisticsCalculator(DerivedStatisticsRegistry())
-    return await calculator.get_timeseries(source_id, band_name, conn, start_time, end_time)
+    return await calculator.get_timeseries(
+        source_id, band_name, conn, start_time, end_time
+    )

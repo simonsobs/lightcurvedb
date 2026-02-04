@@ -36,7 +36,9 @@ async def test_measurement_add_and_delete(get_backend, setup_test_data):
             dec_uncertainty=0.0,
         )
 
-        measurement_id = await measurement_flux_add(measurement=measurement, backend=backend)
+        measurement_id = await measurement_flux_add(
+            measurement=measurement, backend=backend
+        )
         await backend.conn.commit()
 
         await measurement_flux_delete(id=measurement_id, backend=backend)

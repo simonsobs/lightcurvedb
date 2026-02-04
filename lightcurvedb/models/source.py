@@ -14,7 +14,6 @@ class CrossMatch(BaseModel):
     name: str
 
 
-
 class SourceMetadata(BaseModel):
     """
     Additional metadata about sources stored as a JSONB
@@ -28,6 +27,7 @@ class SourceCreate(BaseModel):
     """
     Input model for creating sources.
     """
+
     name: str | None = None
     ra: float | None
     dec: float | None

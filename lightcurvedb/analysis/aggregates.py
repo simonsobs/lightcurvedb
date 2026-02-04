@@ -2,7 +2,6 @@
 Functions for creating and managing TimescaleDB continuous aggregates.
 """
 
-
 from dataclasses import dataclass
 from typing import Any, Dict, List
 
@@ -17,6 +16,7 @@ class AggregateConfig:
     """
     Configuration for a continuous aggregate
     """
+
     view_name: str
     # Name of the materialized view table
     time_resolution: str
@@ -39,45 +39,44 @@ class AggregateConfig:
     # SQL interval expression for bucket_end display correction
 
 
-
 AggregateConfigurations: List[AggregateConfig] = [
-        AggregateConfig(
-            view_name="band_statistics_daily",
-            time_resolution="daily",
-            bucket_interval="1 day",
-            drop_after_interval="1 month",
-            drop_schedule_interval="7 days",
-            refresh_start_offset="7 days",
-            refresh_end_offset="1 day",
-            refresh_schedule_interval="1 day",
-            evaluate_threshold_days=30,
-            display_date_correction=""
-        ),
-        AggregateConfig(
-            view_name="band_statistics_weekly",
-            time_resolution="weekly",
-            bucket_interval="1 week",
-            drop_after_interval="6 months",
-            drop_schedule_interval="1 month",
-            refresh_start_offset="3 weeks",
-            refresh_end_offset="1 week",
-            refresh_schedule_interval="1 week",
-            evaluate_threshold_days=180,
-            display_date_correction="INTERVAL '6 days'"
-        ),
-        AggregateConfig(
-            view_name="band_statistics_monthly",
-            time_resolution="monthly",
-            bucket_interval="1 month",
-            drop_after_interval="3 years",
-            drop_schedule_interval="4 months",
-            refresh_start_offset="3 months",
-            refresh_end_offset="1 month",
-            refresh_schedule_interval="1 week",
-            evaluate_threshold_days=3650,
-            display_date_correction="INTERVAL '1 month' - INTERVAL '1 day'"
-        )
-    ]
+    AggregateConfig(
+        view_name="band_statistics_daily",
+        time_resolution="daily",
+        bucket_interval="1 day",
+        drop_after_interval="1 month",
+        drop_schedule_interval="7 days",
+        refresh_start_offset="7 days",
+        refresh_end_offset="1 day",
+        refresh_schedule_interval="1 day",
+        evaluate_threshold_days=30,
+        display_date_correction="",
+    ),
+    AggregateConfig(
+        view_name="band_statistics_weekly",
+        time_resolution="weekly",
+        bucket_interval="1 week",
+        drop_after_interval="6 months",
+        drop_schedule_interval="1 month",
+        refresh_start_offset="3 weeks",
+        refresh_end_offset="1 week",
+        refresh_schedule_interval="1 week",
+        evaluate_threshold_days=180,
+        display_date_correction="INTERVAL '6 days'",
+    ),
+    AggregateConfig(
+        view_name="band_statistics_monthly",
+        time_resolution="monthly",
+        bucket_interval="1 month",
+        drop_after_interval="3 years",
+        drop_schedule_interval="4 months",
+        refresh_start_offset="3 months",
+        refresh_end_offset="1 month",
+        refresh_schedule_interval="1 week",
+        evaluate_threshold_days=3650,
+        display_date_correction="INTERVAL '1 month' - INTERVAL '1 day'",
+    ),
+]
 
 
 def select_aggregate_config(delta_days: int) -> AggregateConfig:
@@ -87,6 +86,7 @@ def select_aggregate_config(delta_days: int) -> AggregateConfig:
     for config in AggregateConfigurations:
         if delta_days <= config.evaluate_threshold_days:
             return config
+
 
 class MetricsRegistry:
     """
@@ -98,39 +98,40 @@ class MetricsRegistry:
             "sum_flux_over_uncertainty_squared": {
                 "method": self.sum_flux_over_uncertainty_squared,
                 "aggregate_column": "sum_flux_over_uncertainty_squared",
-                "description": "Sum of flux/uncertainty^2 for weighted calculations"
+                "description": "Sum of flux/uncertainty^2 for weighted calculations",
             },
             "sum_inverse_uncertainty_squared": {
                 "method": self.sum_inverse_uncertainty_squared,
                 "aggregate_column": "sum_inverse_uncertainty_squared",
-                "description": "Sum of 1/uncertainty^2 for weighted calculations"
+                "description": "Sum of 1/uncertainty^2 for weighted calculations",
             },
             "min_flux": {
                 "method": self.min_flux,
                 "aggregate_column": "min_flux",
-                "description": "Minimum flux value in the time period"
+                "description": "Minimum flux value in the time period",
             },
             "max_flux": {
                 "method": self.max_flux,
                 "aggregate_column": "max_flux",
-                "description": "Maximum flux value in the time period"
+                "description": "Maximum flux value in the time period",
             },
             "data_points": {
                 "method": self.data_points_count,
                 "aggregate_column": "data_points",
-                "description": "Number of data points in the time period"
+                "description": "Number of data points in the time period",
             },
             "sum_flux": {
                 "method": self.sum_flux,
                 "aggregate_column": "sum_flux",
-                "description": "Sum of flux values in the time period"
+                "description": "Sum of flux values in the time period",
             },
             "sum_flux_squared": {
                 "method": self.sum_flux_squared,
                 "aggregate_column": "sum_flux_squared",
-                "description": "Sum of squared flux values for variance calculation"
+                "description": "Sum of squared flux values for variance calculation",
             },
         }
+
     @staticmethod
     def sum_flux_over_uncertainty_squared(table):
         return func.sum(table.i_flux / (table.i_uncertainty * table.i_uncertainty))
@@ -163,12 +164,10 @@ class MetricsRegistry:
         """
         Generate table reference for specified aggregate table.
         """
-        base_columns = [
-            column('bucket'),
-            column('source_id'),
-            column('band_name')
+        base_columns = [column("bucket"), column("source_id"), column("band_name")]
+        metric_columns = [
+            column(metric["aggregate_column"]) for metric in self.metrics.values()
         ]
-        metric_columns = [column(metric["aggregate_column"]) for metric in self.metrics.values()]
 
         return table(view_name, *(base_columns + metric_columns))
 
@@ -193,7 +192,9 @@ class ContinuousAggregateBuilder:
 
     def build_aggregate_query(self, engine):
         ftable = FluxMeasurementTable
-        bucket = func.time_bucket(text(f"INTERVAL '{self.config.bucket_interval}'"), ftable.time).label("bucket")
+        bucket = func.time_bucket(
+            text(f"INTERVAL '{self.config.bucket_interval}'"), ftable.time
+        ).label("bucket")
         group_cols = [bucket, ftable.source_id, ftable.band_name]
 
         metric_exprs = self.metrics_registry.get_metric_expressions(ftable)
@@ -209,7 +210,9 @@ class ContinuousAggregateBuilder:
             .group_by(*group_cols)
         )
 
-        return select_query.compile(engine, compile_kwargs={"literal_binds": True}).string
+        return select_query.compile(
+            engine, compile_kwargs={"literal_binds": True}
+        ).string
 
     def get_create_view_sql(self, select_query: str) -> str:
         """
@@ -238,7 +241,7 @@ class ContinuousAggregateBuilder:
                 schedule_interval => :schedule_interval::INTERVAL
             )
         """)
-    
+
     def get_retention_policy_sql(self) -> text:
         """
         Build retention policy SQL for continuous aggregate.
@@ -260,20 +263,19 @@ class ContinuousAggregateBuilder:
             "view_name": self.config.view_name,
             "start_offset": self.config.refresh_start_offset,
             "end_offset": self.config.refresh_end_offset,
-            "schedule_interval": self.config.refresh_schedule_interval
+            "schedule_interval": self.config.refresh_schedule_interval,
         }
 
         retention_params = {
             "view_name": self.config.view_name,
             "drop_after": self.config.drop_after_interval,
-            "schedule_interval": self.config.drop_schedule_interval
+            "schedule_interval": self.config.drop_schedule_interval,
         }
 
         with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
             conn.execute(text(create_view_sql))
             conn.execute(self.get_refresh_policy_sql(), refresh_params)
             conn.execute(self.get_retention_policy_sql(), retention_params)
-
 
 
 METRICS_REGISTRY = MetricsRegistry()
@@ -296,4 +298,8 @@ def refresh_continuous_aggregates(session: Session) -> None:
 
     with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
         for config in AggregateConfigurations:
-            conn.execute(text(f"CALL refresh_continuous_aggregate('{config.view_name}', NULL, NULL)"))
+            conn.execute(
+                text(
+                    f"CALL refresh_continuous_aggregate('{config.view_name}', NULL, NULL)"
+                )
+            )

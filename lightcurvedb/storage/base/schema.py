@@ -2,7 +2,6 @@
 Shared SQL schema definitions.
 """
 
-
 SOURCES_TABLE = """
 CREATE TABLE IF NOT EXISTS sources (
     id SERIAL PRIMARY KEY,

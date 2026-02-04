@@ -18,7 +18,9 @@ class MeasurementSummaryResult(BaseModel):
     count: int
 
 
-async def measurement_flux_add(measurement: FluxMeasurement, backend: FluxStorageBackend) -> int:
+async def measurement_flux_add(
+    measurement: FluxMeasurement, backend: FluxStorageBackend
+) -> int:
     """
     Add a flux measurement.
     """

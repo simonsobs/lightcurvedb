@@ -2,15 +2,19 @@
 PostgreSQL implementation of FluxMeasurementStorage protocol.
 """
 
-from psycopg import AsyncConnection
-from psycopg.rows import dict_row
 import json
 from datetime import datetime
 
-from lightcurvedb.storage.prototype.flux import ProvidesFluxMeasurementStorage
+from psycopg import AsyncConnection
+from psycopg.rows import dict_row
 
-from lightcurvedb.models.flux import FluxMeasurement, FluxMeasurementCreate, MeasurementMetadata
+from lightcurvedb.models.flux import (
+    FluxMeasurement,
+    FluxMeasurementCreate,
+    MeasurementMetadata,
+)
 from lightcurvedb.models.responses import LightcurveBandData, SourceStatistics
+from lightcurvedb.storage.prototype.flux import ProvidesFluxMeasurementStorage
 
 
 class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
@@ -42,15 +46,15 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
 
         params = measurement.model_dump()
 
-        if params['extra'] is not None:
-            params['extra'] = json.dumps(params['extra'])
+        if params["extra"] is not None:
+            params["extra"] = json.dumps(params["extra"])
 
         async with self.conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(query, params)
             row = await cur.fetchone()
 
-            if row['extra']:
-                row['extra'] = MeasurementMetadata(**row['extra'])
+            if row["extra"]:
+                row["extra"] = MeasurementMetadata(**row["extra"])
 
             return FluxMeasurement(**row)
 
@@ -74,8 +78,8 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
         params_list = []
         for m in measurements:
             params = m.model_dump()
-            if params['extra'] is not None:
-                params['extra'] = json.dumps(params['extra'])
+            if params["extra"] is not None:
+                params["extra"] = json.dumps(params["extra"])
             params_list.append(params)
 
         async with self.conn.cursor() as cur:
@@ -88,7 +92,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
         source_id: int,
         band_name: str,
         start_time: datetime | None = None,
-        end_time: datetime | None = None
+        end_time: datetime | None = None,
     ) -> LightcurveBandData:
         """
         Get measurements as arrays using database-side aggregation.
@@ -97,7 +101,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
         where_clauses = ["source_id = %(source_id)s", "band_name = %(band_name)s"]
         params: dict[str, int | str | datetime] = {
             "source_id": source_id,
-            "band_name": band_name
+            "band_name": band_name,
         }
 
         if start_time is not None:
@@ -135,7 +139,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
         source_id: int,
         band_name: str,
         start_time: datetime | None = None,
-        end_time: datetime | None = None
+        end_time: datetime | None = None,
     ) -> SourceStatistics:
         """
         Compute statistics using database-side aggregations.
@@ -143,7 +147,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
         where_clauses = ["source_id = %(source_id)s", "band_name = %(band_name)s"]
         params: dict[str, int | str | datetime] = {
             "source_id": source_id,
-            "band_name": band_name
+            "band_name": band_name,
         }
 
         if start_time is not None:
@@ -228,10 +232,8 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
         """
 
         async with self.conn.cursor(row_factory=dict_row) as cur:
-            await cur.execute(query, {
-                "source_id": source_id,
-                "band_name": band_name,
-                "limit": limit
-            })
+            await cur.execute(
+                query, {"source_id": source_id, "band_name": band_name, "limit": limit}
+            )
             row = await cur.fetchone()
             return LightcurveBandData(**row)

@@ -8,9 +8,7 @@ from lightcurvedb.models.source import CrossMatch, SourceCreate, SourceMetadata
 from lightcurvedb.protocols.storage import FluxStorageBackend
 
 
-async def create_fixed_sources(
-    number: int, backend: FluxStorageBackend
-) -> list[int]:
+async def create_fixed_sources(number: int, backend: FluxStorageBackend) -> list[int]:
     """
     Create a number of fixed sources in the database.
 
@@ -38,6 +36,5 @@ async def create_fixed_sources(
         )
         for i in range(number)
     ]
-
 
     return await backend.sources.create_batch(sources)

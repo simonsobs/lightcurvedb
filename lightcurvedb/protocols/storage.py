@@ -4,10 +4,11 @@ Storage protocol.
 
 from datetime import datetime
 from typing import Protocol
+
+from lightcurvedb.models.band import Band
 from lightcurvedb.models.flux import FluxMeasurement, FluxMeasurementCreate
 from lightcurvedb.models.responses import LightcurveBandData, SourceStatistics
 from lightcurvedb.models.source import Source, SourceCreate
-from lightcurvedb.models.band import Band
 
 
 class FluxMeasurementStorage(Protocol):

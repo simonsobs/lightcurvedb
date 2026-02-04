@@ -13,6 +13,7 @@ class MeasurementMetadata(BaseModel):
     Additional metadata about flux measurements stored as a JSONB
     column.
     """
+
     flags: list[str] = PydanticField(default=[])
 
 
@@ -33,5 +34,5 @@ class FluxMeasurement(FluxMeasurementCreate):
     """
     Flux measurement domain model.
     """
-    id: int | None = None
 
+    id: int | None = None

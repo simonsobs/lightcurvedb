@@ -5,6 +5,7 @@ Response models.
 from datetime import datetime
 
 from pydantic import BaseModel
+
 from lightcurvedb.models.band import Band
 from lightcurvedb.models.source import Source
 

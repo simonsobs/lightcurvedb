@@ -3,9 +3,11 @@ Create the database tables if they do not exist.
 """
 
 import asyncio
+
 from loguru import logger
-from lightcurvedb.storage import get_storage
+
 from lightcurvedb.config import Settings
+from lightcurvedb.storage import get_storage
 
 
 async def setup_database():

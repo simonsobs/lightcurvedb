@@ -6,7 +6,6 @@ from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 
 from lightcurvedb.models.band import Band
-
 from lightcurvedb.storage.prototype.band import ProvidesBandStorage
 
 
@@ -66,6 +65,7 @@ class PostgresBandStorage(ProvidesBandStorage):
 
             if not row:
                 from lightcurvedb.models.exceptions import BandNotFoundException
+
                 raise BandNotFoundException(f"Band {band_name} not found")
 
             return Band(**row)
@@ -92,6 +92,7 @@ class PostgresBandStorage(ProvidesBandStorage):
             await self.get(band_name)
         except Exception:
             from lightcurvedb.models.exceptions import BandNotFoundException
+
             raise BandNotFoundException(f"Band {band_name} not found")
 
         query = "DELETE FROM bands WHERE name = %(band_name)s"

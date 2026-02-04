@@ -15,13 +15,13 @@ class ProvidesBandStorage(Protocol):
         Bulk insert bands.
         """
         ...
-    
+
     async def get(self, band_name: str) -> Band:
         """
         Get band by name.
         """
         ...
-    
+
     async def get_all(self) -> list[Band]:
         """
         Get all bands.

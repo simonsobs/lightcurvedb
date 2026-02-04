@@ -2,12 +2,13 @@
 Tools for creating simulated light-curves via flux depositions into the database.
 """
 
-import math
 import random
 from datetime import datetime, timedelta
+
 import numpy as np
-from lightcurvedb.models.flux import FluxMeasurementCreate, MeasurementMetadata
+
 from lightcurvedb.models.band import Band
+from lightcurvedb.models.flux import FluxMeasurementCreate, MeasurementMetadata
 from lightcurvedb.models.source import Source
 from lightcurvedb.protocols.storage import FluxStorageBackend
 
@@ -138,6 +139,5 @@ async def generate_fluxes_fixed_source(
             for i in range(number)
         ]
         all_measurements.extend(measurements)
-
 
     return await backend.fluxes.create_batch(all_measurements)

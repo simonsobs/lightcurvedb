@@ -6,7 +6,6 @@ import asyncio
 import os
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-
 from time import sleep
 
 import tqdm
@@ -20,7 +19,7 @@ def _setup_backend_env(backend_type: str, container=None):
     """
     os.environ["LIGHTCURVEDB_BACKEND_TYPE"] = backend_type
 
-    if container is not None: 
+    if container is not None:
         os.environ["LIGHTCURVEDB_POSTGRES_USER"] = "postgres"
         os.environ["LIGHTCURVEDB_POSTGRES_PASSWORD"] = "password"
         os.environ["LIGHTCURVEDB_POSTGRES_DB"] = "lightcurvedb"
@@ -52,11 +51,13 @@ def _get_container_for_backend(backend_type: str):
 
 
 @contextmanager
-def core(backend_type: str = "postgres", number: int = 128, probability_of_flare: float = 0.1):
-    from lightcurvedb.storage import get_storage
+def core(
+    backend_type: str = "postgres", number: int = 128, probability_of_flare: float = 0.1
+):
     from lightcurvedb.models.band import Band
-    from lightcurvedb.simulation.sources import create_fixed_sources
     from lightcurvedb.simulation.fluxes import generate_fluxes_fixed_source
+    from lightcurvedb.simulation.sources import create_fixed_sources
+    from lightcurvedb.storage import get_storage
 
     async def setup_and_simulate():
         async with get_storage() as backend:
@@ -104,7 +105,6 @@ def core(backend_type: str = "postgres", number: int = 128, probability_of_flare
 
     container = _get_container_for_backend(backend_type)
 
-
     if container is None:
         print(f"----- {backend_type.upper()} Backend -----")
         _setup_backend_env(backend_type)
@@ -121,7 +121,9 @@ def core(backend_type: str = "postgres", number: int = 128, probability_of_flare
 
             _setup_backend_env(backend_type, db)
             asyncio.run(setup_and_simulate())
-            logger.warning(f"Ephemeral {backend_type} backend ready with {number} sources")
+            logger.warning(
+                f"Ephemeral {backend_type} backend ready with {number} sources"
+            )
             yield db
 
 

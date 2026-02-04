@@ -1,6 +1,7 @@
 from typing import Protocol
 
-from lightcurvedb.models import Source, SourceMetadata, SourceCreate
+from lightcurvedb.models import Source, SourceCreate
+
 
 class ProvidesSourceStorage(Protocol):
     async def create(self, source: SourceCreate) -> int:
@@ -25,7 +26,7 @@ class ProvidesSourceStorage(Protocol):
         """
         Retrieve all sources.
         """
-        ... 
+        ...
 
     async def delete(self, source_id: int) -> None:
         """

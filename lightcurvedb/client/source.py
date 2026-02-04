@@ -11,8 +11,8 @@ from lightcurvedb.client.measurement import (
     MeasurementSummaryResult,
     measurement_summary,
 )
-from lightcurvedb.models.source import Source
 from lightcurvedb.models.band import Band
+from lightcurvedb.models.source import Source
 from lightcurvedb.protocols.storage import FluxStorageBackend
 
 
@@ -43,7 +43,9 @@ async def source_read_all(backend: FluxStorageBackend) -> list[Source]:
     return await backend.sources.get_all()
 
 
-async def source_read_summary(id: int, backend: FluxStorageBackend) -> SourceSummaryResult:
+async def source_read_summary(
+    id: int, backend: FluxStorageBackend
+) -> SourceSummaryResult:
     """
     Read the full summary for an individual source, including number of
     observations.

@@ -6,7 +6,7 @@ import random
 
 import pytest
 
-from lightcurvedb.client.lightcurve import lightcurve_read_source, lightcurve_read_band
+from lightcurvedb.client.lightcurve import lightcurve_read_band, lightcurve_read_source
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -28,7 +28,9 @@ async def test_lightcurve_read_band(get_backend, setup_test_data):
         band_names = await backend.fluxes.get_bands_for_source(source_id)
         band_name = random.choice(band_names)
 
-        result = await lightcurve_read_band(id=source_id, band_name=band_name, backend=backend)
+        result = await lightcurve_read_band(
+            id=source_id, band_name=band_name, backend=backend
+        )
 
         assert result.source.id == source_id
         assert result.band.name == band_name

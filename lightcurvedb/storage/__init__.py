@@ -2,17 +2,20 @@
 Storage backend.
 """
 
-from typing import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import AsyncIterator
+
 from psycopg import AsyncConnection
 
+from lightcurvedb.config import Settings
 from lightcurvedb.protocols.storage import FluxStorageBackend
 from lightcurvedb.storage.postgres.backend import PostgresBackend
-from lightcurvedb.config import Settings
 
 
 @asynccontextmanager
-async def get_storage(settings: Settings | None = None) -> AsyncIterator[FluxStorageBackend]:
+async def get_storage(
+    settings: Settings | None = None,
+) -> AsyncIterator[FluxStorageBackend]:
     """
     Get storage backend.
     """

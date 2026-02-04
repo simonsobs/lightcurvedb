@@ -2,13 +2,13 @@
 PostgreSQL implementation of SourceStorage protocol.
 """
 
-from psycopg import AsyncConnection
-from psycopg.rows import dict_row
 import json
 
-from lightcurvedb.storage.prototype.source import ProvidesSourceStorage
+from psycopg import AsyncConnection
+from psycopg.rows import dict_row
 
 from lightcurvedb.models.source import Source, SourceCreate, SourceMetadata
+from lightcurvedb.storage.prototype.source import ProvidesSourceStorage
 
 
 class PostgresSourceStorage(ProvidesSourceStorage):
@@ -30,15 +30,15 @@ class PostgresSourceStorage(ProvidesSourceStorage):
         """
 
         params = source.model_dump()
-        if params['extra'] is not None:
-            params['extra'] = json.dumps(params['extra'])
+        if params["extra"] is not None:
+            params["extra"] = json.dumps(params["extra"])
 
         async with self.conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(query, params)
             row = await cur.fetchone()
 
-            if row['extra']:
-                row['extra'] = SourceMetadata(**row['extra'])
+            if row["extra"]:
+                row["extra"] = SourceMetadata(**row["extra"])
 
             return Source(**row)
 
@@ -55,8 +55,8 @@ class PostgresSourceStorage(ProvidesSourceStorage):
         params_list = []
         for s in sources:
             params = s.model_dump()
-            if params['extra'] is not None:
-                params['extra'] = json.dumps(params['extra'])
+            if params["extra"] is not None:
+                params["extra"] = json.dumps(params["extra"])
             params_list.append(params)
 
         source_ids = []
@@ -84,10 +84,11 @@ class PostgresSourceStorage(ProvidesSourceStorage):
 
             if not row:
                 from lightcurvedb.models.exceptions import SourceNotFoundException
+
                 raise SourceNotFoundException(f"Source {source_id} not found")
 
-            if row['extra']:
-                row['extra'] = SourceMetadata(**row['extra'])
+            if row["extra"]:
+                row["extra"] = SourceMetadata(**row["extra"])
 
             return Source(**row)
 
@@ -105,8 +106,8 @@ class PostgresSourceStorage(ProvidesSourceStorage):
 
             sources = []
             for row in rows:
-                if row['extra']:
-                    row['extra'] = SourceMetadata(**row['extra'])
+                if row["extra"]:
+                    row["extra"] = SourceMetadata(**row["extra"])
                 sources.append(Source(**row))
 
             return sources
@@ -120,6 +121,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
             await self.get(source_id)
         except Exception:
             from lightcurvedb.models.exceptions import SourceNotFoundException
+
             raise SourceNotFoundException(f"Source {source_id} not found")
 
         query = "DELETE FROM sources WHERE id = %(source_id)s"
@@ -155,8 +157,8 @@ class PostgresSourceStorage(ProvidesSourceStorage):
 
             sources = []
             for row in rows:
-                if row['extra']:
-                    row['extra'] = SourceMetadata(**row['extra'])
+                if row["extra"]:
+                    row["extra"] = SourceMetadata(**row["extra"])
                 sources.append(Source(**row))
 
             return sources

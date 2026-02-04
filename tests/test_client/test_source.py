@@ -14,8 +14,8 @@ from lightcurvedb.client.source import (
     source_read_in_radius,
     source_read_summary,
 )
-from lightcurvedb.models.source import Source
 from lightcurvedb.models.exceptions import SourceNotFoundException
+from lightcurvedb.models.source import Source
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -38,7 +38,6 @@ async def test_read_all_sources(get_backend):
 @pytest.mark.asyncio(loop_scope="session")
 async def test_source_read_summary(get_backend):
     async with get_backend() as backend:
-
         all_sources = await backend.sources.get_all()
         source_ids = [s.id for s in all_sources]
 
