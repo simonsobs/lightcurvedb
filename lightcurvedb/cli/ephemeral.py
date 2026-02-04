@@ -91,7 +91,7 @@ def core(
 
             for source_id in tqdm.tqdm(source_ids, desc="Generating fluxes"):
                 source = await backend.sources.get(source_id)
-                count = await generate_fluxes_fixed_source(
+                _ = await generate_fluxes_fixed_source(
                     source=source,
                     bands=bands,
                     backend=backend,

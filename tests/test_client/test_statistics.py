@@ -22,7 +22,7 @@ async def test_weighted_statistics(get_backend, setup_test_data):
         source = await backend.sources.create(
             SourceCreate(name="WEIGHTED-TEST-001", ra=150.0, dec=30.0, variable=True)
         )
-        band = await backend.bands.create(
+        _ = await backend.bands.create(
             Band(
                 name="test-weighted",
                 telescope="TEST",
