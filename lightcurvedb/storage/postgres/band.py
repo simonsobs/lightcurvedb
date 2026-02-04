@@ -7,8 +7,10 @@ from psycopg.rows import dict_row
 
 from lightcurvedb.models.band import Band
 
+from lightcurvedb.storage.prototype.band import ProvidesBandStorage
 
-class PostgresBandStorage:
+
+class PostgresBandStorage(ProvidesBandStorage):
     """
     PostgreSQL band storage.
     """

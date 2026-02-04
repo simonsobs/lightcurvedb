@@ -6,10 +6,12 @@ from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 import json
 
+from lightcurvedb.storage.prototype.source import ProvidesSourceStorage
+
 from lightcurvedb.models.source import Source, SourceCreate, SourceMetadata
 
 
-class PostgresSourceStorage:
+class PostgresSourceStorage(ProvidesSourceStorage):
     """
     PostgreSQL source storage.
     """

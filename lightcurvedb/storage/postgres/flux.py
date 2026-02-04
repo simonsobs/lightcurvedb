@@ -7,11 +7,13 @@ from psycopg.rows import dict_row
 import json
 from datetime import datetime
 
+from lightcurvedb.storage.prototype.flux import ProvidesFluxMeasurementStorage
+
 from lightcurvedb.models.flux import FluxMeasurement, FluxMeasurementCreate, MeasurementMetadata
 from lightcurvedb.models.responses import LightcurveBandData, SourceStatistics
 
 
-class PostgresFluxMeasurementStorage:
+class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
     """
     PostgreSQL flux measurement storage with array aggregations.
     """

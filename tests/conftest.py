@@ -40,7 +40,7 @@ def get_backend(test_database):
             )
         )
 
-    return factory
+    yield factory
 
 
 @async_fixture(scope="session", autouse=True)
