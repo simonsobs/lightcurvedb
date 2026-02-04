@@ -107,15 +107,19 @@ class PostgresFluxMeasurementStorage:
 
         query = f"""
             SELECT
-                COALESCE(ARRAY_AGG(id ORDER BY time), ARRAY[]::INTEGER[]) as ids,
-                COALESCE(ARRAY_AGG(time ORDER BY time), ARRAY[]::TIMESTAMPTZ[]) as times,
-                COALESCE(ARRAY_AGG(ra ORDER BY time), ARRAY[]::DOUBLE PRECISION[]) as ra,
-                COALESCE(ARRAY_AGG(dec ORDER BY time), ARRAY[]::DOUBLE PRECISION[]) as dec,
-                COALESCE(ARRAY_AGG(ra_uncertainty ORDER BY time), ARRAY[]::DOUBLE PRECISION[]) as ra_uncertainty,
-                COALESCE(ARRAY_AGG(dec_uncertainty ORDER BY time), ARRAY[]::DOUBLE PRECISION[]) as dec_uncertainty,
-                COALESCE(ARRAY_AGG(i_flux ORDER BY time), ARRAY[]::DOUBLE PRECISION[]) as i_flux,
-                COALESCE(ARRAY_AGG(i_uncertainty ORDER BY time), ARRAY[]::DOUBLE PRECISION[]) as i_uncertainty
-            FROM flux_measurements
+                COALESCE(ARRAY_AGG(id), ARRAY[]::INTEGER[]) AS ids,
+                COALESCE(ARRAY_AGG(time), ARRAY[]::TIMESTAMPTZ[]) AS times,
+                COALESCE(ARRAY_AGG(ra), ARRAY[]::REAL[]) AS ra,
+                COALESCE(ARRAY_AGG(dec), ARRAY[]::REAL[]) AS dec,
+                COALESCE(ARRAY_AGG(ra_uncertainty), ARRAY[]::REAL[]) AS ra_uncertainty,
+                COALESCE(ARRAY_AGG(dec_uncertainty), ARRAY[]::REAL[]) AS dec_uncertainty,
+                COALESCE(ARRAY_AGG(i_flux), ARRAY[]::REAL[]) AS i_flux,
+                COALESCE(ARRAY_AGG(i_uncertainty), ARRAY[]::REAL[]) AS i_uncertainty
+            FROM (
+                SELECT *
+                FROM flux_measurements
+                ORDER BY time
+            ) t
             WHERE {' AND '.join(where_clauses)}
         """
 
@@ -203,21 +207,22 @@ class PostgresFluxMeasurementStorage:
         """
         query = """
             SELECT
-                COALESCE(ARRAY_AGG(id ORDER BY time DESC), ARRAY[]::INTEGER[]) as ids,
-                COALESCE(ARRAY_AGG(time ORDER BY time DESC), ARRAY[]::TIMESTAMPTZ[]) as times,
-                COALESCE(ARRAY_AGG(ra ORDER BY time DESC), ARRAY[]::DOUBLE PRECISION[]) as ra,
-                COALESCE(ARRAY_AGG(dec ORDER BY time DESC), ARRAY[]::DOUBLE PRECISION[]) as dec,
-                COALESCE(ARRAY_AGG(ra_uncertainty ORDER BY time DESC), ARRAY[]::DOUBLE PRECISION[]) as ra_uncertainty,
-                COALESCE(ARRAY_AGG(dec_uncertainty ORDER BY time DESC), ARRAY[]::DOUBLE PRECISION[]) as dec_uncertainty,
-                COALESCE(ARRAY_AGG(i_flux ORDER BY time DESC), ARRAY[]::DOUBLE PRECISION[]) as i_flux,
-                COALESCE(ARRAY_AGG(i_uncertainty ORDER BY time DESC), ARRAY[]::DOUBLE PRECISION[]) as i_uncertainty
+                COALESCE(ARRAY_AGG(id), ARRAY[]::INTEGER[]) AS ids,
+                COALESCE(ARRAY_AGG(time), ARRAY[]::TIMESTAMPTZ[]) AS times,
+                COALESCE(ARRAY_AGG(ra), ARRAY[]::REAL[]) AS ra,
+                COALESCE(ARRAY_AGG(dec), ARRAY[]::REAL[]) AS dec,
+                COALESCE(ARRAY_AGG(ra_uncertainty), ARRAY[]::REAL[]) AS ra_uncertainty,
+                COALESCE(ARRAY_AGG(dec_uncertainty), ARRAY[]::REAL[]) AS dec_uncertainty,
+                COALESCE(ARRAY_AGG(i_flux), ARRAY[]::REAL[]) AS i_flux,
+                COALESCE(ARRAY_AGG(i_uncertainty), ARRAY[]::REAL[]) AS i_uncertainty
             FROM (
                 SELECT *
                 FROM flux_measurements
-                WHERE source_id = %(source_id)s AND band_name = %(band_name)s
+                WHERE source_id = %(source_id)s
+                AND band_name = %(band_name)s
                 ORDER BY time DESC
                 LIMIT %(limit)s
-            ) subquery
+            ) subquery;
         """
 
         async with self.conn.cursor(row_factory=dict_row) as cur:
