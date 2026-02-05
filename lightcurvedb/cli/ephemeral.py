@@ -54,10 +54,10 @@ def _get_container_for_backend(backend_type: str):
 def core(
     backend_type: str = "postgres", number: int = 128, probability_of_flare: float = 0.1
 ):
+    from lightcurvedb.config import Settings
     from lightcurvedb.models.band import Band
     from lightcurvedb.simulation.fluxes import generate_fluxes_fixed_source
     from lightcurvedb.simulation.sources import create_fixed_sources
-    from lightcurvedb.config import Settings
     from lightcurvedb.storage.postgres.backend import postgres_backend
 
     async def setup_and_simulate():

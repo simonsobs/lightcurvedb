@@ -3,11 +3,11 @@ Create the database tables if they do not exist.
 """
 
 import asyncio
+from asyncio import sleep
 
 from loguru import logger
 
 from lightcurvedb.config import Settings
-from asyncio import sleep
 
 
 async def setup_database():
@@ -18,6 +18,7 @@ async def setup_database():
 
     if settings.backend_type == "postgres":
         from lightcurvedb.storage.postgres.backend import postgres_backend
+
         with postgres_backend(settings) as _:
             # Backend 'auto' sets up.
             await sleep(0.1)
