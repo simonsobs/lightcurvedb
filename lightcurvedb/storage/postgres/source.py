@@ -28,11 +28,19 @@ class PostgresSourceStorage(ProvidesSourceStorage):
         """
         Create a source.
         """
-        query = """
-            INSERT INTO sources (name, ra, dec, variable, extra)
-            VALUES (%(name)s, %(ra)s, %(dec)s, %(variable)s, %(extra)s)
-            RETURNING id, name, ra, dec, variable, extra
-        """
+
+        if hasattr(source, "id") and source.id is not None:
+            query = """
+                INSERT INTO sources (id, name, ra, dec, variable, extra)
+                VALUES (%(id)s, %(name)s, %(ra)s, %(dec)s, %(variable)s, %(extra)s)
+                RETURNING id, name, ra, dec, variable, extra
+            """
+        else:
+            query = """
+                INSERT INTO sources (name, ra, dec, variable, extra)
+                VALUES (%(name)s, %(ra)s, %(dec)s, %(variable)s, %(extra)s)
+                RETURNING id, name, ra, dec, variable, extra
+            """
 
         params = source.model_dump()
         if params["extra"] is not None:

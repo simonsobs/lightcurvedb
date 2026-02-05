@@ -1,5 +1,5 @@
 from .band import Band
-from .cutout import Cutout, CutoutTable
+from .cutout import Cutout
 from .exceptions import (
     BandNotFoundException,
     SourceNotFoundException,
@@ -14,7 +14,6 @@ __all__ = [
     "BandNotFoundException",
     "CrossMatch",
     "Cutout",
-    "CutoutTable",
     "FluxMeasurement",
     "FluxMeasurementCreate",
     "LightcurveBandData",
@@ -28,5 +27,3 @@ __all__ = [
 ]
 
 MODELS = [Cutout, FluxMeasurement, Source, Band]
-
-TABLES = [CutoutTable]
