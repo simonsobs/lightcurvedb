@@ -6,13 +6,9 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
-from sqlalchemy.schema import ForeignKeyConstraint
-from sqlalchemy.types import ARRAY, FLOAT
-from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from .band import BandTable
-    from .flux import FluxMeasurementTable
+    pass
 
 
 class Cutout(BaseModel):
@@ -26,4 +22,3 @@ class Cutout(BaseModel):
     source_id: int | None = None
     band_name: str | None = None
     flux_id: int | None = None
-
