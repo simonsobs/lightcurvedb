@@ -30,7 +30,7 @@ def _setup_backend_env(backend_type: str, container=None):
 def _get_container_for_backend(backend_type: str):
     if backend_type == "postgres":
         return PostgresContainer(
-            image="postgres:16-alpine",
+            image="postgres:18-alpine",
             port=5432,
             username="postgres",
             password="password",
@@ -57,11 +57,11 @@ def core(
     from lightcurvedb.models.band import Band
     from lightcurvedb.simulation.fluxes import generate_fluxes_fixed_source
     from lightcurvedb.simulation.sources import create_fixed_sources
-    from lightcurvedb.storage import get_storage
+    from lightcurvedb.config import Settings
+    from lightcurvedb.storage.postgres.backend import postgres_backend
 
     async def setup_and_simulate():
-        async with get_storage() as backend:
-            await backend.create_schema()
+        async with postgres_backend(Settings()) as backend:
             logger.info(f"Schema created for {backend_type}")
 
             # Create bands

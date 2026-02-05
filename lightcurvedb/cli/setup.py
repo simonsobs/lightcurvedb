@@ -7,7 +7,7 @@ import asyncio
 from loguru import logger
 
 from lightcurvedb.config import Settings
-from lightcurvedb.storage import get_storage
+from asyncio import sleep
 
 
 async def setup_database():
@@ -16,10 +16,11 @@ async def setup_database():
     logger.info(f"Setting up database with backend: {settings.backend_type}")
     logger.info(f"Database URL: {settings.database_url}")
 
-    async with get_storage(settings) as backend:
-        logger.info("Creating schema...")
-        await backend.create_schema()
-        logger.success("Schema created successfully!")
+    if settings.backend_type == "postgres":
+        from lightcurvedb.storage.postgres.backend import postgres_backend
+        with postgres_backend(settings) as _:
+            # Backend 'auto' sets up.
+            await sleep(0.1)
 
 
 def main():
