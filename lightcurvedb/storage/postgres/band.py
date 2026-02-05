@@ -6,6 +6,7 @@ from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 
 from lightcurvedb.models.band import Band
+from lightcurvedb.storage.base.schema import BANDS_TABLE
 from lightcurvedb.storage.prototype.band import ProvidesBandStorage
 
 
@@ -16,6 +17,10 @@ class PostgresBandStorage(ProvidesBandStorage):
 
     def __init__(self, conn: AsyncConnection):
         self.conn = conn
+
+    async def setup(self) -> None:
+        async with self.conn.cursor() as cur:
+            await cur.execute(BANDS_TABLE)
 
     async def create(self, band: Band) -> Band:
         """

@@ -23,6 +23,7 @@ class Cutout(BaseModel):
 
     units: str
 
+    source_id: int | None = None
     band_name: str | None = None
     flux_id: int | None = None
 
@@ -33,6 +34,9 @@ class CutoutTable(SQLModel, Cutout, table=True):
 
     band_name: str | None = Field(default=None, foreign_key="bands.name")
     band: "BandTable" = Relationship()
+
+    source_id: int | None = Field(default=None, foreign_key="sources.id")
+    source: "SourceTable" = Relationship()
 
     flux_id: int = Field()
     flux: "FluxMeasurementTable" = Relationship()

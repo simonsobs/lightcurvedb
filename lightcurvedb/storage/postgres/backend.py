@@ -2,35 +2,37 @@
 PostgreSQL storage backend.
 """
 
+from contextlib import asynccontextmanager
+from typing import AsyncIterator
+
 from psycopg import AsyncConnection
 
-from lightcurvedb.config import settings
-from lightcurvedb.storage.base.schema import BANDS_TABLE, SOURCES_TABLE
+from lightcurvedb.config import Settings
 from lightcurvedb.storage.postgres.band import PostgresBandStorage
+from lightcurvedb.storage.postgres.cutout import PostgresCutoutStorage
 from lightcurvedb.storage.postgres.flux import PostgresFluxMeasurementStorage
-from lightcurvedb.storage.postgres.schema import (
-    FLUX_INDEXES,
-    FLUX_MEASUREMENTS_TABLE,
-    generate_flux_partitions,
-)
 from lightcurvedb.storage.postgres.source import PostgresSourceStorage
+from lightcurvedb.storage.prototype.backend import Backend
 
 
-class PostgresBackend:
-    def __init__(self, conn: AsyncConnection):
-        self.conn = conn
-        self.sources = PostgresSourceStorage(conn)
-        self.bands = PostgresBandStorage(conn)
-        self.fluxes = PostgresFluxMeasurementStorage(conn)
-        self.partition_count = settings.postgres_partition_count
+async def generate_postgres_backend(conn: AsyncConnection) -> Backend:
+    backend = Backend(
+        sources=PostgresSourceStorage(conn),
+        bands=PostgresBandStorage(conn),
+        fluxes=PostgresFluxMeasurementStorage(conn),
+        cutouts=PostgresCutoutStorage(conn),
+    )
 
-    async def create_schema(self) -> None:
-        async with self.conn.cursor() as cur:
-            await cur.execute(SOURCES_TABLE)
-            await cur.execute(BANDS_TABLE)
-            await cur.execute(FLUX_MEASUREMENTS_TABLE)
-            partitions_sql = generate_flux_partitions(self.partition_count)
-            await cur.execute(partitions_sql)
-            await cur.execute(FLUX_INDEXES)
+    await backend.setup()
 
-        await self.conn.commit()
+    return backend
+
+
+@asynccontextmanager
+async def postgres_backend(settings: Settings) -> AsyncIterator[Backend]:
+    """
+    Get a PostgreSQL storage backend.
+    """
+    async with await AsyncConnection.connect(settings.database_url) as conn:
+        backend = await generate_postgres_backend(conn)
+        yield backend

@@ -9,6 +9,11 @@ from lightcurvedb.models.responses import LightcurveBandData, SourceStatistics
 
 
 class ProvidesFluxMeasurementStorage(Protocol):
+    async def setup(self) -> None:
+        """
+        Set up the flux storage system (e.g. create the tables).
+        """
+
     async def create(self, measurement: FluxMeasurementCreate) -> FluxMeasurement:
         """
         Insert single measurement.

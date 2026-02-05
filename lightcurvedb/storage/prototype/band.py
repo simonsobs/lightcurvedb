@@ -4,6 +4,11 @@ from lightcurvedb.models import Band
 
 
 class ProvidesBandStorage(Protocol):
+    async def setup(self) -> None:
+        """
+        Set up the band storage system (e.g. create the tables).
+        """
+
     async def create(self, band: Band) -> Band:
         """
         Create a single band in the storage system.

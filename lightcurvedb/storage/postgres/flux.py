@@ -5,6 +5,7 @@ PostgreSQL implementation of FluxMeasurementStorage protocol.
 import json
 from datetime import datetime
 
+import psycopg
 from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 
@@ -14,6 +15,7 @@ from lightcurvedb.models.flux import (
     MeasurementMetadata,
 )
 from lightcurvedb.models.responses import LightcurveBandData, SourceStatistics
+from lightcurvedb.storage.postgres.schema import FLUX_INDEXES, FLUX_MEASUREMENTS_TABLE
 from lightcurvedb.storage.prototype.flux import ProvidesFluxMeasurementStorage
 
 
@@ -24,6 +26,11 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
 
     def __init__(self, conn: AsyncConnection):
         self.conn = conn
+
+    async def setup(self) -> None:
+        async with self.conn.cursor() as cur:
+            await cur.execute(FLUX_MEASUREMENTS_TABLE)
+            await cur.execute(FLUX_INDEXES)
 
     async def create(self, measurement: FluxMeasurementCreate) -> FluxMeasurement:
         """
@@ -126,13 +133,13 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
                 FROM flux_measurements
                 ORDER BY time
             ) t
-            WHERE {' AND '.join(where_clauses)}
+            WHERE {" AND ".join(where_clauses)}
         """
 
         async with self.conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(query, params)
             row = await cur.fetchone()
-            return LightcurveBandData(**row)
+            return LightcurveBandData(source_id=source_id, band_name=band_name, **row)
 
     async def get_statistics(
         self,
@@ -173,7 +180,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
                 MIN(time) as start_time,
                 MAX(time) as end_time
             FROM flux_measurements
-            WHERE {' AND '.join(where_clauses)}
+            WHERE {" AND ".join(where_clauses)}
         """
 
         async with self.conn.cursor(row_factory=dict_row) as cur:
@@ -235,5 +242,18 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
             await cur.execute(
                 query, {"source_id": source_id, "band_name": band_name, "limit": limit}
             )
-            row = await cur.fetchone()
-            return LightcurveBandData(**row)
+            try:
+                row = await cur.fetchone()
+            except psycopg.ProgrammingError:
+                # No data found
+                row = {
+                    "ids": [],
+                    "times": [],
+                    "ra": [],
+                    "dec": [],
+                    "ra_uncertainty": [],
+                    "dec_uncertainty": [],
+                    "i_flux": [],
+                    "i_uncertainty": [],
+                }
+            return LightcurveBandData(source_id=source_id, band_name=band_name, **row)

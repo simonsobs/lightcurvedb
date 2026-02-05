@@ -4,6 +4,11 @@ from lightcurvedb.models import Source, SourceCreate
 
 
 class ProvidesSourceStorage(Protocol):
+    async def setup(self) -> None:
+        """
+        Set up the source storage system (e.g. create the tables).
+        """
+
     async def create(self, source: SourceCreate) -> int:
         """
         Create a new source and return its ID.
