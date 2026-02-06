@@ -25,7 +25,7 @@ async def band_add(band: Band, backend: FluxStorageBackend) -> str:
     Add a band to the system.
     """
     created = await backend.bands.create(band)
-    return created.name
+    return created.band_name
 
 
 async def band_delete(name: str, backend: FluxStorageBackend) -> None:

@@ -25,7 +25,7 @@ async def measurement_flux_add(
     Add a flux measurement.
     """
     created = await backend.fluxes.create(measurement)
-    return created.id
+    return created.flux_id
 
 
 async def measurement_flux_delete(id: int, backend: FluxStorageBackend) -> None:

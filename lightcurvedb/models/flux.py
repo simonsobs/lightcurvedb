@@ -35,4 +35,4 @@ class FluxMeasurement(FluxMeasurementCreate):
     Flux measurement domain model.
     """
 
-    id: int | None = None
+    flux_id: int | None = None

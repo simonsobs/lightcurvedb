@@ -27,9 +27,9 @@ class PostgresBandStorage(ProvidesBandStorage):
         Create a band.
         """
         query = """
-            INSERT INTO bands (name, telescope, instrument, frequency)
-            VALUES (%(name)s, %(telescope)s, %(instrument)s, %(frequency)s)
-            RETURNING name, telescope, instrument, frequency
+            INSERT INTO bands (band_name, telescope, instrument, frequency)
+            VALUES (%(band_name)s, %(telescope)s, %(instrument)s, %(frequency)s)
+            RETURNING band_name, telescope, instrument, frequency
         """
 
         params = band.model_dump()
@@ -44,9 +44,9 @@ class PostgresBandStorage(ProvidesBandStorage):
         Bulk insert bands.
         """
         query = """
-            INSERT INTO bands (name, telescope, instrument, frequency)
-            VALUES (%(name)s, %(telescope)s, %(instrument)s, %(frequency)s)
-            ON CONFLICT (name) DO NOTHING
+            INSERT INTO bands (band_name, telescope, instrument, frequency)
+            VALUES (%(band_name)s, %(telescope)s, %(instrument)s, %(frequency)s)
+            ON CONFLICT (band_name) DO NOTHING
         """
 
         params_list = [b.model_dump() for b in bands]
@@ -59,9 +59,9 @@ class PostgresBandStorage(ProvidesBandStorage):
     async def get(self, band_name: str) -> Band:
         """Get band by name."""
         query = """
-            SELECT name, telescope, instrument, frequency
+            SELECT band_name, telescope, instrument, frequency
             FROM bands
-            WHERE name = %(band_name)s
+            WHERE band_name = %(band_name)s
         """
 
         async with self.conn.cursor(row_factory=dict_row) as cur:
@@ -78,9 +78,9 @@ class PostgresBandStorage(ProvidesBandStorage):
     async def get_all(self) -> list[Band]:
         """Get all bands."""
         query = """
-            SELECT name, telescope, instrument, frequency
+            SELECT band_name, telescope, instrument, frequency
             FROM bands
-            ORDER BY name
+            ORDER BY band_name
         """
 
         async with self.conn.cursor(row_factory=dict_row) as cur:
@@ -100,7 +100,7 @@ class PostgresBandStorage(ProvidesBandStorage):
 
             raise BandNotFoundException(f"Band {band_name} not found")
 
-        query = "DELETE FROM bands WHERE name = %(band_name)s"
+        query = "DELETE FROM bands WHERE band_name = %(band_name)s"
 
         async with self.conn.cursor() as cur:
             await cur.execute(query, {"band_name": band_name})

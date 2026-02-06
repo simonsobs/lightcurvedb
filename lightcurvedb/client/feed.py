@@ -39,7 +39,7 @@ async def feed_read(
             source_id, band_name, limit=30
         )
 
-        if not measurements.ids or len(measurements.ids) <= 1:
+        if len(measurements) <= 1:
             continue
 
         source = await backend.sources.get(source_id)

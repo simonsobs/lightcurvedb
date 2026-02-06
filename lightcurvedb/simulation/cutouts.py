@@ -46,7 +46,7 @@ def create_cutout(
 ):
     cutout = create_cutout_core(nside, flux.i_flux, flux.i_uncertainty)
 
-    if flux.id is None:
+    if flux.flux_id is None:
         raise ValueError("FluxMeasurement must have an ID to create a cutout.")
 
     return Cutout(
@@ -55,5 +55,5 @@ def create_cutout(
         units="mJy",
         source_id=flux.source_id,
         band_name=flux.band_name,
-        flux_id=flux.id,
+        flux_id=flux.flux_id,
     )

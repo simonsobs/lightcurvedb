@@ -67,7 +67,7 @@ def core(
             # Create bands
             bands_data = [
                 Band(
-                    name=f"f{band_frequency:03d}",
+                    band_name=f"f{band_frequency:03d}",
                     frequency=float(band_frequency),
                     instrument="LATR",
                     telescope="SOLAT",

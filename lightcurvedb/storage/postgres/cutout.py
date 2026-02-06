@@ -34,7 +34,7 @@ class PostgresCutoutStorage(ProvidesCutoutStorage):
             INSERT INTO cutouts (source_id, flux_id, band_name, cutout_data,
             time, units) VALUES (%(source_id)s, %(flux_id)s, %(band_name)s,
             %(data)s, %(time)s, %(units)s)
-            RETURNING id
+            RETURNING cutout_id
         """
         params = cutout.model_dump()
 
@@ -51,7 +51,7 @@ class PostgresCutoutStorage(ProvidesCutoutStorage):
             INSERT INTO cutouts (source_id, flux_id, band_name, cutout_data,
             time, units) VALUES (%(source_id)s, %(flux_id)s, %(band_name)s,
             %(data)s, %(time)s, %(units)s)
-            RETURNING id
+            RETURNING cutout_id
         """
         params_list = [c.model_dump() for c in cutouts]
 
@@ -65,7 +65,7 @@ class PostgresCutoutStorage(ProvidesCutoutStorage):
         Retrieve a cutout for a given source and band.
         """
         query = """
-            SELECT id, source_id, flux_id, band_name, cutout_data as data, time, units
+            SELECT cutout_id, source_id, flux_id, band_name, cutout_data as data, time, units
             FROM cutouts
             WHERE source_id = %(source_id)s AND flux_id = %(flux_id)s
         """
@@ -86,7 +86,7 @@ class PostgresCutoutStorage(ProvidesCutoutStorage):
         Retrieve cutouts for a given source.
         """
         query = """
-            SELECT id, source_id, flux_id, band_name, cutout_data as data, time, units
+            SELECT cutout_id, source_id, flux_id, band_name, cutout_data as data, time, units
             FROM cutouts
             WHERE source_id = %(source_id)s
         """
@@ -107,7 +107,7 @@ class PostgresCutoutStorage(ProvidesCutoutStorage):
         """
         query = """
             DELETE FROM cutouts
-            WHERE id = %(cutout_id)s
+            WHERE cutout_id = %(cutout_id)s
         """
 
         async with self.conn.cursor() as cur:

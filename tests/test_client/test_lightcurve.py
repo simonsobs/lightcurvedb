@@ -14,7 +14,7 @@ async def test_lightcurve_read_source(backend, setup_test_data):
     source_ids = setup_test_data
     for source_id in random.choices(source_ids, k=4):
         result = await lightcurve_read_source(id=source_id, backend=backend)
-        assert result.source.id == source_id
+        assert result.source.source_id == source_id
         assert len(result.bands) > 0
 
 
@@ -30,6 +30,6 @@ async def test_lightcurve_read_band(backend, setup_test_data):
         id=source_id, band_name=band_name, backend=backend
     )
 
-    assert result.source.id == source_id
-    assert result.band.name == band_name
-    assert len(result.ids) > 0
+    assert result.source.source_id == source_id
+    assert result.band.band_name == band_name
+    assert len(result) > 0

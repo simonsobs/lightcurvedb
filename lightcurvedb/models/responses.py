@@ -19,7 +19,7 @@ class LightcurveBandData(BaseModel):
     band_name: str
     source_id: int
 
-    ids: list[int]
+    flux_ids: list[int]
     times: list[datetime]
     ra: list[float]
     dec: list[float]
@@ -29,9 +29,9 @@ class LightcurveBandData(BaseModel):
     i_uncertainty: list[float | None]
 
     def __iter__(self):
-        for i in range(len(self.ids)):
+        for i in range(len(self.flux_ids)):
             yield FluxMeasurement(
-                id=self.ids[i],
+                flux_id=self.flux_ids[i],
                 time=self.times[i],
                 ra=self.ra[i],
                 dec=self.dec[i],
@@ -44,11 +44,11 @@ class LightcurveBandData(BaseModel):
             )
 
     def __len__(self):
-        return len(self.ids)
+        return len(self.flux_ids)
 
     def __getitem__(self, index: int) -> FluxMeasurement:
         return FluxMeasurement(
-            id=self.ids[index],
+            flux_id=self.flux_ids[index],
             time=self.times[index],
             ra=self.ra[index],
             dec=self.dec[index],

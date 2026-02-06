@@ -54,7 +54,7 @@ async def setup_test_data(backend: Backend):
 
     test_bands = [
         Band(
-            name=f"f{band_frequency:03d}",
+            band_name=f"f{band_frequency:03d}",
             frequency=float(band_frequency),
             instrument="LATR",
             telescope="SOLAT",
@@ -88,7 +88,7 @@ async def setup_test_data(backend: Backend):
             source_id=source_ids[0], limit=1024, band_name=band_name
         )
 
-        if not fluxes.ids:
+        if len(fluxes) == 0:
             continue
 
         cutouts = [sim_cutouts.create_cutout(nside=32, flux=flux) for flux in fluxes]

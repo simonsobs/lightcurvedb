@@ -125,8 +125,8 @@ async def generate_fluxes_fixed_source(
 
         measurements = [
             FluxMeasurementCreate(
-                band_name=band.name,
-                source_id=source.id,
+                band_name=band.band_name,
+                source_id=source.source_id,
                 time=times[i],
                 ra=source.ra,
                 dec=source.dec,

@@ -25,7 +25,7 @@ async def test_band_read_all(backend):
 @pytest.mark.asyncio(loop_scope="session")
 async def test_band_creation_deletion_flow(backend):
     band = Band(
-        name="test_band",
+        band_name="test_band",
         telescope="hubble",
         instrument="hypersupremecam",
         frequency=9.99,
@@ -33,17 +33,17 @@ async def test_band_creation_deletion_flow(backend):
 
     # Add band
     band_name = await band_add(band=band, backend=backend)
-    assert band_name == band.name
+    assert band_name == band.band_name
 
     # Read band back
-    read_band = await band_read(band.name, backend=backend)
-    assert read_band.name == band.name
+    read_band = await band_read(band.band_name, backend=backend)
+    assert read_band.band_name == band.band_name
     assert read_band.telescope == band.telescope
     assert read_band.instrument == band.instrument
     assert read_band.frequency == band.frequency
 
     # Delete band
-    await band_delete(name=band.name, backend=backend)
+    await band_delete(name=band.band_name, backend=backend)
 
     with pytest.raises(BandNotFoundException):
-        await band_read(name=band.name, backend=backend)
+        await band_read(name=band.band_name, backend=backend)

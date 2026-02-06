@@ -109,7 +109,7 @@ async def source_add(source: Source, backend: FluxStorageBackend) -> int:
     Add a source, returning its primary key.
     """
     created = await backend.sources.create(source)
-    return created.id
+    return created.source_id
 
 
 async def source_delete(id: int, backend: FluxStorageBackend) -> None:

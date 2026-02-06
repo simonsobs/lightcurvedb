@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 
 class Band(BaseModel):
-    name: str
+    band_name: str
     telescope: str
     instrument: str
     frequency: float

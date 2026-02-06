@@ -47,7 +47,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
                 %(ra_uncertainty)s, %(dec_uncertainty)s,
                 %(i_flux)s, %(i_uncertainty)s, %(extra)s
             )
-            RETURNING id, band_name, source_id, time, ra, dec,
+            RETURNING flux_id, band_name, source_id, time, ra, dec,
                       ra_uncertainty, dec_uncertainty, i_flux, i_uncertainty, extra
         """
 
@@ -120,7 +120,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
 
         query = f"""
             SELECT
-                COALESCE(ARRAY_AGG(id), ARRAY[]::INTEGER[]) AS ids,
+                COALESCE(ARRAY_AGG(flux_id), ARRAY[]::INTEGER[]) AS flux_ids,
                 COALESCE(ARRAY_AGG(time), ARRAY[]::TIMESTAMPTZ[]) AS times,
                 COALESCE(ARRAY_AGG(ra), ARRAY[]::REAL[]) AS ra,
                 COALESCE(ARRAY_AGG(dec), ARRAY[]::REAL[]) AS dec,
@@ -188,14 +188,14 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
             row = await cur.fetchone()
             return SourceStatistics(**row)
 
-    async def delete(self, id: int) -> None:
+    async def delete(self, flux_id: int) -> None:
         """
         Delete a flux measurement by ID.
         """
-        query = "DELETE FROM flux_measurements WHERE id = %(id)s"
+        query = "DELETE FROM flux_measurements WHERE flux_id = %(flux_id)s"
 
         async with self.conn.cursor() as cur:
-            await cur.execute(query, {"id": id})
+            await cur.execute(query, {"flux_id": flux_id})
 
     async def get_bands_for_source(self, source_id: int) -> list[str]:
         """
@@ -220,7 +220,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
         """
         query = """
             SELECT
-                COALESCE(ARRAY_AGG(id), ARRAY[]::INTEGER[]) AS ids,
+                COALESCE(ARRAY_AGG(flux_id), ARRAY[]::INTEGER[]) AS flux_ids,
                 COALESCE(ARRAY_AGG(time), ARRAY[]::TIMESTAMPTZ[]) AS times,
                 COALESCE(ARRAY_AGG(ra), ARRAY[]::REAL[]) AS ra,
                 COALESCE(ARRAY_AGG(dec), ARRAY[]::REAL[]) AS dec,
@@ -247,7 +247,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
             except psycopg.ProgrammingError:
                 # No data found
                 row = {
-                    "ids": [],
+                    "flux_ids": [],
                     "times": [],
                     "ra": [],
                     "dec": [],

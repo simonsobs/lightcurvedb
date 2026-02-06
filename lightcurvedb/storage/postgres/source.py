@@ -29,17 +29,17 @@ class PostgresSourceStorage(ProvidesSourceStorage):
         Create a source.
         """
 
-        if hasattr(source, "id") and source.id is not None:
+        if hasattr(source, "source_id") and source.source_id is not None:
             query = """
-                INSERT INTO sources (id, name, ra, dec, variable, extra)
-                VALUES (%(id)s, %(name)s, %(ra)s, %(dec)s, %(variable)s, %(extra)s)
-                RETURNING id, name, ra, dec, variable, extra
+                INSERT INTO sources (source_id, name, ra, dec, variable, extra)
+                VALUES (%(source_id)s, %(name)s, %(ra)s, %(dec)s, %(variable)s, %(extra)s)
+                RETURNING source_id, name, ra, dec, variable, extra
             """
         else:
             query = """
                 INSERT INTO sources (name, ra, dec, variable, extra)
                 VALUES (%(name)s, %(ra)s, %(dec)s, %(variable)s, %(extra)s)
-                RETURNING id, name, ra, dec, variable, extra
+                RETURNING source_id, name, ra, dec, variable, extra
             """
 
         params = source.model_dump()
@@ -62,7 +62,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
         query = """
             INSERT INTO sources (name, ra, dec, variable, extra)
             VALUES (%(name)s, %(ra)s, %(dec)s, %(variable)s, %(extra)s)
-            RETURNING id
+            RETURNING source_id
         """
 
         params_list = []
@@ -86,9 +86,9 @@ class PostgresSourceStorage(ProvidesSourceStorage):
         Get source by ID.
         """
         query = """
-            SELECT id, name, ra, dec, variable, extra
+            SELECT source_id, name, ra, dec, variable, extra
             FROM sources
-            WHERE id = %(source_id)s
+            WHERE source_id = %(source_id)s
         """
 
         async with self.conn.cursor(row_factory=dict_row) as cur:
@@ -108,9 +108,9 @@ class PostgresSourceStorage(ProvidesSourceStorage):
     async def get_all(self) -> list[Source]:
         """Get all sources."""
         query = """
-            SELECT id, name, ra, dec, variable, extra
+            SELECT source_id, name, ra, dec, variable, extra
             FROM sources
-            ORDER BY id
+            ORDER BY source_id
         """
 
         async with self.conn.cursor(row_factory=dict_row) as cur:
@@ -137,7 +137,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
 
             raise SourceNotFoundException(f"Source {source_id} not found")
 
-        query = "DELETE FROM sources WHERE id = %(source_id)s"
+        query = "DELETE FROM sources WHERE source_id = %(source_id)s"
 
         async with self.conn.cursor() as cur:
             await cur.execute(query, {"source_id": source_id})
@@ -149,7 +149,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
         Get all sources within rectangular RA/Dec bounds.
         """
         query = """
-            SELECT id, name, ra, dec, variable, extra
+            SELECT source_id, name, ra, dec, variable, extra
             FROM sources
             WHERE ra > %(ra_min)s
               AND ra < %(ra_max)s

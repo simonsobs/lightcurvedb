@@ -36,12 +36,12 @@ async def test_read_all_sources(backend):
 @pytest.mark.asyncio(loop_scope="session")
 async def test_source_read_summary(backend):
     all_sources = await backend.sources.get_all()
-    source_ids = [s.id for s in all_sources]
+    source_ids = [s.source_id for s in all_sources]
 
     for source_id in random.choices(source_ids, k=4):
         source_summary = await source_read_summary(id=source_id, backend=backend)
 
-        assert source_summary.source.id == source_id
+        assert source_summary.source.source_id == source_id
         assert len(source_summary.bands) > 0
         assert source_summary.measurements[0].end > source_summary.measurements[0].start
         assert source_summary.measurements[0].count > 0
