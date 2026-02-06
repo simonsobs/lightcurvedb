@@ -6,9 +6,9 @@ import json
 from collections import defaultdict
 
 from psycopg import AsyncConnection
-from psycopg.rows import dict_row
+from psycopg.rows import class_row
 
-from lightcurvedb.models.source import Source, SourceCreate, SourceMetadata
+from lightcurvedb.models.source import Source, SourceCreate
 from lightcurvedb.storage.base.schema import SOURCES_TABLE
 from lightcurvedb.storage.prototype.source import ProvidesSourceStorage
 
@@ -41,11 +41,11 @@ class PostgresSourceStorage(ProvidesSourceStorage):
         if params["extra"] is not None:
             params["extra"] = json.dumps(params["extra"])
 
-        async with self.conn.cursor(row_factory=dict_row) as cur:
+        async with self.conn.cursor() as cur:
             await cur.execute(query, params)
             row = await cur.fetchone()
 
-        return row["source_id"]
+        return row[0]
 
     async def create_batch(self, sources: list[SourceCreate]) -> list[int]:
         """
@@ -90,7 +90,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
             WHERE source_id = %(source_id)s
         """
 
-        async with self.conn.cursor(row_factory=dict_row) as cur:
+        async with self.conn.cursor(row_factory=class_row(Source)) as cur:
             await cur.execute(query, {"source_id": source_id})
             row = await cur.fetchone()
 
@@ -99,10 +99,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
 
                 raise SourceNotFoundException(f"Source {source_id} not found")
 
-            if row["extra"]:
-                row["extra"] = SourceMetadata(**row["extra"])
-
-            return Source(**row)
+            return row
 
     async def get_by_socat_id(self, socat_id: int) -> Source:
         """
@@ -114,7 +111,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
             WHERE (extra->>'socat_id')::int = %(socat_id)s
         """
 
-        async with self.conn.cursor(row_factory=dict_row) as cur:
+        async with self.conn.cursor(row_factory=class_row(Source)) as cur:
             await cur.execute(query, {"socat_id": socat_id})
             row = await cur.fetchone()
 
@@ -125,10 +122,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
                     f"Source with SOcat ID {socat_id} not found"
                 )
 
-            if row["extra"]:
-                row["extra"] = SourceMetadata(**row["extra"])
-
-            return Source(**row)
+            return row
 
     async def get_all(self) -> list[Source]:
         """Get all sources."""
@@ -138,17 +132,10 @@ class PostgresSourceStorage(ProvidesSourceStorage):
             ORDER BY source_id
         """
 
-        async with self.conn.cursor(row_factory=dict_row) as cur:
+        async with self.conn.cursor(row_factory=class_row(Source)) as cur:
             await cur.execute(query)
             rows = await cur.fetchall()
-
-            sources = []
-            for row in rows:
-                if row["extra"]:
-                    row["extra"] = SourceMetadata(**row["extra"])
-                sources.append(Source(**row))
-
-            return sources
+            return rows
 
     async def delete(self, source_id: int) -> None:
         """
@@ -189,14 +176,8 @@ class PostgresSourceStorage(ProvidesSourceStorage):
             "dec_max": dec_max,
         }
 
-        async with self.conn.cursor(row_factory=dict_row) as cur:
+        async with self.conn.cursor(row_factory=class_row(Source)) as cur:
             await cur.execute(query, params)
             rows = await cur.fetchall()
 
-            sources = []
-            for row in rows:
-                if row["extra"]:
-                    row["extra"] = SourceMetadata(**row["extra"])
-                sources.append(Source(**row))
-
-            return sources
+            return rows

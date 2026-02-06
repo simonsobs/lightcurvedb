@@ -5,7 +5,7 @@ PostgreSQL implementation of BandStorage protocol.
 from collections import defaultdict
 
 from psycopg import AsyncConnection
-from psycopg.rows import dict_row
+from psycopg.rows import class_row
 
 from lightcurvedb.models.band import Band
 from lightcurvedb.storage.base.schema import BANDS_TABLE
@@ -36,10 +36,10 @@ class PostgresBandStorage(ProvidesBandStorage):
 
         params = band.model_dump()
 
-        async with self.conn.cursor(row_factory=dict_row) as cur:
+        async with self.conn.cursor() as cur:
             await cur.execute(query, params)
             row = await cur.fetchone()
-            return row["band_name"]
+            return row[0]
 
     async def create_batch(self, bands: list[Band]) -> int:
         """
@@ -80,7 +80,7 @@ class PostgresBandStorage(ProvidesBandStorage):
             WHERE band_name = %(band_name)s
         """
 
-        async with self.conn.cursor(row_factory=dict_row) as cur:
+        async with self.conn.cursor(row_factory=class_row(Band)) as cur:
             await cur.execute(query, {"band_name": band_name})
             row = await cur.fetchone()
 
@@ -89,7 +89,7 @@ class PostgresBandStorage(ProvidesBandStorage):
 
                 raise BandNotFoundException(f"Band {band_name} not found")
 
-            return Band(**row)
+            return row
 
     async def get_all(self) -> list[Band]:
         """Get all bands."""
@@ -99,10 +99,10 @@ class PostgresBandStorage(ProvidesBandStorage):
             ORDER BY band_name
         """
 
-        async with self.conn.cursor(row_factory=dict_row) as cur:
+        async with self.conn.cursor(row_factory=class_row(Band)) as cur:
             await cur.execute(query)
             rows = await cur.fetchall()
-            return [Band(**row) for row in rows]
+            return rows
 
     async def delete(self, band_name: str) -> None:
         """

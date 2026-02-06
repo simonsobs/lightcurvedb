@@ -3,7 +3,7 @@ Store cutouts directly in a postgres array.
 """
 
 from psycopg import AsyncConnection
-from psycopg.rows import dict_row
+from psycopg.rows import class_row
 
 from lightcurvedb.models import Cutout
 from lightcurvedb.storage.postgres.schema import CUTOUT_INDEXES, CUTOUT_SCHEMA
@@ -73,7 +73,7 @@ class PostgresCutoutStorage(ProvidesCutoutStorage):
             WHERE source_id = %(source_id)s AND flux_id = %(flux_id)s
         """
 
-        async with self.conn.cursor(row_factory=dict_row) as cur:
+        async with self.conn.cursor(row_factory=class_row(Cutout)) as cur:
             await cur.execute(
                 query,
                 {
@@ -82,7 +82,7 @@ class PostgresCutoutStorage(ProvidesCutoutStorage):
                 },
             )
             row = await cur.fetchone()
-            return Cutout(**row)
+            return row
 
     async def retrieve_cutouts_for_source(self, source_id: int) -> list[Cutout]:
         """
@@ -94,7 +94,7 @@ class PostgresCutoutStorage(ProvidesCutoutStorage):
             WHERE source_id = %(source_id)s
         """
 
-        async with self.conn.cursor(row_factory=dict_row) as cur:
+        async with self.conn.cursor(row_factory=class_row(Cutout)) as cur:
             await cur.execute(
                 query,
                 {
@@ -102,7 +102,7 @@ class PostgresCutoutStorage(ProvidesCutoutStorage):
                 },
             )
             rows = await cur.fetchall()
-            return [Cutout(**row) for row in rows]
+            return rows
 
     async def delete(self, flux_id: int) -> None:
         """

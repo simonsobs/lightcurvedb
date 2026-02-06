@@ -6,14 +6,11 @@ import json
 from collections import defaultdict
 from datetime import datetime
 
-import psycopg
 from psycopg import AsyncConnection
-from psycopg.rows import dict_row
+from psycopg.rows import class_row
 
 from lightcurvedb.models.flux import (
-    FluxMeasurement,
     FluxMeasurementCreate,
-    MeasurementMetadata,
 )
 from lightcurvedb.models.responses import LightcurveBandData, SourceStatistics
 from lightcurvedb.storage.postgres.schema import FLUX_INDEXES, FLUX_MEASUREMENTS_TABLE
@@ -33,7 +30,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
             await cur.execute(FLUX_MEASUREMENTS_TABLE)
             await cur.execute(FLUX_INDEXES)
 
-    async def create(self, measurement: FluxMeasurementCreate) -> FluxMeasurement:
+    async def create(self, measurement: FluxMeasurementCreate) -> int:
         """
         Insert single measurement.
         """
@@ -48,8 +45,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
                 %(ra_uncertainty)s, %(dec_uncertainty)s,
                 %(i_flux)s, %(i_uncertainty)s, %(extra)s
             )
-            RETURNING flux_id, band_name, source_id, time, ra, dec,
-                      ra_uncertainty, dec_uncertainty, i_flux, i_uncertainty, extra
+            RETURNING flux_id
         """
 
         params = measurement.model_dump()
@@ -57,14 +53,10 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
         if params["extra"] is not None:
             params["extra"] = json.dumps(params["extra"])
 
-        async with self.conn.cursor(row_factory=dict_row) as cur:
+        async with self.conn.cursor() as cur:
             await cur.execute(query, params)
             row = await cur.fetchone()
-
-            if row["extra"]:
-                row["extra"] = MeasurementMetadata(**row["extra"])
-
-            return FluxMeasurement(**row)
+            return row[0]
 
     async def create_batch(
         self, measurements: list[FluxMeasurementCreate]
@@ -133,6 +125,8 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
 
         query = f"""
             SELECT
+                %(source_id)s AS source_id,
+                %(band_name)s AS band_name,
                 COALESCE(ARRAY_AGG(flux_id), ARRAY[]::INTEGER[]) AS flux_ids,
                 COALESCE(ARRAY_AGG(time), ARRAY[]::TIMESTAMPTZ[]) AS times,
                 COALESCE(ARRAY_AGG(ra), ARRAY[]::REAL[]) AS ra,
@@ -149,10 +143,10 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
             WHERE {" AND ".join(where_clauses)}
         """
 
-        async with self.conn.cursor(row_factory=dict_row) as cur:
+        async with self.conn.cursor(row_factory=class_row(LightcurveBandData)) as cur:
             await cur.execute(query, params)
             row = await cur.fetchone()
-            return LightcurveBandData(source_id=source_id, band_name=band_name, **row)
+            return row
 
     async def get_statistics(
         self,
@@ -196,10 +190,10 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
             WHERE {" AND ".join(where_clauses)}
         """
 
-        async with self.conn.cursor(row_factory=dict_row) as cur:
+        async with self.conn.cursor(row_factory=class_row(SourceStatistics)) as cur:
             await cur.execute(query, params)
             row = await cur.fetchone()
-            return SourceStatistics(**row)
+            return row
 
     async def delete(self, flux_id: int) -> None:
         """
@@ -233,6 +227,8 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
         """
         query = """
             SELECT
+                %(source_id)s AS source_id,
+                %(band_name)s AS band_name,
                 COALESCE(ARRAY_AGG(flux_id), ARRAY[]::INTEGER[]) AS flux_ids,
                 COALESCE(ARRAY_AGG(time), ARRAY[]::TIMESTAMPTZ[]) AS times,
                 COALESCE(ARRAY_AGG(ra), ARRAY[]::REAL[]) AS ra,
@@ -251,22 +247,9 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
             ) subquery;
         """
 
-        async with self.conn.cursor(row_factory=dict_row) as cur:
+        async with self.conn.cursor(row_factory=class_row(LightcurveBandData)) as cur:
             await cur.execute(
                 query, {"source_id": source_id, "band_name": band_name, "limit": limit}
             )
-            try:
-                row = await cur.fetchone()
-            except psycopg.ProgrammingError:
-                # No data found
-                row = {
-                    "flux_ids": [],
-                    "times": [],
-                    "ra": [],
-                    "dec": [],
-                    "ra_uncertainty": [],
-                    "dec_uncertainty": [],
-                    "i_flux": [],
-                    "i_uncertainty": [],
-                }
-            return LightcurveBandData(source_id=source_id, band_name=band_name, **row)
+            row = await cur.fetchone()
+            return row
