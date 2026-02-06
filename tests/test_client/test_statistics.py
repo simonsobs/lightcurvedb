@@ -49,7 +49,10 @@ async def test_weighted_statistics(backend):
 
     # Get statistics
     stats = await backend.fluxes.get_statistics(
-        source_id=source.id, band_name="test-weighted"
+        source_id=source.id,
+        band_name="test-weighted",
+        start_time=base_time,
+        end_time=base_time + datetime.timedelta(days=10),
     )
 
     assert stats.measurement_count == 5

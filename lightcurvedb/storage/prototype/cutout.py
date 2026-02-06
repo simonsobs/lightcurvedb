@@ -32,7 +32,7 @@ class ProvidesCutoutStorage(Protocol):
         """
         ...
 
-    async def retrieve_cutout(self, source_id: int, flux_measurement_id: int) -> Cutout:
+    async def retrieve_cutout(self, source_id: int, flux_id: int) -> Cutout:
         """
         Retrieve a cutout for a given source and band.
         """

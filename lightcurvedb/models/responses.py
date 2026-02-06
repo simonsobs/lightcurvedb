@@ -43,6 +43,23 @@ class LightcurveBandData(BaseModel):
                 source_id=self.source_id,
             )
 
+    def __len__(self):
+        return len(self.ids)
+
+    def __getitem__(self, index: int) -> FluxMeasurement:
+        return FluxMeasurement(
+            id=self.ids[index],
+            time=self.times[index],
+            ra=self.ra[index],
+            dec=self.dec[index],
+            ra_uncertainty=self.ra_uncertainty[index],
+            dec_uncertainty=self.dec_uncertainty[index],
+            i_flux=self.i_flux[index],
+            i_uncertainty=self.i_uncertainty[index],
+            band_name=self.band_name,
+            source_id=self.source_id,
+        )
+
 
 class LightcurveBandResult(LightcurveBandData):
     source: Source

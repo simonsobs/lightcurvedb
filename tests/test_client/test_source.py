@@ -73,7 +73,7 @@ async def test_read_source_fails(backend):
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_add_read_remove_source(backend):
-    source = Source(ra=2.134, dec=89.37, variable=True)
+    source = Source(ra=2.134, dec=89.37, variable=True, extra={"haha": "hoho"})
     id = await source_add(source=source, backend=backend)
 
     read_source = await source_read(id=id, backend=backend)
@@ -86,3 +86,6 @@ async def test_add_read_remove_source(backend):
 
     with pytest.raises(SourceNotFoundException):
         await source_read(id=id, backend=backend)
+
+    with pytest.raises(SourceNotFoundException):
+        await source_delete(id=id, backend=backend)
