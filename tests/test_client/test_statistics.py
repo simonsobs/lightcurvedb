@@ -34,7 +34,7 @@ async def test_weighted_statistics(backend):
     measurements = [
         FluxMeasurementCreate(
             band_name="test-weighted",
-            source_id=source.source_id,
+            source_id=source,
             time=base_time + datetime.timedelta(days=i),
             ra=150.0,
             dec=30.0,
@@ -49,7 +49,7 @@ async def test_weighted_statistics(backend):
 
     # Get statistics
     stats = await backend.fluxes.get_statistics(
-        source_id=source.source_id,
+        source_id=source,
         band_name="test-weighted",
         start_time=base_time,
         end_time=base_time + datetime.timedelta(days=10),

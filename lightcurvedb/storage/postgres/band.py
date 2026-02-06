@@ -2,6 +2,8 @@
 PostgreSQL implementation of BandStorage protocol.
 """
 
+from collections import defaultdict
+
 from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 
@@ -22,14 +24,14 @@ class PostgresBandStorage(ProvidesBandStorage):
         async with self.conn.cursor() as cur:
             await cur.execute(BANDS_TABLE)
 
-    async def create(self, band: Band) -> Band:
+    async def create(self, band: Band) -> str:
         """
         Create a band.
         """
         query = """
             INSERT INTO bands (band_name, telescope, instrument, frequency)
             VALUES (%(band_name)s, %(telescope)s, %(instrument)s, %(frequency)s)
-            RETURNING band_name, telescope, instrument, frequency
+            RETURNING band_name
         """
 
         params = band.model_dump()
@@ -37,7 +39,7 @@ class PostgresBandStorage(ProvidesBandStorage):
         async with self.conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(query, params)
             row = await cur.fetchone()
-            return Band(**row)
+            return row["band_name"]
 
     async def create_batch(self, bands: list[Band]) -> int:
         """
@@ -45,16 +47,30 @@ class PostgresBandStorage(ProvidesBandStorage):
         """
         query = """
             INSERT INTO bands (band_name, telescope, instrument, frequency)
-            VALUES (%(band_name)s, %(telescope)s, %(instrument)s, %(frequency)s)
+            SELECT *
+            FROM UNNEST(
+                %(band_name)s::text[],
+                %(telescope)s::text[],
+                %(instrument)s::text[],
+                %(frequency)s::double precision[]
+            )
             ON CONFLICT (band_name) DO NOTHING
+            RETURNING band_name
         """
 
-        params_list = [b.model_dump() for b in bands]
+        data = defaultdict(list)
+
+        for band in bands:
+            band_dict = band.model_dump()
+            for key, value in band_dict.items():
+                data[key].append(value)
 
         async with self.conn.cursor() as cur:
-            await cur.executemany(query, params_list)
+            await cur.execute(query, data)
+            response = await cur.fetchall()
+            inserted_band_names = {row[0] for row in response}
 
-        return len(bands)
+        return len(inserted_band_names)
 
     async def get(self, band_name: str) -> Band:
         """Get band by name."""

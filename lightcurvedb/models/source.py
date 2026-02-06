@@ -21,6 +21,7 @@ class SourceMetadata(BaseModel):
     """
 
     cross_matches: list[CrossMatch] = PydanticField(default=[])
+    socat_id: int | None = None
 
 
 class SourceCreate(BaseModel):

@@ -27,6 +27,12 @@ class ProvidesSourceStorage(Protocol):
         """
         ...
 
+    async def get_by_socat_id(self, socat_id: int) -> Source:
+        """
+        Retrieve source details by SoCat ID.
+        """
+        ...
+
     async def get_all(self) -> list[Source]:
         """
         Retrieve all sources.

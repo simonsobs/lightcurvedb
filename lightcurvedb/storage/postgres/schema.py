@@ -28,9 +28,8 @@ CREATE INDEX IF NOT EXISTS idx_flux_time
 
 CUTOUT_SCHEMA = """
 CREATE TABLE IF NOT EXISTS cutouts (
-    cutout_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    flux_id BIGINT PRIMARY KEY REFERENCES flux_measurements(flux_id),
     source_id INTEGER REFERENCES sources(source_id),
-    flux_id BIGINT NOT NULL REFERENCES flux_measurements(flux_id),
     band_name TEXT REFERENCES bands(band_name),
     cutout_data real[][] NOT NULL,
     time TIMESTAMPTZ NOT NULL,

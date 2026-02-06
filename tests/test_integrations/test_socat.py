@@ -61,6 +61,7 @@ async def test_insert(backend: Backend):
 
     # Remove them all!
     for id in source_ids:
-        await backend.sources.delete(id)
+        source = await backend.sources.get_by_socat_id(socat_id=id)
+        await backend.sources.delete(source.source_id)
 
     return

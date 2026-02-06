@@ -9,13 +9,13 @@ class ProvidesBandStorage(Protocol):
         Set up the band storage system (e.g. create the tables).
         """
 
-    async def create(self, band: Band) -> Band:
+    async def create(self, band: Band) -> str:
         """
         Create a single band in the storage system.
         """
         ...
 
-    async def create_batch(self, bands: list[Band]) -> int:
+    async def create_batch(self, bands: list[Band]) -> list[str]:
         """
         Bulk insert bands.
         """

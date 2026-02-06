@@ -3,6 +3,7 @@ PostgreSQL implementation of SourceStorage protocol.
 """
 
 import json
+from collections import defaultdict
 
 from psycopg import AsyncConnection
 from psycopg.rows import dict_row
@@ -24,25 +25,19 @@ class PostgresSourceStorage(ProvidesSourceStorage):
         async with self.conn.cursor() as cur:
             await cur.execute(SOURCES_TABLE)
 
-    async def create(self, source: SourceCreate) -> Source:
+    async def create(self, source: SourceCreate) -> int:
         """
         Create a source.
         """
 
-        if hasattr(source, "source_id") and source.source_id is not None:
-            query = """
-                INSERT INTO sources (source_id, name, ra, dec, variable, extra)
-                VALUES (%(source_id)s, %(name)s, %(ra)s, %(dec)s, %(variable)s, %(extra)s)
-                RETURNING source_id, name, ra, dec, variable, extra
-            """
-        else:
-            query = """
-                INSERT INTO sources (name, ra, dec, variable, extra)
-                VALUES (%(name)s, %(ra)s, %(dec)s, %(variable)s, %(extra)s)
-                RETURNING source_id, name, ra, dec, variable, extra
-            """
+        query = """
+            INSERT INTO sources (name, ra, dec, variable, extra)
+            VALUES (%(name)s, %(ra)s, %(dec)s, %(variable)s, %(extra)s)
+            RETURNING source_id
+        """
 
         params = source.model_dump()
+
         if params["extra"] is not None:
             params["extra"] = json.dumps(params["extra"])
 
@@ -50,10 +45,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
             await cur.execute(query, params)
             row = await cur.fetchone()
 
-            if row["extra"]:
-                row["extra"] = SourceMetadata(**row["extra"])
-
-            return Source(**row)
+        return row["source_id"]
 
     async def create_batch(self, sources: list[SourceCreate]) -> list[int]:
         """
@@ -61,23 +53,30 @@ class PostgresSourceStorage(ProvidesSourceStorage):
         """
         query = """
             INSERT INTO sources (name, ra, dec, variable, extra)
-            VALUES (%(name)s, %(ra)s, %(dec)s, %(variable)s, %(extra)s)
+            SELECT *
+            FROM UNNEST(
+                %(name)s::text[],
+                %(ra)s::double precision[],
+                %(dec)s::double precision[],
+                %(variable)s::boolean[],
+                %(extra)s::jsonb[]
+            )
             RETURNING source_id
         """
 
-        params_list = []
-        for s in sources:
-            params = s.model_dump()
-            if params["extra"] is not None:
-                params["extra"] = json.dumps(params["extra"])
-            params_list.append(params)
+        data = defaultdict(list)
 
-        source_ids = []
+        for source in sources:
+            source_dict = source.model_dump()
+            if source_dict["extra"] is not None:
+                source_dict["extra"] = json.dumps(source_dict["extra"])
+            for key, value in source_dict.items():
+                data[key].append(value)
+
         async with self.conn.cursor() as cur:
-            for params in params_list:
-                await cur.execute(query, params)
-                row = await cur.fetchone()
-                source_ids.append(row[0])
+            await cur.execute(query, data)
+            response = await cur.fetchall()
+            source_ids = [row[0] for row in response]
 
         return source_ids
 
@@ -99,6 +98,32 @@ class PostgresSourceStorage(ProvidesSourceStorage):
                 from lightcurvedb.models.exceptions import SourceNotFoundException
 
                 raise SourceNotFoundException(f"Source {source_id} not found")
+
+            if row["extra"]:
+                row["extra"] = SourceMetadata(**row["extra"])
+
+            return Source(**row)
+
+    async def get_by_socat_id(self, socat_id: int) -> Source:
+        """
+        Get source by SOcat ID.
+        """
+        query = """
+            SELECT source_id, name, ra, dec, variable, extra
+            FROM sources
+            WHERE (extra->>'socat_id')::int = %(socat_id)s
+        """
+
+        async with self.conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(query, {"socat_id": socat_id})
+            row = await cur.fetchone()
+
+            if not row:
+                from lightcurvedb.models.exceptions import SourceNotFoundException
+
+                raise SourceNotFoundException(
+                    f"Source with SOcat ID {socat_id} not found"
+                )
 
             if row["extra"]:
                 row["extra"] = SourceMetadata(**row["extra"])

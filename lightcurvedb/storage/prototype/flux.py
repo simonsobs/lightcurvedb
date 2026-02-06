@@ -2,7 +2,6 @@ from datetime import datetime
 from typing import Protocol
 
 from lightcurvedb.models import (
-    FluxMeasurement,
     FluxMeasurementCreate,
 )
 from lightcurvedb.models.responses import LightcurveBandData, SourceStatistics
@@ -14,13 +13,15 @@ class ProvidesFluxMeasurementStorage(Protocol):
         Set up the flux storage system (e.g. create the tables).
         """
 
-    async def create(self, measurement: FluxMeasurementCreate) -> FluxMeasurement:
+    async def create(self, measurement: FluxMeasurementCreate) -> int:
         """
         Insert single measurement.
         """
         ...
 
-    async def create_batch(self, measurements: list[FluxMeasurementCreate]) -> int:
+    async def create_batch(
+        self, measurements: list[FluxMeasurementCreate]
+    ) -> list[int]:
         """
         Bulk insert
         """

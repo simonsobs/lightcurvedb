@@ -66,16 +66,15 @@ async def upsert_sources(
 
     for source in all_sources:
         try:
-            print(source.source_id)
-            lightcurvedb_source = await backend.get(source.source_id)
+            lightcurvedb_source = await backend.get_by_socat_id(source.source_id)
         except SourceNotFoundException:
             await backend.create(
                 Source(
-                    source_id=source.source_id,
                     name=source.name,
                     ra=clamp_ra(source.position.ra.to_value("deg")),
                     dec=source.position.dec.to_value("deg"),
                     variable=False,
+                    extra={"socat_id": source.source_id},
                 )
             )
             sources_added += 1
@@ -99,7 +98,7 @@ async def upsert_sources(
             lightcurvedb_source.dec = source.position.dec.to_value("deg")
             lightcurvedb_source.name = source.name
 
-            if lightcurvedb_source.extra is not None:
+            if lightcurvedb_source.extra.cross_matches:
                 raise ValueError(
                     f"Unable to handle upsert for source {lightcurvedb_source.source_id} due to "
                     f"presence of extra: {lightcurvedb_source.extra}"

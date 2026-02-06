@@ -12,13 +12,12 @@ if TYPE_CHECKING:
 
 
 class Cutout(BaseModel):
-    cutout_id: int | None = None
+    flux_id: int | None = None
+
     data: list[list[float]]
 
     time: datetime
-
     units: str
 
     source_id: int | None = None
     band_name: str | None = None
-    flux_id: int | None = None

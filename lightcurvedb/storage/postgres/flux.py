@@ -3,6 +3,7 @@ PostgreSQL implementation of FluxMeasurementStorage protocol.
 """
 
 import json
+from collections import defaultdict
 from datetime import datetime
 
 import psycopg
@@ -65,34 +66,46 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
 
             return FluxMeasurement(**row)
 
-    async def create_batch(self, measurements: list[FluxMeasurementCreate]) -> int:
+    async def create_batch(
+        self, measurements: list[FluxMeasurementCreate]
+    ) -> list[int]:
         """
         Bulk insert
         """
         query = """
-            INSERT INTO flux_measurements (
-                band_name, source_id, time, ra, dec,
-                ra_uncertainty, dec_uncertainty,
-                i_flux, i_uncertainty, extra
+            INSERT INTO flux_measurements (band_name, source_id, time, ra,
+            dec, ra_uncertainty, dec_uncertainty, i_flux, i_uncertainty, extra)
+            SELECT * 
+            FROM UNNEST(
+                %(band_name)s::text[],
+                %(source_id)s::integer[],
+                %(time)s::timestamptz[],
+                %(ra)s::real[],
+                %(dec)s::real[],
+                %(ra_uncertainty)s::real[],
+                %(dec_uncertainty)s::real[],
+                %(i_flux)s::real[],
+                %(i_uncertainty)s::real[],
+                %(extra)s::jsonb[]
             )
-            VALUES (
-                %(band_name)s, %(source_id)s, %(time)s, %(ra)s, %(dec)s,
-                %(ra_uncertainty)s, %(dec_uncertainty)s,
-                %(i_flux)s, %(i_uncertainty)s, %(extra)s
-            )
+            RETURNING flux_id
         """
 
-        params_list = []
-        for m in measurements:
-            params = m.model_dump()
-            if params["extra"] is not None:
-                params["extra"] = json.dumps(params["extra"])
-            params_list.append(params)
+        data = defaultdict(list)
+
+        for measurement in measurements:
+            measurement_dict = measurement.model_dump()
+            if measurement_dict["extra"] is not None:
+                measurement_dict["extra"] = json.dumps(measurement_dict["extra"])
+            for key, value in measurement_dict.items():
+                data[key].append(value)
 
         async with self.conn.cursor() as cur:
-            await cur.executemany(query, params_list)
+            await cur.execute(query, data)
+            response = await cur.fetchall()
+            inserted_flux_ids = [row[0] for row in response]
 
-        return len(measurements)
+        return inserted_flux_ids
 
     async def get_band_data(
         self,
