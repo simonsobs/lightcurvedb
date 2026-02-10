@@ -82,6 +82,11 @@ class PostgresCutoutStorage(ProvidesCutoutStorage):
                 },
             )
             row = await cur.fetchone()
+
+            if not row:
+                from lightcurvedb.models.exceptions import CutoutNotFoundException
+                raise CutoutNotFoundException(f"Cutout {source_id}/{flux_id} not found")
+            
             return row
 
     async def retrieve_cutouts_for_source(self, source_id: int) -> list[Cutout]:

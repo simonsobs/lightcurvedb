@@ -13,3 +13,7 @@ class SourceNotFoundException(StorageException):
 
 class BandNotFoundException(StorageException):
     pass
+
+
+class CutoutNotFoundException(StorageException):
+    pass
