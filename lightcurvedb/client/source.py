@@ -6,7 +6,6 @@ from math import cos, pi
 
 from pydantic import BaseModel
 
-from lightcurvedb.client.band import band_read
 from lightcurvedb.client.measurement import (
     MeasurementSummaryResult,
     measurement_summary,
@@ -53,7 +52,7 @@ async def source_read_summary(
     source = await source_read(id=id, backend=backend)
     available_bands = await source_read_bands(id=id, backend=backend)
 
-    band_info = [await band_read(x, backend=backend) for x in available_bands]
+    band_info = [await backend.bands.get(band_name=x) for x in available_bands]
     measurements = [
         await measurement_summary(source_id=id, band_name=x, backend=backend)
         for x in available_bands
