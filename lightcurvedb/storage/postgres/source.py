@@ -4,11 +4,12 @@ PostgreSQL implementation of SourceStorage protocol.
 
 import json
 from collections import defaultdict
+from uuid import UUID
 
 from psycopg import AsyncConnection
 from psycopg.rows import class_row
 
-from lightcurvedb.models.source import Source, SourceCreate
+from lightcurvedb.models.source import Source
 from lightcurvedb.storage.base.schema import SOURCES_TABLE
 from lightcurvedb.storage.prototype.source import ProvidesSourceStorage
 
@@ -25,14 +26,24 @@ class PostgresSourceStorage(ProvidesSourceStorage):
         async with self.conn.cursor() as cur:
             await cur.execute(SOURCES_TABLE)
 
-    async def create(self, source: SourceCreate) -> int:
+    async def create(self, source: Source) -> int:
         """
         Create a source.
         """
 
         query = """
-            INSERT INTO sources (name, ra, dec, variable, extra)
-            VALUES (%(name)s, %(ra)s, %(dec)s, %(variable)s, %(extra)s)
+            INSERT INTO sources (
+                source_id, socat_id, name, ra, dec, variable, extra
+            )
+            VALUES (
+                %(source_id)s,
+                %(socat_id)s,
+                %(name)s,
+                %(ra)s,
+                %(dec)s,
+                %(variable)s,
+                %(extra)s
+            )
             RETURNING source_id
         """
 
@@ -47,14 +58,15 @@ class PostgresSourceStorage(ProvidesSourceStorage):
 
         return row[0]
 
-    async def create_batch(self, sources: list[SourceCreate]) -> list[int]:
+    async def create_batch(self, sources: list[Source]) -> list[int]:
         """
         Bulk insert sources, returns created source IDs.
         """
         query = """
-            INSERT INTO sources (name, ra, dec, variable, extra)
+            INSERT INTO sources (source_id, name, ra, dec, variable, extra)
             SELECT *
             FROM UNNEST(
+                %(source_id)s::uuid[],
                 %(name)s::text[],
                 %(ra)s::double precision[],
                 %(dec)s::double precision[],
@@ -80,12 +92,12 @@ class PostgresSourceStorage(ProvidesSourceStorage):
 
         return source_ids
 
-    async def get(self, source_id: int) -> Source:
+    async def get(self, source_id: UUID) -> Source:
         """
         Get source by ID.
         """
         query = """
-            SELECT source_id, name, ra, dec, variable, extra
+            SELECT source_id, socat_id, name, ra, dec, variable, extra
             FROM sources
             WHERE source_id = %(source_id)s
         """
@@ -96,7 +108,6 @@ class PostgresSourceStorage(ProvidesSourceStorage):
 
             if not row:
                 from lightcurvedb.models.exceptions import SourceNotFoundException
-
                 raise SourceNotFoundException(f"Source {source_id} not found")
 
             return row
@@ -106,9 +117,9 @@ class PostgresSourceStorage(ProvidesSourceStorage):
         Get source by SOcat ID.
         """
         query = """
-            SELECT source_id, name, ra, dec, variable, extra
+            SELECT source_id, socat_id, name, ra, dec, variable, extra
             FROM sources
-            WHERE (extra->>'socat_id')::int = %(socat_id)s
+            WHERE socat_id = %(socat_id)s
         """
 
         async with self.conn.cursor(row_factory=class_row(Source)) as cur:
@@ -127,7 +138,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
     async def get_all(self) -> list[Source]:
         """Get all sources."""
         query = """
-            SELECT source_id, name, ra, dec, variable, extra
+            SELECT source_id, socat_id, name, ra, dec, variable, extra
             FROM sources
             ORDER BY source_id
         """
@@ -137,7 +148,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
             rows = await cur.fetchall()
             return rows
 
-    async def delete(self, source_id: int) -> None:
+    async def delete(self, source_id: UUID) -> None:
         """
         Delete a source by ID.
         """
@@ -161,7 +172,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
         Get all sources within rectangular RA/Dec bounds.
         """
         query = """
-            SELECT source_id, name, ra, dec, variable, extra
+            SELECT source_id, socat_id, name, ra, dec, variable, extra
             FROM sources
             WHERE ra > %(ra_min)s
               AND ra < %(ra_max)s

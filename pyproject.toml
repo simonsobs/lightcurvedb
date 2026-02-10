@@ -16,7 +16,8 @@ dependencies = [
     "loguru",
     "tqdm",
     "socat @ git+https://github.com/simonsobs/socat",
-    "astropy"
+    "astropy",
+    "uuid7==0.1.0"
 ]
 
 [project.optional-dependencies]

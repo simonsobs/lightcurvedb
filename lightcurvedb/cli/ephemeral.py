@@ -55,7 +55,7 @@ def core(
     backend_type: str = "postgres", number: int = 128, probability_of_flare: float = 0.1
 ):
     from lightcurvedb.config import Settings
-    from lightcurvedb.models.band import Band
+    from lightcurvedb.models.instrument import Instrument
     from lightcurvedb.simulation.fluxes import generate_fluxes_fixed_source
     from lightcurvedb.simulation.sources import create_fixed_sources
     from lightcurvedb.storage.postgres.backend import postgres_backend
@@ -66,7 +66,7 @@ def core(
 
             # Create bands
             bands_data = [
-                Band(
+                Instrument(
                     band_name=f"f{band_frequency:03d}",
                     frequency=float(band_frequency),
                     instrument="LATR",
@@ -74,7 +74,7 @@ def core(
                 )
                 for band_frequency in [27, 39, 93, 145, 225, 280]
             ]
-            await backend.bands.create_batch(bands_data)
+            await backend.instruments.create_batch(bands_data)
             logger.info(f"Created {len(bands_data)} bands")
 
             # Create sources
@@ -82,7 +82,7 @@ def core(
             logger.info(f"Created {len(source_ids)} sources")
 
             # Get bands for flux generation
-            bands = await backend.bands.get_all()
+            bands = await backend.instruments.get_all()
 
             # Generate fluxes for each source
             start_time = datetime.now() - timedelta(days=1865)

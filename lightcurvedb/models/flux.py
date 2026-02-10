@@ -5,6 +5,7 @@ Individual flux measurements.
 from datetime import datetime
 
 from pydantic import BaseModel
+from uuid import UUID
 from pydantic import Field as PydanticField
 
 
@@ -18,8 +19,9 @@ class MeasurementMetadata(BaseModel):
 
 
 class FluxMeasurementCreate(BaseModel):
-    band_name: str
-    source_id: int
+    frequency: int
+    module: str
+    source_id: UUID
     time: datetime
     ra: float
     dec: float
@@ -35,4 +37,4 @@ class FluxMeasurement(FluxMeasurementCreate):
     Flux measurement domain model.
     """
 
-    flux_id: int | None = None
+    flux_id: UUID | None = None

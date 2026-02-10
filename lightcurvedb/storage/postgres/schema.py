@@ -4,9 +4,13 @@ PostgreSQL schema for Flux Measurement Table
 
 FLUX_MEASUREMENTS_TABLE = """
 CREATE TABLE IF NOT EXISTS flux_measurements (
-    flux_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    band_name TEXT REFERENCES bands(band_name),
-    source_id INTEGER REFERENCES sources(source_id),
+    flux_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    frequency INTEGER NOT NULL,
+    module TEXT NOT NULL,
+
+    source_id UUID REFERENCES sources(source_id),
+
     time TIMESTAMPTZ NOT NULL,
     ra REAL NOT NULL CHECK (ra >= -180 AND ra <= 180),
     dec REAL NOT NULL CHECK (dec >= -90 AND dec <= 90),
@@ -14,13 +18,15 @@ CREATE TABLE IF NOT EXISTS flux_measurements (
     dec_uncertainty REAL,
     i_flux REAL NOT NULL,
     i_uncertainty REAL,
-    extra JSONB
+    extra JSONB,
+
+    FOREIGN KEY (frequency, module) REFERENCES instruments(frequency, module)
 )
 """
 
 FLUX_INDEXES = """
-CREATE INDEX IF NOT EXISTS idx_flux_source_band_time
-    ON flux_measurements (source_id, band_name, time DESC);
+CREATE INDEX IF NOT EXISTS idx_flux_source_id
+    ON flux_measurements (source_id);
 
 CREATE INDEX IF NOT EXISTS idx_flux_time
     ON flux_measurements (time DESC);
@@ -28,12 +34,18 @@ CREATE INDEX IF NOT EXISTS idx_flux_time
 
 CUTOUT_SCHEMA = """
 CREATE TABLE IF NOT EXISTS cutouts (
-    flux_id BIGINT PRIMARY KEY REFERENCES flux_measurements(flux_id),
-    source_id INTEGER REFERENCES sources(source_id),
-    band_name TEXT REFERENCES bands(band_name),
+    flux_id UUID PRIMARY KEY REFERENCES flux_measurements(flux_id),
+
+    source_id UUID REFERENCES sources(source_id),
+
+    frequency INTEGER NOT NULL,
+    module TEXT NOT NULL,
+
     cutout_data real[][] NOT NULL,
     time TIMESTAMPTZ NOT NULL,
-    units TEXT NOT NULL
+    units TEXT NOT NULL,
+
+    FOREIGN KEY (frequency, module) REFERENCES instruments(frequency, module)
 )
 """
 

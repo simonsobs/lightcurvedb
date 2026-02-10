@@ -47,25 +47,28 @@ async def setup_test_data(backend: Backend):
     import random
     from datetime import datetime, timedelta
 
-    from lightcurvedb.models.band import Band
+    from lightcurvedb.models.instrument import Instrument
     from lightcurvedb.simulation import cutouts as sim_cutouts
     from lightcurvedb.simulation import fluxes as sim_fluxes
     from lightcurvedb.simulation import sources as sim_sources
 
-    test_bands = [
-        Band(
-            band_name=f"f{band_frequency:03d}",
-            frequency=float(band_frequency),
-            instrument="LATR",
-            telescope="SOLAT",
+    test_instruments = [
+        Instrument(
+            frequency=band_frequency,
+            module="i1",
+            telescope="lat",
+            instrument="latr",
+            details={
+                "comissioning_date": "2023-05-14",
+            }
         )
         for band_frequency in [27, 39, 93, 145, 225, 280]
     ]
-    await backend.bands.create_batch(test_bands)
+    await backend.instruments.create_batch(test_instruments)
 
     source_ids = await sim_sources.create_fixed_sources(64, backend=backend)
 
-    bands = await backend.bands.get_all()
+    bands = await backend.instruments.get_all()
 
     for source_id in source_ids:
         source = await backend.sources.get(source_id)

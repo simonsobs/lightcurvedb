@@ -5,11 +5,11 @@ by ID descending in a paginated way.
 """
 
 from lightcurvedb.models.feed import FeedResult, FeedResultItem
-from lightcurvedb.protocols.storage import FluxStorageBackend
+from lightcurvedb.storage.prototype.backend import Backend
 
 
 async def feed_read(
-    start: int, number: int, band_name: str, backend: FluxStorageBackend
+    start: int, number: int, band_name: str, backend: Backend
 ) -> FeedResult:
     """
     Reads the 'feed' of sources. Currently just orders by
@@ -23,7 +23,7 @@ async def feed_read(
         Number of results to return (suggest 10 or 16)
     band_name: str
         Band to use
-    backend: FluxStorageBackend
+    backend: Backend
         Storage backend
 
     Returns

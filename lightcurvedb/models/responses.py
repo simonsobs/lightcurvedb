@@ -6,7 +6,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from lightcurvedb.models.band import Band
+from lightcurvedb.models.instrument import Instrument
 from lightcurvedb.models.flux import FluxMeasurement
 from lightcurvedb.models.source import Source
 
@@ -63,7 +63,7 @@ class LightcurveBandData(BaseModel):
 
 class LightcurveBandResult(LightcurveBandData):
     source: Source
-    band: Band
+    band: Instrument
 
 
 class LightcurveResult(BaseModel):

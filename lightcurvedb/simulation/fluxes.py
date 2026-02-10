@@ -7,10 +7,10 @@ from datetime import datetime, timedelta
 
 import numpy as np
 
-from lightcurvedb.models.band import Band
+from lightcurvedb.models.instrument import Instrument
 from lightcurvedb.models.flux import FluxMeasurementCreate, MeasurementMetadata
 from lightcurvedb.models.source import Source
-from lightcurvedb.protocols.storage import FluxStorageBackend
+from lightcurvedb.storage.prototype.backend import Backend
 
 
 def generate_fluxes_fixed_source_core(
@@ -53,8 +53,8 @@ def generate_fluxes_fixed_source_core(
 
 async def generate_fluxes_fixed_source(
     source: Source,
-    bands: list[Band],
-    backend: FluxStorageBackend,
+    bands: list[Instrument],
+    backend: Backend,
     start_time: datetime,
     cadence: timedelta,
     number: int,
@@ -75,7 +75,7 @@ async def generate_fluxes_fixed_source(
         Source domain model (has id, ra, dec)
     bands : list[Band]
         List of band domain models
-    backend : FluxStorageBackend
+    backend : Backend
         Storage backend from factory
     start_time : datetime
         The start time of the light-curve.
@@ -125,7 +125,8 @@ async def generate_fluxes_fixed_source(
 
         measurements = [
             FluxMeasurementCreate(
-                band_name=band.band_name,
+                frequency=band.frequency,
+                module=band.module,
                 source_id=source.source_id,
                 time=times[i],
                 ra=source.ra,

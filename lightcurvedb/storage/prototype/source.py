@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from lightcurvedb.models import Source, SourceCreate
+from lightcurvedb.models import Source, Source
 
 
 class ProvidesSourceStorage(Protocol):
@@ -9,13 +9,13 @@ class ProvidesSourceStorage(Protocol):
         Set up the source storage system (e.g. create the tables).
         """
 
-    async def create(self, source: SourceCreate) -> int:
+    async def create(self, source: Source) -> int:
         """
         Create a new source and return its ID.
         """
         ...
 
-    async def create_batch(self, sources: list[SourceCreate]) -> list[int]:
+    async def create_batch(self, sources: list[Source]) -> list[int]:
         """
         Bulk insert sources, returns created source IDs.
         """

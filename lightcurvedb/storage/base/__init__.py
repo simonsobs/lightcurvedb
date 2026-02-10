@@ -6,11 +6,11 @@ Backend-specific tables (flux_measurements) are defined in backend-specific sche
 """
 
 from lightcurvedb.storage.base.schema import (
-    BANDS_TABLE,
+    INSTRUMENTS_TABLE,
     SOURCES_TABLE,
 )
 
 __all__ = [
     "SOURCES_TABLE",
-    "BANDS_TABLE",
+    "INSTRUMENTS_TABLE",
 ]

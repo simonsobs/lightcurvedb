@@ -36,13 +36,13 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
         """
         query = """
             INSERT INTO flux_measurements (
-                band_name, source_id, time, ra, dec,
+                frequency, module, source_id, time, ra, dec,
                 ra_uncertainty, dec_uncertainty,
                 i_flux, i_uncertainty, extra
             )
             VALUES (
-                %(band_name)s, %(source_id)s, %(time)s, %(ra)s, %(dec)s,
-                %(ra_uncertainty)s, %(dec_uncertainty)s,
+                %(frequency)s, %(module)s, %(source_id)s, %(time)s,
+                %(ra)s, %(dec)s, %(ra_uncertainty)s, %(dec_uncertainty)s,
                 %(i_flux)s, %(i_uncertainty)s, %(extra)s
             )
             RETURNING flux_id
@@ -65,12 +65,13 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
         Bulk insert
         """
         query = """
-            INSERT INTO flux_measurements (band_name, source_id, time, ra,
+            INSERT INTO flux_measurements (frequency, module, source_id, time, ra,
             dec, ra_uncertainty, dec_uncertainty, i_flux, i_uncertainty, extra)
             SELECT * 
             FROM UNNEST(
-                %(band_name)s::text[],
-                %(source_id)s::integer[],
+                %(frequency)s::integer[],
+                %(module)s::text[],
+                %(source_id)s::uuid[],
                 %(time)s::timestamptz[],
                 %(ra)s::real[],
                 %(dec)s::real[],

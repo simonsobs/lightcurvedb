@@ -11,7 +11,7 @@ class SourceNotFoundException(StorageException):
     pass
 
 
-class BandNotFoundException(StorageException):
+class InstrumentNotFoundException(StorageException):
     pass
 
 

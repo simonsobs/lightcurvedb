@@ -4,11 +4,11 @@ Source generation.
 
 from random import randint, random
 
-from lightcurvedb.models.source import CrossMatch, SourceCreate, SourceMetadata
-from lightcurvedb.protocols.storage import FluxStorageBackend
+from lightcurvedb.models.source import CrossMatch, SourceMetadata, Source
+from lightcurvedb.storage.prototype.backend import Backend
 
 
-async def create_fixed_sources(number: int, backend: FluxStorageBackend) -> list[int]:
+async def create_fixed_sources(number: int, backend: Backend) -> list[int]:
     """
     Create a number of fixed sources in the database.
 
@@ -16,7 +16,7 @@ async def create_fixed_sources(number: int, backend: FluxStorageBackend) -> list
     ----------
     number : int
         Number of sources to create
-    backend : FluxStorageBackend
+    backend : Backend
         Storage backend from factory
 
     Returns
@@ -25,7 +25,7 @@ async def create_fixed_sources(number: int, backend: FluxStorageBackend) -> list
         The IDs of the created sources.
     """
     sources = [
-        SourceCreate(
+        Source(
             name=f"SIM-{i:05d}",
             ra=random() * 360.0 - 180.0,
             dec=random() * 180.0 - 90.0,
