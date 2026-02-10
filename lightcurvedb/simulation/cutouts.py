@@ -3,9 +3,8 @@ Simulates cut-outs around sources, based upon the flux measurements.
 """
 
 import numpy as np
-from sqlmodel import Session
 
-from ..models import CutoutTable, FluxMeasurementTable
+from ..models import Cutout, FluxMeasurement
 
 
 def create_cutout_core(
@@ -43,20 +42,18 @@ def create_cutout_core(
 
 def create_cutout(
     nside: int,
-    flux: FluxMeasurementTable,
-    session: Session,
+    flux: FluxMeasurement,
 ):
     cutout = create_cutout_core(nside, flux.i_flux, flux.i_uncertainty)
 
-    cutout_table = CutoutTable(
-        band=flux.band,
-        band_name=flux.band.name,
-        flux=flux,
-        flux_id=flux.id,
-        time=flux.time,
-        data=cutout.tolist(),
-        units="mJy",
-    )
+    if flux.flux_id is None:
+        raise ValueError("FluxMeasurement must have an ID to create a cutout.")
 
-    session.add(cutout_table)
-    session.commit()
+    return Cutout(
+        data=cutout.tolist(),
+        time=flux.time,
+        units="mJy",
+        source_id=flux.source_id,
+        band_name=flux.band_name,
+        flux_id=flux.flux_id,
+    )

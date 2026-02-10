@@ -3,17 +3,29 @@ Integration tools with SOCat, used for upserting the sources that were used
 for forced photometry.
 """
 
+from math import isclose
+
 import astropy.units as u
 from astropy.coordinates import ICRS
 from socat.client.core import ClientBase
-from sqlalchemy.orm import Session
 from tqdm import tqdm
 
-from lightcurvedb.models.source import SourceTable
+from lightcurvedb.models.exceptions import SourceNotFoundException
+from lightcurvedb.models.source import Source
+from lightcurvedb.storage.prototype.source import ProvidesSourceStorage
 
 
-def upsert_sources(
-    client: ClientBase, session: Session, progress_bar: bool = False
+def clamp_ra(ra: float) -> float:
+    if ra > 180.0:
+        return ra - 360.0
+    elif ra < -180.0:
+        return ra + 360.0
+    else:
+        return ra
+
+
+async def upsert_sources(
+    client: ClientBase, backend: ProvidesSourceStorage, progress_bar: bool = False
 ) -> tuple[int, int]:
     """
     Upserts all sources that lightcurvedb knows about. Effectively
@@ -28,8 +40,8 @@ def upsert_sources(
     ----------
     client: ClientBase
         The SOCat client to use.
-    session: Session
-        SQLAlchemy session for the lightcurvedb to upsert.
+    backend: ProvidesSourceStorage
+        Backend providing source storage for lightcurvedb to upsert.
     progress_bar: bool = False
         Whether to display a progress bar.
 
@@ -53,42 +65,47 @@ def upsert_sources(
     sources_modified = 0
 
     for source in all_sources:
-        lightcurvedb_source = session.get(SourceTable, source.id)
-
-        if lightcurvedb_source is None:
-            session.add(
-                SourceTable(
-                    id=source.id,
+        try:
+            lightcurvedb_source = await backend.get_by_socat_id(source.source_id)
+        except SourceNotFoundException:
+            await backend.create(
+                Source(
                     name=source.name,
-                    ra=source.position.ra.to_value("deg"),
+                    ra=clamp_ra(source.position.ra.to_value("deg")),
                     dec=source.position.dec.to_value("deg"),
                     variable=False,
+                    extra={"socat_id": source.source_id},
                 )
             )
             sources_added += 1
 
             continue
 
-        ra_equal = lightcurvedb_source.ra == source.position.ra.to_value("deg")
-        dec_equal = lightcurvedb_source.dec == source.position.dec.to_value("deg")
+        ra_equal = isclose(
+            lightcurvedb_source.ra,
+            clamp_ra(source.position.ra.to_value("deg")),
+            abs_tol=1 / 3600.0 / 100.0,
+        )
+        dec_equal = isclose(
+            lightcurvedb_source.dec,
+            source.position.dec.to_value("deg"),
+            abs_tol=1 / 3600.0 / 100.0,
+        )
         name_equal = lightcurvedb_source.name == source.name
 
         if not (ra_equal and dec_equal and name_equal):
-            lightcurvedb_source.ra = source.position.ra.to_value("deg")
+            lightcurvedb_source.ra = clamp_ra(source.position.ra.to_value("deg"))
             lightcurvedb_source.dec = source.position.dec.to_value("deg")
             lightcurvedb_source.name = source.name
 
-            if lightcurvedb_source.extra is not None:
+            if lightcurvedb_source.extra.cross_matches:
                 raise ValueError(
-                    f"Unable to handle upsert for source {lightcurvedb_source.id} due to "
+                    f"Unable to handle upsert for source {lightcurvedb_source.source_id} due to "
                     f"presence of extra: {lightcurvedb_source.extra}"
                 )
 
-            session.add(lightcurvedb_source)
             sources_modified += 1
 
             continue
-
-    session.commit()
 
     return sources_added, sources_modified

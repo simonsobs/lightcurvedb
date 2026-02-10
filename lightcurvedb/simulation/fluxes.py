@@ -2,15 +2,15 @@
 Tools for creating simulated light-curves via flux depositions into the database.
 """
 
-import math
 import random
 from datetime import datetime, timedelta
 
 import numpy as np
-from sqlmodel import Session
 
-from ..models import BandTable, FluxMeasurementTable, SourceTable
-from ..models.flux import MeasurementMetadata
+from lightcurvedb.models.band import Band
+from lightcurvedb.models.flux import FluxMeasurementCreate, MeasurementMetadata
+from lightcurvedb.models.source import Source
+from lightcurvedb.protocols.storage import FluxStorageBackend
 
 
 def generate_fluxes_fixed_source_core(
@@ -51,13 +51,13 @@ def generate_fluxes_fixed_source_core(
     return times, fluxes
 
 
-def generate_fluxes_fixed_source(
-    source: SourceTable,
-    bands: list[BandTable],
+async def generate_fluxes_fixed_source(
+    source: Source,
+    bands: list[Band],
+    backend: FluxStorageBackend,
     start_time: datetime,
     cadence: timedelta,
     number: int,
-    session: Session,
     probability_of_flare: float = 0.1,
     peak_flux: float = 5.0,
     peak_flux_band_index: int = 0,
@@ -71,10 +71,12 @@ def generate_fluxes_fixed_source(
 
     Parameters
     ----------
-    source_id : int
-        The ID of the source to generate fluxes for.
-    bands : list[str]
-        The bands to generate fluxes in.
+    source : Source
+        Source domain model (has id, ra, dec)
+    bands : list[Band]
+        List of band domain models
+    backend : FluxStorageBackend
+        Storage backend from factory
     start_time : datetime
         The start time of the light-curve.
     cadence : timedelta
@@ -113,36 +115,29 @@ def generate_fluxes_fixed_source(
         spectral_index_range=spectral_index_range,
     )
 
-    band_fluxes = []
+    all_measurements = []
 
-    for fluxes, band in zip(fluxes, bands):
+    for flux_values, band in zip(fluxes, bands):
         if random.random() < 0.1:
             metadata = MeasurementMetadata(flags=["test_flag"])
         else:
             metadata = None
 
-        band_fluxes += [
-            FluxMeasurementTable(
-                band=band,
+        measurements = [
+            FluxMeasurementCreate(
+                band_name=band.band_name,
+                source_id=source.source_id,
                 time=times[i],
-                i_flux=fluxes[i],
-                i_uncertainty=math.sqrt(noise_floor),
                 ra=source.ra,
                 dec=source.dec,
                 ra_uncertainty=random.random(),
                 dec_uncertainty=random.random(),
-                source=source,
-                source_id=source.id,
-                band_name=band.name,
+                i_flux=flux_values[i],
+                i_uncertainty=noise_floor,
                 extra=metadata,
             )
             for i in range(number)
         ]
+        all_measurements.extend(measurements)
 
-        session.add_all(band_fluxes)
-        session.commit()
-        band_fluxes = []
-
-    flux_ids = [flux.id for flux in band_fluxes]
-
-    return flux_ids
+    return await backend.fluxes.create_batch(all_measurements)

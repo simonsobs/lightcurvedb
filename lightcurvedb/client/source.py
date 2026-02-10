@@ -5,20 +5,15 @@ Extensions to core for sources.
 from math import cos, pi
 
 from pydantic import BaseModel
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from lightcurvedb.client.band import band_read
 from lightcurvedb.client.measurement import (
     MeasurementSummaryResult,
     measurement_summary,
 )
-from lightcurvedb.models import Band, Source, SourceTable
-from lightcurvedb.models.flux import FluxMeasurementTable
-
-
-class SourceNotFound(Exception):
-    pass
+from lightcurvedb.models.band import Band
+from lightcurvedb.models.source import Source
+from lightcurvedb.protocols.storage import FluxStorageBackend
 
 
 class SourceSummaryResult(BaseModel):
@@ -27,59 +22,40 @@ class SourceSummaryResult(BaseModel):
     measurements: list[MeasurementSummaryResult]
 
 
-async def source_read(id: int, conn: AsyncSession) -> Source:
+async def source_read(id: int, backend: FluxStorageBackend) -> Source:
     """
     Read core metadata about a source.
     """
-    res = await conn.get(SourceTable, id)
-
-    if res is None:
-        raise SourceNotFound
-
-    return res.to_model()
+    return await backend.sources.get(id)
 
 
-async def source_read_bands(id: int, conn: AsyncSession) -> list[str]:
+async def source_read_bands(id: int, backend: FluxStorageBackend) -> list[str]:
     """
     Read the bands names that are available for a source.
     """
-    query = select(FluxMeasurementTable.band_name)
-
-    query = query.filter(
-        FluxMeasurementTable.source_id == id,
-    )
-
-    query = query.distinct()
-
-    result = await conn.execute(query)
-
-    return result.scalars().all()
+    return await backend.fluxes.get_bands_for_source(id)
 
 
-async def source_read_all(conn: AsyncSession) -> list[Source]:
+async def source_read_all(backend: FluxStorageBackend) -> list[Source]:
     """
     Read all sources available in the system.
     """
-
-    query = select(SourceTable)
-
-    res = await conn.execute(query)
-
-    return [x.to_model() for x in res.scalars().all()]
+    return await backend.sources.get_all()
 
 
-async def source_read_summary(id: int, conn: AsyncSession) -> SourceSummaryResult:
+async def source_read_summary(
+    id: int, backend: FluxStorageBackend
+) -> SourceSummaryResult:
     """
     Read the full summary for an individual source, including number of
     observations.
     """
+    source = await source_read(id=id, backend=backend)
+    available_bands = await source_read_bands(id=id, backend=backend)
 
-    source = await source_read(id=id, conn=conn)
-    available_bands = await source_read_bands(id=id, conn=conn)
-
-    band_info = [await band_read(x, conn) for x in available_bands]
+    band_info = [await band_read(x, backend=backend) for x in available_bands]
     measurements = [
-        await measurement_summary(source_id=id, band_name=x, conn=conn)
+        await measurement_summary(source_id=id, band_name=x, backend=backend)
         for x in available_bands
     ]
 
@@ -89,14 +65,13 @@ async def source_read_summary(id: int, conn: AsyncSession) -> SourceSummaryResul
 
 
 async def source_read_in_radius(
-    center: tuple[float], radius: float, conn: AsyncSession
+    center: tuple[float, float], radius: float, backend: FluxStorageBackend
 ) -> list[Source]:
     """
     Read all sources within a square of 'radius' (degrees) of center (ra, dec, degrees,
     -180 < ra < 180, -90 < dec < 90). Can further be filtered to a circle if required.
     Takes into account geometry near the poles.
     """
-
     # Declination does not need wrapping; all wrapping happens in the RA dimension.
     ra, dec = center
 
@@ -121,42 +96,24 @@ async def source_read_in_radius(
     if top_right[0] > 180.0:
         top_right = (top_right[0] - 360, top_right[1])
 
-    query = select(SourceTable).filter(
-        SourceTable.ra > bottom_left[0],
-        SourceTable.ra < top_right[0],
-        SourceTable.dec > bottom_left[1],
-        SourceTable.dec < top_right[1],
+    return await backend.sources.get_in_bounds(
+        ra_min=bottom_left[0],
+        ra_max=top_right[0],
+        dec_min=bottom_left[1],
+        dec_max=top_right[1],
     )
 
-    res = await conn.execute(query)
 
-    return [x.to_model() for x in res.scalars().all()]
-
-
-async def source_add(source: Source, conn: AsyncSession) -> int:
+async def source_add(source: Source, backend: FluxStorageBackend) -> int:
     """
     Add a source, returning its primary key.
     """
-    table = SourceTable(**source.model_dump())
-
-    conn.add(table)
-    await conn.commit()
-    await conn.refresh(table)
-
-    return table.id
+    created = await backend.sources.create(source)
+    return created
 
 
-async def source_delete(id: int, conn: AsyncSession) -> int:
+async def source_delete(id: int, backend: FluxStorageBackend) -> None:
     """
     Delete a source (and all of its measurements!) from the system.
     """
-
-    res = await conn.get(SourceTable, id)
-
-    if res is None:  # pragma: no cover
-        raise SourceNotFound
-
-    await conn.delete(res)
-    await conn.commit()
-
-    return
+    await backend.sources.delete(id)

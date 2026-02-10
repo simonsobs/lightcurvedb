@@ -4,16 +4,20 @@ Tests the SOCat integration.
 
 import random
 
+import pytest
 from astropy import units as u
 from astropy.coordinates import ICRS
 from socat.client.mock import Client
 
 from lightcurvedb.integrations.socat import upsert_sources
-from lightcurvedb.models.source import SourceTable
+from lightcurvedb.storage.prototype.backend import Backend
 
 
-def test_insert(sync_client):
+@pytest.mark.asyncio(loop_scope="session")
+async def test_insert(backend: Backend):
     socat_client = Client()
+    # Do not use the low-number source IDs, these are already used.
+    socat_client.n = 123456
 
     def make_source(i):
         return {
@@ -30,38 +34,34 @@ def test_insert(sync_client):
     source_ids = []
 
     for source in sources:
-        input_source = socat_client.create(**source)
-        source_ids.append(input_source.id)
+        input_source = socat_client.create_source(**source)
+        source_ids.append(input_source.source_id)
 
-    with sync_client.session() as session:
-        added, modified = upsert_sources(client=socat_client, session=session)
+    added, modified = await upsert_sources(client=socat_client, backend=backend.sources)
 
-        assert added == len(sources)
-        assert modified == 0
+    assert added == len(sources)
+    assert modified == 0
 
     # Try again...
 
-    with sync_client.session() as session:
-        added, modified = upsert_sources(client=socat_client, session=session)
+    added, modified = await upsert_sources(client=socat_client, backend=backend.sources)
 
-        assert added == 0
-        assert modified == 0
+    assert added == 0
+    assert modified == 0
 
     # Modify one and add a single new one.
-    socat_client.update_source(id=source_ids[0], name="New Name!")
-    new_source = socat_client.create(**make_source(len(source_ids) + 1))
-    source_ids.append(new_source.id)
+    socat_client.update_source(source_id=source_ids[0], name="New Name!")
+    new_source = socat_client.create_source(**make_source(len(source_ids) + 1))
+    source_ids.append(new_source.source_id)
 
-    with sync_client.session() as session:
-        added, modified = upsert_sources(client=socat_client, session=session)
+    added, modified = await upsert_sources(client=socat_client, backend=backend.sources)
 
-        assert added == 1
-        assert modified == 1
+    assert added == 1
+    assert modified == 1
 
     # Remove them all!
-    with sync_client.session() as session:
-        for id in source_ids:
-            session.delete(session.get(SourceTable, id))
-        session.commit()
+    for id in source_ids:
+        source = await backend.sources.get_by_socat_id(socat_id=id)
+        await backend.sources.delete(source.source_id)
 
     return

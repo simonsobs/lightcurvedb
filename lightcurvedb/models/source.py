@@ -1,17 +1,9 @@
 """
-Source information, reproduced from the source catalog
+Source information
 """
-
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 from pydantic import Field as PydanticField
-from sqlmodel import Field, Relationship, SQLModel
-
-from .json import JSONEncodedPydantic
-
-if TYPE_CHECKING:
-    from .flux import FluxMeasurementTable
 
 
 class CrossMatch(BaseModel):
@@ -29,38 +21,20 @@ class SourceMetadata(BaseModel):
     """
 
     cross_matches: list[CrossMatch] = PydanticField(default=[])
+    socat_id: int | None = None
 
 
-class Source(BaseModel):
+class SourceCreate(BaseModel):
     """
-    A source as tracked in socat
+    Input model for creating sources.
     """
 
-    id: int | None = None
-    # The ID in socat
     name: str | None = None
     ra: float | None
     dec: float | None
-
-    variable: bool
-    # Whether the source has variable position; ra, dec should be None in this instance and you
-    # will have to ask socat for the information
-
+    variable: bool = False
     extra: SourceMetadata | None = None
 
 
-class SourceTable(SQLModel, Source, table=True):
-    __tablename__ = "sources"
-
-    id: int = Field(primary_key=True)
-    name: str | None = Field(default=None)
-
-    flux_measurements: list["FluxMeasurementTable"] = Relationship(
-        back_populates="source"
-    )
-    extra: SourceMetadata | None = Field(
-        sa_type=JSONEncodedPydantic(SourceMetadata), default=None
-    )
-
-    def to_model(self) -> Source:
-        return Source(**self.model_dump())
+class Source(SourceCreate):
+    source_id: int | None = None

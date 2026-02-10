@@ -7,102 +7,91 @@ from pytest import fixture as sync_fixture
 from pytest_asyncio import fixture as async_fixture
 from testcontainers.postgres import PostgresContainer
 
-from lightcurvedb.managers import AsyncSessionManager, SyncSessionManager
+from lightcurvedb.config import Settings
+from lightcurvedb.storage.postgres.backend import postgres_backend
+from lightcurvedb.storage.prototype.backend import Backend
 
 
 @sync_fixture(scope="session")
-def base_server():
+def test_database():
     """
-    Sets up a server (completely empty).
+    Sets up a testcontainer PostgreSQL database for the session.
     """
-
-    with PostgresContainer() as container:
-        conn_url = container.get_connection_url()
-
-        yield conn_url
-
-
-@sync_fixture(scope="session")
-def sync_client(base_server):
-    manager = SyncSessionManager(base_server.replace("psycopg2", "psycopg"))
-
-    manager.create_all()
-
-    yield manager
-
-    manager.drop_all()
+    with PostgresContainer(
+        image="postgres:16-alpine",
+        username="postgres",
+        password="password",
+        dbname="test_lightcurvedb",
+    ) as container:
+        yield container
 
 
-@sync_fixture(scope="session")
-def source_ids(sync_client):
+@async_fixture(scope="session")
+async def backend(test_database):
+    async with postgres_backend(
+        settings=Settings(
+            postgres_host=test_database.get_container_host_ip(),
+            postgres_port=test_database.get_exposed_port(5432),
+            postgres_user="postgres",
+            postgres_password="password",
+            postgres_db="test_lightcurvedb",
+            backend_type="postgres",
+            postgres_partition_count=4,
+        )
+    ) as backend_instance:
+        yield backend_instance
+
+
+@async_fixture(scope="session", autouse=True)
+async def setup_test_data(backend: Backend):
     import random
     from datetime import datetime, timedelta
 
-    from sqlalchemy import select
+    from lightcurvedb.models.band import Band
+    from lightcurvedb.simulation import cutouts as sim_cutouts
+    from lightcurvedb.simulation import fluxes as sim_fluxes
+    from lightcurvedb.simulation import sources as sim_sources
 
-    from lightcurvedb.models.band import BandTable
-    from lightcurvedb.models.flux import FluxMeasurementTable
-    from lightcurvedb.models.source import SourceTable
-    from lightcurvedb.simulation import cutouts, fluxes, sources
+    test_bands = [
+        Band(
+            band_name=f"f{band_frequency:03d}",
+            frequency=float(band_frequency),
+            instrument="LATR",
+            telescope="SOLAT",
+        )
+        for band_frequency in [27, 39, 93, 145, 225, 280]
+    ]
+    await backend.bands.create_batch(test_bands)
 
-    source_ids = sources.create_fixed_sources(64, manager=sync_client)
+    source_ids = await sim_sources.create_fixed_sources(64, backend=backend)
 
-    with sync_client.session() as session:
-        bands = [
-            BandTable(
-                name=f"f{band_frequency:03d}",
-                frequency=band_frequency,
-                instrument="LATR",
-                telescope="SOLAT",
-            )
-            for band_frequency in [27, 39, 93, 145, 225, 280]
-        ]
+    bands = await backend.bands.get_all()
 
-        session.add_all(bands)
-        session.commit()
+    for source_id in source_ids:
+        source = await backend.sources.get(source_id)
+        usable_bands = random.sample(bands, k=4)
 
-        sources = [session.get(SourceTable, source_id) for source_id in source_ids]
-        bands = session.execute(select(BandTable)).scalars().all()
+        await sim_fluxes.generate_fluxes_fixed_source(
+            source=source,
+            bands=usable_bands,
+            backend=backend,
+            start_time=datetime.now(),
+            cadence=timedelta(days=1),
+            number=random.randint(10, 16),
+        )
 
-        for source in sources:
-            # Not all sources should have all bands.
-            usable_band_ids = set(random.choices(range(len(bands)), k=4))
-            usable_bands = [bands[x] for x in usable_band_ids]
+    # Generate cutouts for only the first source.
+    for band_frequency in [27, 39, 93, 145, 225, 280]:
+        band_name = f"f{band_frequency:03d}"
 
-            fluxes.generate_fluxes_fixed_source(
-                source=source,
-                bands=usable_bands,
-                start_time=datetime.now(),
-                cadence=timedelta(days=1),
-                number=random.randint(10, 16),
-                session=session,
-            )
+        fluxes = await backend.fluxes.get_recent_measurements(
+            source_id=source_ids[0], limit=1024, band_name=band_name
+        )
 
-            # Get the most recent 30 flux measurements.
-            useful_fluxes = (
-                session.query(FluxMeasurementTable)
-                .filter(FluxMeasurementTable.source_id == source.id)
-                .order_by(FluxMeasurementTable.time.desc())
-                .limit(random.randint(3, 9))
-                .all()
-            )
+        if len(fluxes) == 0:
+            continue
 
-            for flux in useful_fluxes:
-                cutouts.create_cutout(
-                    nside=64,
-                    flux=flux,
-                    session=session,
-                )
+        cutouts = [sim_cutouts.create_cutout(nside=32, flux=flux) for flux in fluxes]
+        _ = await backend.cutouts.create_batch(cutouts)
 
-        yield source_ids
-
-        with sync_client.session() as session:
-            for source_id in source_ids:
-                session.delete(session.get(SourceTable, source_id))
-            session.commit()
-
-
-@async_fixture(loop_scope="session", scope="session")
-async def client(base_server, source_ids):
-    manager = AsyncSessionManager(base_server.replace("psycopg2", "asyncpg"))
-    yield manager
+    yield source_ids

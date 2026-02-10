@@ -38,7 +38,7 @@ async def cutout_add(cutout: Cutout, conn: AsyncSession) -> int:
     await conn.commit()
     await conn.refresh(table)
 
-    return table.id
+    return table.cutout_id
 
 
 async def cutout_read_from_flux_id(

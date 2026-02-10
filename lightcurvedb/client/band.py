@@ -1,68 +1,35 @@
 """
-Extensions to core for sources.
+Client functions for band operations.
 """
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from lightcurvedb.models.band import Band, BandTable
+from lightcurvedb.models.band import Band
+from lightcurvedb.protocols.storage import FluxStorageBackend
 
 
-class BandNotFound(Exception):
-    pass
-
-
-async def band_read(name: str, conn: AsyncSession) -> BandTable:
+async def band_read(name: str, backend: FluxStorageBackend) -> Band:
     """
     Read core metadata about a band.
     """
-    res = await conn.get(BandTable, name)
-
-    if res is None:
-        raise BandNotFound
-
-    return res.to_model()
+    return await backend.bands.get(name)
 
 
-async def band_read_all(conn: AsyncSession) -> list[BandTable]:
+async def band_read_all(backend: FluxStorageBackend) -> list[Band]:
     """
     Get the list of all bands in use throughout the system.
     """
-    query = select(BandTable)
-
-    res = await conn.execute(query)
-
-    return [x.to_model() for x in res.scalars().all()]
+    return await backend.bands.get_all()
 
 
-async def band_add(band: Band, conn: AsyncSession) -> str:
+async def band_add(band: Band, backend: FluxStorageBackend) -> str:
     """
     Add a band to the system.
     """
-
-    table = BandTable(
-        name=band.name,
-        telescope=band.telescope,
-        instrument=band.instrument,
-        frequency=band.frequency,
-    )
-
-    conn.add(table)
-    await conn.commit()
-    await conn.refresh(table)
-
-    return table.name
+    created = await backend.bands.create(band)
+    return created
 
 
-async def band_delete(name: str, conn: AsyncSession):
+async def band_delete(name: str, backend: FluxStorageBackend) -> None:
     """
     Delete a band from the system.
     """
-
-    res = await conn.get(BandTable, name)
-
-    if res is None:  # pragma: no cover
-        raise BandNotFound
-
-    await conn.delete(res)
-    await conn.commit()
+    await backend.bands.delete(name)

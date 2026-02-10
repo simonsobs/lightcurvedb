@@ -7,7 +7,6 @@ import random
 import pytest
 
 from lightcurvedb.client.source import (
-    SourceNotFound,
     source_add,
     source_delete,
     source_read,
@@ -15,13 +14,13 @@ from lightcurvedb.client.source import (
     source_read_in_radius,
     source_read_summary,
 )
+from lightcurvedb.models.exceptions import SourceNotFoundException
 from lightcurvedb.models.source import Source
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_read_source(client):
-    async with client.session() as conn:
-        source = await source_read(id=1, conn=conn)
+async def test_read_source(backend):
+    source = await source_read(id=1, backend=backend)
 
     assert isinstance(source, Source)
     assert source.ra is not None
@@ -29,73 +28,64 @@ async def test_read_source(client):
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_read_all_sources(client, source_ids):
-    async with client.session() as conn:
-        all_sources = await source_read_all(conn)
-
-    found_source_ids = set(x.id for x in all_sources)
-    expected_source_ids = set(source_ids)
-
-    assert found_source_ids == expected_source_ids
+async def test_read_all_sources(backend):
+    all_sources = await source_read_all(backend=backend)
+    assert len(all_sources) == 64
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_source_read_summary(client, source_ids):
+async def test_source_read_summary(backend):
+    all_sources = await backend.sources.get_all()
+    source_ids = [s.source_id for s in all_sources]
+
     for source_id in random.choices(source_ids, k=4):
-        async with client.session() as conn:
-            source_summary = await source_read_summary(id=source_id, conn=conn)
+        source_summary = await source_read_summary(id=source_id, backend=backend)
 
-            assert source_summary.source.id == source_id
-            assert len(source_summary.bands) > 0
-            assert (
-                source_summary.measurements[0].end
-                > source_summary.measurements[0].start
-            )
-            assert source_summary.measurements[0].count > 0
+        assert source_summary.source.source_id == source_id
+        assert len(source_summary.bands) > 0
+        assert source_summary.measurements[0].end > source_summary.measurements[0].start
+        assert source_summary.measurements[0].count > 0
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_source_read_in_radius(client, source_ids):
-    async with client.session() as conn:
-        sources_in_radius = await source_read_in_radius((0, 0), 80.0, conn)
-        assert len(sources_in_radius) > 0
+async def test_source_read_in_radius(backend):
+    sources_in_radius = await source_read_in_radius((0, 0), 80.0, backend=backend)
+    assert len(sources_in_radius) > 0
 
-        for source in sources_in_radius:
-            assert source.ra > -80.0
-            assert source.ra < 80.0
-            assert source.dec > -80.0
-            assert source.dec < 80.0
+    for source in sources_in_radius:
+        assert source.ra > -80.0
+        assert source.ra < 80.0
+        assert source.dec > -80.0
+        assert source.dec < 80.0
 
-        with pytest.raises(ValueError):
-            await source_read_in_radius((0, 0), -80.0, conn)
+    with pytest.raises(ValueError):
+        await source_read_in_radius((0, 0), -80.0, backend=backend)
 
-        with pytest.raises(ValueError):
-            await source_read_in_radius((0, -100), 1.0, conn)
-
-
-@pytest.mark.asyncio(loop_scope="session")
-async def test_read_source_fails(client):
-    with pytest.raises(SourceNotFound):
-        async with client.session() as conn:
-            await source_read(id=1000000, conn=conn)
+    with pytest.raises(ValueError):
+        await source_read_in_radius((0, -100), 1.0, backend=backend)
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_add_read_remove_source(client):
-    source = Source(ra=2.134, dec=89.37, variable=True)
-    async with client.session() as conn:
-        id = await source_add(source=source, conn=conn)
+async def test_read_source_fails(backend):
+    with pytest.raises(SourceNotFoundException):
+        await source_read(id=1000000, backend=backend)
 
-    async with client.session() as conn:
-        read_source = await source_read(id=id, conn=conn)
 
-        assert read_source.ra == source.ra
-        assert read_source.dec == source.dec
-        assert read_source.variable == source.variable
+@pytest.mark.asyncio(loop_scope="session")
+async def test_add_read_remove_source(backend):
+    source = Source(ra=2.134, dec=89.37, variable=True, extra={"haha": "hoho"})
+    id = await source_add(source=source, backend=backend)
 
-    async with client.session() as conn:
-        await source_delete(id=id, conn=conn)
+    read_source = await source_read(id=id, backend=backend)
 
-    with pytest.raises(SourceNotFound):
-        async with client.session() as conn:
-            await source_read(id=id, conn=conn)
+    assert read_source.ra == source.ra
+    assert read_source.dec == source.dec
+    assert read_source.variable == source.variable
+
+    await source_delete(id=id, backend=backend)
+
+    with pytest.raises(SourceNotFoundException):
+        await source_read(id=id, backend=backend)
+
+    with pytest.raises(SourceNotFoundException):
+        await source_delete(id=id, backend=backend)
