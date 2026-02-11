@@ -7,8 +7,8 @@ from datetime import datetime, timedelta
 
 import numpy as np
 
-from lightcurvedb.models.instrument import Instrument
 from lightcurvedb.models.flux import FluxMeasurementCreate, MeasurementMetadata
+from lightcurvedb.models.instrument import Instrument
 from lightcurvedb.models.source import Source
 from lightcurvedb.storage.prototype.backend import Backend
 
@@ -17,7 +17,7 @@ def generate_fluxes_fixed_source_core(
     start_time: datetime,
     cadence: timedelta,
     number: int,
-    bands: list[float],
+    insturments: list[Instrument],
     probability_of_flare: float = 0.1,
     peak_flux: float = 5.0,
     peak_flux_band_index: int = 0,
@@ -29,7 +29,9 @@ def generate_fluxes_fixed_source_core(
     flare_index = random.randint(0, int(number / probability_of_flare))
     flare_time = start_time + flare_index * cadence
 
-    fluxes = [np.random.rand(number) * np.sqrt(noise_floor) + noise_floor] * len(bands)
+    fluxes = [np.random.rand(number) * np.sqrt(noise_floor) + noise_floor] * len(
+        insturments
+    )
 
     if flare_index < (number + flare_duration / cadence * 3):
         # We need to actually generate flare info.
@@ -38,13 +40,13 @@ def generate_fluxes_fixed_source_core(
         )
 
         spectral_index = random.uniform(*spectral_index_range)
-        for index, band in enumerate(bands):
+        for index, instrument in enumerate(insturments):
             if index == peak_flux_band_index:
                 continue
 
             fluxes[index] = (
                 fluxes[peak_flux_band_index]
-                * (band.frequency / bands[peak_flux_band_index].frequency)
+                * (instrument.frequency / insturments[peak_flux_band_index].frequency)
                 ** spectral_index
             )
 
@@ -53,14 +55,14 @@ def generate_fluxes_fixed_source_core(
 
 async def generate_fluxes_fixed_source(
     source: Source,
-    bands: list[Instrument],
+    instruments: list[Instrument],
     backend: Backend,
     start_time: datetime,
     cadence: timedelta,
     number: int,
     probability_of_flare: float = 0.1,
     peak_flux: float = 5.0,
-    peak_flux_band_index: int = 0,
+    peak_flux_instrument_index: int = 0,
     flare_duration: timedelta = timedelta(days=10),
     noise_floor: float = 0.1,
     spectral_index_range: tuple[float, float] = (-2.0, 2.0),
@@ -73,8 +75,8 @@ async def generate_fluxes_fixed_source(
     ----------
     source : Source
         Source domain model (has id, ra, dec)
-    bands : list[Band]
-        List of band domain models
+    instruments : list[Instrument]
+        List of instrument domain models
     backend : Backend
         Storage backend from factory
     start_time : datetime
@@ -87,7 +89,7 @@ async def generate_fluxes_fixed_source(
         The probability of a flare occurring in the entire time range.
     peak_flux : float
         The peak flux of the flare.
-    peak_flux_band_index : int
+    peak_flux_instrument_index : int
         The band that the peak flux should be deposited in.
     flare_duration : timedelta
         The duration of the flare.
@@ -106,10 +108,10 @@ async def generate_fluxes_fixed_source(
         start_time=start_time,
         cadence=cadence,
         number=number,
-        bands=bands,
+        insturments=instruments,
         probability_of_flare=probability_of_flare,
         peak_flux=peak_flux,
-        peak_flux_band_index=peak_flux_band_index,
+        peak_flux_band_index=peak_flux_instrument_index,
         flare_duration=flare_duration,
         noise_floor=noise_floor,
         spectral_index_range=spectral_index_range,
@@ -117,7 +119,7 @@ async def generate_fluxes_fixed_source(
 
     all_measurements = []
 
-    for flux_values, band in zip(fluxes, bands):
+    for flux_values, band in zip(fluxes, instruments):
         if random.random() < 0.1:
             metadata = MeasurementMetadata(flags=["test_flag"])
         else:
@@ -133,8 +135,8 @@ async def generate_fluxes_fixed_source(
                 dec=source.dec,
                 ra_uncertainty=random.random(),
                 dec_uncertainty=random.random(),
-                i_flux=flux_values[i],
-                i_uncertainty=noise_floor,
+                flux=flux_values[i],
+                flux_err=noise_floor,
                 extra=metadata,
             )
             for i in range(number)

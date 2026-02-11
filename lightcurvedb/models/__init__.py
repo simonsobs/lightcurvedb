@@ -1,4 +1,3 @@
-from .instrument import Instrument
 from .cutout import Cutout
 from .exceptions import (
     InstrumentNotFoundException,
@@ -6,6 +5,7 @@ from .exceptions import (
     StorageException,
 )
 from .flux import FluxMeasurement, FluxMeasurementCreate, MeasurementMetadata
+from .instrument import Instrument
 from .responses import LightcurveBandData, SourceStatistics
 from .source import CrossMatch, Source, SourceMetadata
 

@@ -67,10 +67,13 @@ def core(
             # Create bands
             bands_data = [
                 Instrument(
-                    band_name=f"f{band_frequency:03d}",
-                    frequency=float(band_frequency),
-                    instrument="LATR",
-                    telescope="SOLAT",
+                    frequency=band_frequency,
+                    module="i1",
+                    telescope="lat",
+                    instrument="latr",
+                    details={
+                        "comissioning_date": "2023-05-14",
+                    },
                 )
                 for band_frequency in [27, 39, 93, 145, 225, 280]
             ]
@@ -93,7 +96,7 @@ def core(
                 source = await backend.sources.get(source_id)
                 _ = await generate_fluxes_fixed_source(
                     source=source,
-                    bands=bands,
+                    instruments=bands,
                     backend=backend,
                     start_time=start_time,
                     cadence=cadence,

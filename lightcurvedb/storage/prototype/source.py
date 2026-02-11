@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from lightcurvedb.models import Source, Source
+from lightcurvedb.models import Source
 
 
 class ProvidesSourceStorage(Protocol):

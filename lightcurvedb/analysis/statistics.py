@@ -289,7 +289,7 @@ class RawMeasurementStatisticsRegistry:
 
     @staticmethod
     def mean_flux(table_ref):
-        return table_ref.i_flux
+        return table_ref.flux
 
 
 class BandStatisticsCalculator:

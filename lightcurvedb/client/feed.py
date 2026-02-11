@@ -47,7 +47,7 @@ async def feed_read(
         results.append(
             FeedResultItem(
                 time=measurements.times,
-                flux=measurements.i_flux,
+                flux=measurements.flux,
                 ra=sum(measurements.ra) / len(measurements.ra),
                 dec=sum(measurements.dec) / len(measurements.dec),
                 source_id=source_id,

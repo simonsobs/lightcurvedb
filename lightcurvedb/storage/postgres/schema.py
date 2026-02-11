@@ -4,7 +4,7 @@ PostgreSQL schema for Flux Measurement Table
 
 FLUX_MEASUREMENTS_TABLE = """
 CREATE TABLE IF NOT EXISTS flux_measurements (
-    flux_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    measurement_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     frequency INTEGER NOT NULL,
     module TEXT NOT NULL,
@@ -12,12 +12,14 @@ CREATE TABLE IF NOT EXISTS flux_measurements (
     source_id UUID REFERENCES sources(source_id),
 
     time TIMESTAMPTZ NOT NULL,
+
     ra REAL NOT NULL CHECK (ra >= -180 AND ra <= 180),
     dec REAL NOT NULL CHECK (dec >= -90 AND dec <= 90),
     ra_uncertainty REAL,
     dec_uncertainty REAL,
-    i_flux REAL NOT NULL,
-    i_uncertainty REAL,
+    
+    flux REAL NOT NULL,
+    flux_err REAL,
     extra JSONB,
 
     FOREIGN KEY (frequency, module) REFERENCES instruments(frequency, module)
@@ -34,14 +36,14 @@ CREATE INDEX IF NOT EXISTS idx_flux_time
 
 CUTOUT_SCHEMA = """
 CREATE TABLE IF NOT EXISTS cutouts (
-    flux_id UUID PRIMARY KEY REFERENCES flux_measurements(flux_id),
+    measurement_id UUID PRIMARY KEY REFERENCES flux_measurements(measurement_id),
 
     source_id UUID REFERENCES sources(source_id),
 
     frequency INTEGER NOT NULL,
     module TEXT NOT NULL,
 
-    cutout_data real[][] NOT NULL,
+    data real[][] NOT NULL,
     time TIMESTAMPTZ NOT NULL,
     units TEXT NOT NULL,
 
@@ -50,6 +52,6 @@ CREATE TABLE IF NOT EXISTS cutouts (
 """
 
 CUTOUT_INDEXES = """
-CREATE INDEX IF NOT EXISTS idx_cutouts_flux_id
-    ON cutouts (flux_id);
+CREATE INDEX IF NOT EXISTS idx_cutouts_measurement_id
+    ON cutouts (measurement_id);
 """

@@ -60,7 +60,7 @@ async def setup_test_data(backend: Backend):
             instrument="latr",
             details={
                 "comissioning_date": "2023-05-14",
-            }
+            },
         )
         for band_frequency in [27, 39, 93, 145, 225, 280]
     ]
@@ -68,15 +68,15 @@ async def setup_test_data(backend: Backend):
 
     source_ids = await sim_sources.create_fixed_sources(64, backend=backend)
 
-    bands = await backend.instruments.get_all()
+    instruments = await backend.instruments.get_all()
 
     for source_id in source_ids:
         source = await backend.sources.get(source_id)
-        usable_bands = random.sample(bands, k=4)
+        usable_bands = random.sample(instruments, k=4)
 
         await sim_fluxes.generate_fluxes_fixed_source(
             source=source,
-            bands=usable_bands,
+            instruments=usable_bands,
             backend=backend,
             start_time=datetime.now(),
             cadence=timedelta(days=1),
@@ -84,17 +84,20 @@ async def setup_test_data(backend: Backend):
         )
 
     # Generate cutouts for only the first source.
-    for band_frequency in [27, 39, 93, 145, 225, 280]:
-        band_name = f"f{band_frequency:03d}"
-
-        fluxes = await backend.fluxes.get_recent_measurements(
-            source_id=source_ids[0], limit=1024, band_name=band_name
+    for frequency in [27, 39, 93, 145, 225, 280]:
+        fluxes = await backend.lightcurves.get_frequency_lightcurve(
+            source_id=source_ids[0], frequency=frequency, limit=1024
         )
 
         if len(fluxes) == 0:
             continue
 
-        cutouts = [sim_cutouts.create_cutout(nside=32, flux=flux) for flux in fluxes]
+        cutouts = [
+            sim_cutouts.create_cutout(
+                nside=32, flux=flux, module="i1", frequency=frequency
+            )
+            for flux in fluxes
+        ]
         _ = await backend.cutouts.create_batch(cutouts)
 
     yield source_ids

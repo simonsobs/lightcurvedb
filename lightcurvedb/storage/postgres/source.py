@@ -108,6 +108,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
 
             if not row:
                 from lightcurvedb.models.exceptions import SourceNotFoundException
+
                 raise SourceNotFoundException(f"Source {source_id} not found")
 
             return row

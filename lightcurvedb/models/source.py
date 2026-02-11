@@ -3,9 +3,10 @@ Source information
 """
 
 from uuid import UUID
-from uuid_extensions import uuid7
+
 from pydantic import BaseModel, Field
 from pydantic import Field as PydanticField
+from uuid_extensions import uuid7
 
 
 class CrossMatch(BaseModel):

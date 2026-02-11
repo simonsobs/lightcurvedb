@@ -2,8 +2,8 @@
 PostgreSQL implementation of BandStorage protocol.
 """
 
-from collections import defaultdict
 import json
+from collections import defaultdict
 
 from psycopg import AsyncConnection
 from psycopg.rows import class_row

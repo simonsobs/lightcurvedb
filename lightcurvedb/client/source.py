@@ -42,9 +42,7 @@ async def source_read_all(backend: Backend) -> list[Source]:
     return await backend.sources.get_all()
 
 
-async def source_read_summary(
-    id: int, backend: Backend
-) -> SourceSummaryResult:
+async def source_read_summary(id: int, backend: Backend) -> SourceSummaryResult:
     """
     Read the full summary for an individual source, including number of
     observations.

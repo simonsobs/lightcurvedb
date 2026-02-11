@@ -4,7 +4,7 @@ Source generation.
 
 from random import randint, random
 
-from lightcurvedb.models.source import CrossMatch, SourceMetadata, Source
+from lightcurvedb.models.source import CrossMatch, Source, SourceMetadata
 from lightcurvedb.storage.prototype.backend import Backend
 
 

@@ -27,8 +27,8 @@ async def test_measurement_add_and_delete(backend, setup_test_data):
         band_name=band,
         source_id=source_id,
         time=datetime.datetime.now(),
-        i_flux=0.0,
-        i_uncertainty=0.0,
+        flux=0.0,
+        flux_err=0.0,
         ra=0.0,
         dec=0.0,
         ra_uncertainty=0.0,
@@ -71,4 +71,4 @@ async def test_recent_measurements_for_non_existent_source(backend):
     measurements = await backend.fluxes.get_recent_measurements(
         source_id=9999999, limit=5, band_name="non_existent"
     )
-    assert len(measurements.i_flux) == 0
+    assert len(measurements.flux) == 0

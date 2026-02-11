@@ -18,9 +18,7 @@ async def lightcurve_read_band(
     return LightcurveBandResult(source=source, band=band, **band_data.model_dump())
 
 
-async def lightcurve_read_source(
-    id: int, backend: Backend
-) -> LightcurveResult:
+async def lightcurve_read_source(id: int, backend: Backend) -> LightcurveResult:
     source = await backend.sources.get(id)
     band_names = await backend.fluxes.get_bands_for_source(id)
 

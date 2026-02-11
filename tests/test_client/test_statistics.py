@@ -7,8 +7,8 @@ from datetime import timezone
 
 import pytest
 
-from lightcurvedb.models.instrument import Instrument
 from lightcurvedb.models.flux import FluxMeasurementCreate
+from lightcurvedb.models.instrument import Instrument
 from lightcurvedb.models.source import Source
 
 
@@ -40,8 +40,8 @@ async def test_weighted_statistics(backend):
             dec=30.0,
             ra_uncertainty=0.1,
             dec_uncertainty=0.1,
-            i_flux=10.0,
-            i_uncertainty=2.0,
+            flux=10.0,
+            flux_err=2.0,
         )
         for i in range(5)
     ]

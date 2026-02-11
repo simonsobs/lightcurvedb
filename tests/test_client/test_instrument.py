@@ -4,8 +4,8 @@ Tests for instrument client interface.
 
 import pytest
 
-from lightcurvedb.models.instrument import Instrument
 from lightcurvedb.models.exceptions import InstrumentNotFoundException
+from lightcurvedb.models.instrument import Instrument
 from lightcurvedb.storage.prototype.backend import Backend
 
 
@@ -26,7 +26,7 @@ async def test_instrument_creation_deletion_flow(backend: Backend):
         instrument="wfc3",
         details={
             "comissioning_date": "2009-05-14",
-        }
+        },
     )
 
     # Add instrument
