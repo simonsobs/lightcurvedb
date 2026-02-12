@@ -51,7 +51,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
                 COALESCE(array_agg(flux_err), array[]::real[]) AS flux_err,
                 COALESCE(array_agg(extra), array[]::jsonb[]) AS extra
             FROM (
-                SELECT * FROM FLUX_MEASUREMENTS
+                SELECT * FROM flux_measurements
                 WHERE source_id = %(source_id)s
                 AND module = %(module)s
                 AND frequency = %(frequency)s

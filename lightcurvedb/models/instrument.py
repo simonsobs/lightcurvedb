@@ -1,5 +1,5 @@
 """
-Band model.
+Instrument model.
 """
 
 from typing import Any

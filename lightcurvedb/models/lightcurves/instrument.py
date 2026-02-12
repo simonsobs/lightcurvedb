@@ -61,7 +61,7 @@ class BinnedInstrumentLightcurve(BaseModel):
     end_time: datetime
 
     def __len__(self):
-        return len(self.times)
+        return len(self.time)
 
     def _measurement(self, index: int) -> FluxMeasurement:
         return FluxMeasurement(

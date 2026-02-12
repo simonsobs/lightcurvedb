@@ -25,7 +25,6 @@ async def test_measurement_add_and_delete(backend, setup_test_data):
     band = random.choice(bands)
 
     measurement = FluxMeasurement(
-        band_name=band,
         source_id=source_id,
         module=band[0],
         frequency=band[1],

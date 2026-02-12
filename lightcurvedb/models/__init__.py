@@ -6,7 +6,7 @@ from .exceptions import (
 )
 from .flux import FluxMeasurement, FluxMeasurementCreate, MeasurementMetadata
 from .instrument import Instrument
-from .responses import LightcurveBandData, SourceStatistics
+from .responses import SourceStatistics
 from .source import CrossMatch, Source, SourceMetadata
 
 __all__ = [
@@ -16,7 +16,6 @@ __all__ = [
     "Cutout",
     "FluxMeasurement",
     "FluxMeasurementCreate",
-    "LightcurveBandData",
     "MeasurementMetadata",
     "Source",
     "SourceMetadata",

@@ -53,7 +53,7 @@ class PostgresInstrumentStorage(ProvidesInstrumentStorage):
             INSERT INTO instruments (frequency, module, telescope, instrument, details)
             SELECT *
             FROM UNNEST(
-                %(frequency)s::double precision[],
+                %(frequency)s::integer[],
                 %(module)s::text[],
                 %(telescope)s::text[],
                 %(instrument)s::text[],
