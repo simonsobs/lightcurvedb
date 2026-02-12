@@ -64,17 +64,19 @@ async def upsert_sources(
     sources_added = 0
     sources_modified = 0
 
-    for source in all_sources:
+    for socat_source in all_sources:
         try:
-            lightcurvedb_source = await backend.get_by_socat_id(source.source_id)
+            lightcurvedb_source = await backend.get_by_socat_id(
+                socat_id=socat_source.source_id
+            )
         except SourceNotFoundException:
             await backend.create(
                 Source(
-                    name=source.name,
-                    ra=clamp_ra(source.position.ra.to_value("deg")),
-                    dec=source.position.dec.to_value("deg"),
+                    socat_id=socat_source.source_id,
+                    name=socat_source.name,
+                    ra=clamp_ra(socat_source.position.ra.to_value("deg")),
+                    dec=socat_source.position.dec.to_value("deg"),
                     variable=False,
-                    extra={"socat_id": source.source_id},
                 )
             )
             sources_added += 1
@@ -83,22 +85,22 @@ async def upsert_sources(
 
         ra_equal = isclose(
             lightcurvedb_source.ra,
-            clamp_ra(source.position.ra.to_value("deg")),
+            clamp_ra(socat_source.position.ra.to_value("deg")),
             abs_tol=1 / 3600.0 / 100.0,
         )
         dec_equal = isclose(
             lightcurvedb_source.dec,
-            source.position.dec.to_value("deg"),
+            socat_source.position.dec.to_value("deg"),
             abs_tol=1 / 3600.0 / 100.0,
         )
-        name_equal = lightcurvedb_source.name == source.name
+        name_equal = lightcurvedb_source.name == socat_source.name
 
         if not (ra_equal and dec_equal and name_equal):
-            lightcurvedb_source.ra = clamp_ra(source.position.ra.to_value("deg"))
-            lightcurvedb_source.dec = source.position.dec.to_value("deg")
-            lightcurvedb_source.name = source.name
+            lightcurvedb_source.ra = clamp_ra(socat_source.position.ra.to_value("deg"))
+            lightcurvedb_source.dec = socat_source.position.dec.to_value("deg")
+            lightcurvedb_source.name = socat_source.name
 
-            if lightcurvedb_source.extra.cross_matches:
+            if lightcurvedb_source.extra and lightcurvedb_source.extra.cross_matches:
                 raise ValueError(
                     f"Unable to handle upsert for source {lightcurvedb_source.source_id} due to "
                     f"presence of extra: {lightcurvedb_source.extra}"

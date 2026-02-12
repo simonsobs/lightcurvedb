@@ -47,33 +47,36 @@ async def setup_test_data(backend: Backend):
     import random
     from datetime import datetime, timedelta
 
-    from lightcurvedb.models.band import Band
+    from lightcurvedb.models.instrument import Instrument
     from lightcurvedb.simulation import cutouts as sim_cutouts
     from lightcurvedb.simulation import fluxes as sim_fluxes
     from lightcurvedb.simulation import sources as sim_sources
 
-    test_bands = [
-        Band(
-            band_name=f"f{band_frequency:03d}",
-            frequency=float(band_frequency),
-            instrument="LATR",
-            telescope="SOLAT",
+    test_instruments = [
+        Instrument(
+            frequency=band_frequency,
+            module="i1",
+            telescope="lat",
+            instrument="latr",
+            details={
+                "comissioning_date": "2023-05-14",
+            },
         )
         for band_frequency in [27, 39, 93, 145, 225, 280]
     ]
-    await backend.bands.create_batch(test_bands)
+    await backend.instruments.create_batch(test_instruments)
 
     source_ids = await sim_sources.create_fixed_sources(64, backend=backend)
 
-    bands = await backend.bands.get_all()
+    instruments = await backend.instruments.get_all()
 
     for source_id in source_ids:
         source = await backend.sources.get(source_id)
-        usable_bands = random.sample(bands, k=4)
+        usable_bands = random.sample(instruments, k=4)
 
         await sim_fluxes.generate_fluxes_fixed_source(
             source=source,
-            bands=usable_bands,
+            instruments=usable_bands,
             backend=backend,
             start_time=datetime.now(),
             cadence=timedelta(days=1),
@@ -81,11 +84,9 @@ async def setup_test_data(backend: Backend):
         )
 
     # Generate cutouts for only the first source.
-    for band_frequency in [27, 39, 93, 145, 225, 280]:
-        band_name = f"f{band_frequency:03d}"
-
-        fluxes = await backend.fluxes.get_recent_measurements(
-            source_id=source_ids[0], limit=1024, band_name=band_name
+    for frequency in [27, 39, 93, 145, 225, 280]:
+        fluxes = await backend.lightcurves.get_frequency_lightcurve(
+            source_id=source_ids[0], frequency=frequency, limit=1024
         )
 
         if len(fluxes) == 0:

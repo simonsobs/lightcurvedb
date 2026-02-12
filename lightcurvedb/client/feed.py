@@ -5,11 +5,11 @@ by ID descending in a paginated way.
 """
 
 from lightcurvedb.models.feed import FeedResult, FeedResultItem
-from lightcurvedb.protocols.storage import FluxStorageBackend
+from lightcurvedb.storage.prototype.backend import Backend
 
 
 async def feed_read(
-    start: int, number: int, band_name: str, backend: FluxStorageBackend
+    start: int, number: int, frequency: int, backend: Backend
 ) -> FeedResult:
     """
     Reads the 'feed' of sources. Currently just orders by
@@ -21,9 +21,9 @@ async def feed_read(
         ID to start reading at (suggest 0)
     number: int
         Number of results to return (suggest 10 or 16)
-    band_name: str
+    frequency: int
         Band to use
-    backend: FluxStorageBackend
+    backend: Backend
         Storage backend
 
     Returns
@@ -34,9 +34,12 @@ async def feed_read(
 
     results = []
 
-    for source_id in range(start, start + number):
-        measurements = await backend.fluxes.get_recent_measurements(
-            source_id, band_name, limit=30
+    sources = await backend.sources.get_all()
+    source_ids = [source.source_id for source in sources[start : start + number]]
+
+    for source_id in source_ids:
+        measurements = await backend.lightcurves.get_frequency_lightcurve(
+            source_id, frequency=frequency, limit=30
         )
 
         if len(measurements) <= 1:
@@ -46,8 +49,8 @@ async def feed_read(
 
         results.append(
             FeedResultItem(
-                time=measurements.times,
-                flux=measurements.i_flux,
+                time=measurements.time,
+                flux=measurements.flux,
                 ra=sum(measurements.ra) / len(measurements.ra),
                 dec=sum(measurements.dec) / len(measurements.dec),
                 source_id=source_id,
@@ -62,6 +65,6 @@ async def feed_read(
         items=results,
         start=start,
         stop=start + number,
-        band_name=band_name,
+        band_name=f"f{frequency}",
         total_number_of_sources=total_number_of_sources,
     )

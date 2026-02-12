@@ -21,21 +21,21 @@ async def test_cutout_read(backend: Backend, setup_test_data):
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_cutout_write_and_delete(backend: Backend, setup_test_data):
-    source_ids = setup_test_data
-    source_id = source_ids[1]
+    source_id = setup_test_data[1]
 
-    bands = await backend.fluxes.get_bands_for_source(source_id=source_id)
-    fluxes = await backend.fluxes.get_recent_measurements(
-        source_id, limit=100, band_name=bands[0]
+    lightcurve = await backend.lightcurves.get_source_lightcurve(
+        source_id=source_id, selection_strategy="instrument"
     )
+    fluxes = lightcurve.lightcurves["i1"]
 
     # Create a new cutout
-    flux_id = await backend.cutouts.create(
+    measurement_id = await backend.cutouts.create(
         cutout=Cutout(
             source_id=source_id,
-            flux_id=fluxes.flux_ids[0],
-            time=fluxes.times[0],
-            band_name=fluxes.band_name,
+            measurement_id=fluxes.measurement_id[0],
+            time=fluxes.time[0],
+            frequency=fluxes.frequency,
+            module=fluxes.module,
             data=[[0.1, 0.2], [0.3, 0.4]],
             units="mJy",
         )
@@ -43,20 +43,23 @@ async def test_cutout_write_and_delete(backend: Backend, setup_test_data):
 
     # Retrieve the cutout
     retrieved_cutouts = await backend.cutouts.retrieve_cutouts_for_source(source_id)
-    assert any(cutout.flux_id == flux_id for cutout in retrieved_cutouts)
+    assert any(cutout.measurement_id == measurement_id for cutout in retrieved_cutouts)
 
     # Retrieve a single cutout
     retrieved_cutout = await backend.cutouts.retrieve_cutout(
-        source_id=source_id, flux_id=fluxes[0].flux_id
+        source_id=source_id, measurement_id=fluxes[0].measurement_id
     )
     assert retrieved_cutout is not None
-    assert retrieved_cutout.flux_id == flux_id
+    assert retrieved_cutout.measurement_id == measurement_id
 
     # Delete the cutout
-    await backend.cutouts.delete(flux_id)
+    await backend.cutouts.delete(measurement_id)
 
     # Verify deletion
     retrieved_cutouts_after_deletion = (
         await backend.cutouts.retrieve_cutouts_for_source(source_id)
     )
-    assert all(cutout.flux_id != flux_id for cutout in retrieved_cutouts_after_deletion)
+    assert all(
+        cutout.measurement_id != measurement_id
+        for cutout in retrieved_cutouts_after_deletion
+    )

@@ -2,6 +2,8 @@
 Store cutouts directly in a postgres array.
 """
 
+from uuid import UUID
+
 from psycopg import AsyncConnection
 from psycopg.rows import class_row
 
@@ -31,16 +33,30 @@ class PostgresCutoutStorage(ProvidesCutoutStorage):
         Store a cutout for a given source and band.
         """
         query = """
-            INSERT INTO cutouts (source_id, flux_id, band_name, cutout_data,
-            time, units) VALUES (%(source_id)s, %(flux_id)s, %(band_name)s,
-            %(data)s, %(time)s, %(units)s)
+            INSERT INTO cutouts (
+                measurement_id,
+                source_id,
+                time,
+                units,
+                data,
+                module,
+                frequency
+            ) VALUES (
+                %(measurement_id)s,
+                %(source_id)s,
+                %(time)s,
+                %(units)s,
+                %(data)s,
+                %(module)s,
+                %(frequency)s
+            )
         """
         params = cutout.model_dump()
 
         async with self.conn.cursor() as cur:
             await cur.execute(query, params)
 
-        return cutout.flux_id
+        return cutout.measurement_id
 
     async def create_batch(self, cutouts: list[Cutout]) -> list[int]:
         """
@@ -51,9 +67,23 @@ class PostgresCutoutStorage(ProvidesCutoutStorage):
         # a performance improvement, but we're ok for now.
 
         query = """
-            INSERT INTO cutouts (source_id, flux_id, band_name, cutout_data,
-            time, units) VALUES (%(source_id)s, %(flux_id)s, %(band_name)s,
-            %(data)s, %(time)s, %(units)s)
+            INSERT INTO cutouts (
+                measurement_id,
+                source_id,
+                time,
+                units,
+                data,
+                module,
+                frequency
+            ) VALUES (
+                %(measurement_id)s,
+                %(source_id)s,
+                %(time)s,
+                %(units)s,
+                %(data)s,
+                %(module)s,
+                %(frequency)s
+            )
         """
 
         params_list = [c.model_dump() for c in cutouts]
@@ -61,16 +91,16 @@ class PostgresCutoutStorage(ProvidesCutoutStorage):
         async with self.conn.cursor() as cur:
             await cur.executemany(query, params_list)
 
-        return [c.flux_id for c in cutouts]
+        return [c.measurement_id for c in cutouts]
 
-    async def retrieve_cutout(self, source_id: int, flux_id: int) -> Cutout:
+    async def retrieve_cutout(self, source_id: UUID, measurement_id: UUID) -> Cutout:
         """
         Retrieve a cutout for a given source and band.
         """
         query = """
-            SELECT source_id, flux_id, band_name, cutout_data as data, time, units
+            SELECT source_id, measurement_id, time, units, data, module, frequency
             FROM cutouts
-            WHERE source_id = %(source_id)s AND flux_id = %(flux_id)s
+            WHERE source_id = %(source_id)s AND measurement_id = %(measurement_id)s
         """
 
         async with self.conn.cursor(row_factory=class_row(Cutout)) as cur:
@@ -78,23 +108,26 @@ class PostgresCutoutStorage(ProvidesCutoutStorage):
                 query,
                 {
                     "source_id": source_id,
-                    "flux_id": flux_id,
+                    "measurement_id": measurement_id,
                 },
             )
             row = await cur.fetchone()
 
             if not row:
                 from lightcurvedb.models.exceptions import CutoutNotFoundException
-                raise CutoutNotFoundException(f"Cutout {source_id}/{flux_id} not found")
-            
+
+                raise CutoutNotFoundException(
+                    f"Cutout {source_id}/{measurement_id} not found"
+                )
+
             return row
 
-    async def retrieve_cutouts_for_source(self, source_id: int) -> list[Cutout]:
+    async def retrieve_cutouts_for_source(self, source_id: UUID) -> list[Cutout]:
         """
         Retrieve cutouts for a given source.
         """
         query = """
-            SELECT source_id, flux_id, band_name, cutout_data as data, time, units
+            SELECT source_id, measurement_id, time, units, data, module, frequency
             FROM cutouts
             WHERE source_id = %(source_id)s
         """
@@ -109,14 +142,14 @@ class PostgresCutoutStorage(ProvidesCutoutStorage):
             rows = await cur.fetchall()
             return rows
 
-    async def delete(self, flux_id: int) -> None:
+    async def delete(self, measurement_id: UUID) -> None:
         """
         Delete a cutout by ID.
         """
         query = """
             DELETE FROM cutouts
-            WHERE flux_id = %(flux_id)s
+            WHERE measurement_id = %(measurement_id)s
         """
 
         async with self.conn.cursor() as cur:
-            await cur.execute(query, {"flux_id": flux_id})
+            await cur.execute(query, {"measurement_id": measurement_id})

@@ -4,6 +4,7 @@ Cut-outs around sources.
 
 from datetime import datetime
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -12,12 +13,14 @@ if TYPE_CHECKING:
 
 
 class Cutout(BaseModel):
-    flux_id: int | None = None
+    measurement_id: UUID | None = None
 
     data: list[list[float]]
 
     time: datetime
     units: str
 
-    source_id: int | None = None
-    band_name: str | None = None
+    frequency: int
+    module: str
+
+    source_id: UUID | None = None

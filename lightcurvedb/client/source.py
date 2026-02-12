@@ -3,49 +3,47 @@ Extensions to core for sources.
 """
 
 from math import cos, pi
+from uuid import UUID
 
 from pydantic import BaseModel
 
-from lightcurvedb.client.band import band_read
 from lightcurvedb.client.measurement import (
     MeasurementSummaryResult,
     measurement_summary,
 )
-from lightcurvedb.models.band import Band
+from lightcurvedb.models.instrument import Instrument
 from lightcurvedb.models.source import Source
-from lightcurvedb.protocols.storage import FluxStorageBackend
+from lightcurvedb.storage.prototype.backend import Backend
 
 
 class SourceSummaryResult(BaseModel):
     source: Source
-    bands: list[Band]
+    bands: list[Instrument]
     measurements: list[MeasurementSummaryResult]
 
 
-async def source_read(id: int, backend: FluxStorageBackend) -> Source:
+async def source_read(id: UUID, backend: Backend) -> Source:
     """
     Read core metadata about a source.
     """
     return await backend.sources.get(id)
 
 
-async def source_read_bands(id: int, backend: FluxStorageBackend) -> list[str]:
+async def source_read_bands(id: UUID, backend: Backend) -> list[tuple[str, int]]:
     """
     Read the bands names that are available for a source.
     """
-    return await backend.fluxes.get_bands_for_source(id)
+    return await backend.lightcurves.get_module_frequency_pairs_for_source(source_id=id)
 
 
-async def source_read_all(backend: FluxStorageBackend) -> list[Source]:
+async def source_read_all(backend: Backend) -> list[Source]:
     """
     Read all sources available in the system.
     """
     return await backend.sources.get_all()
 
 
-async def source_read_summary(
-    id: int, backend: FluxStorageBackend
-) -> SourceSummaryResult:
+async def source_read_summary(id: UUID, backend: Backend) -> SourceSummaryResult:
     """
     Read the full summary for an individual source, including number of
     observations.
@@ -53,7 +51,7 @@ async def source_read_summary(
     source = await source_read(id=id, backend=backend)
     available_bands = await source_read_bands(id=id, backend=backend)
 
-    band_info = [await band_read(x, backend=backend) for x in available_bands]
+    band_info = [await backend.bands.get(band_name=x) for x in available_bands]
     measurements = [
         await measurement_summary(source_id=id, band_name=x, backend=backend)
         for x in available_bands
@@ -65,7 +63,7 @@ async def source_read_summary(
 
 
 async def source_read_in_radius(
-    center: tuple[float, float], radius: float, backend: FluxStorageBackend
+    center: tuple[float, float], radius: float, backend: Backend
 ) -> list[Source]:
     """
     Read all sources within a square of 'radius' (degrees) of center (ra, dec, degrees,
@@ -104,7 +102,7 @@ async def source_read_in_radius(
     )
 
 
-async def source_add(source: Source, backend: FluxStorageBackend) -> int:
+async def source_add(source: Source, backend: Backend) -> int:
     """
     Add a source, returning its primary key.
     """
@@ -112,7 +110,7 @@ async def source_add(source: Source, backend: FluxStorageBackend) -> int:
     return created
 
 
-async def source_delete(id: int, backend: FluxStorageBackend) -> None:
+async def source_delete(id: UUID, backend: Backend) -> None:
     """
     Delete a source (and all of its measurements!) from the system.
     """

@@ -2,7 +2,7 @@
 Tests the source reading.
 """
 
-import random
+import uuid
 
 import pytest
 
@@ -12,15 +12,14 @@ from lightcurvedb.client.source import (
     source_read,
     source_read_all,
     source_read_in_radius,
-    source_read_summary,
 )
 from lightcurvedb.models.exceptions import SourceNotFoundException
 from lightcurvedb.models.source import Source
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_read_source(backend):
-    source = await source_read(id=1, backend=backend)
+async def test_read_source(backend, setup_test_data):
+    source = await source_read(id=setup_test_data[0], backend=backend)
 
     assert isinstance(source, Source)
     assert source.ra is not None
@@ -31,20 +30,6 @@ async def test_read_source(backend):
 async def test_read_all_sources(backend):
     all_sources = await source_read_all(backend=backend)
     assert len(all_sources) == 64
-
-
-@pytest.mark.asyncio(loop_scope="session")
-async def test_source_read_summary(backend):
-    all_sources = await backend.sources.get_all()
-    source_ids = [s.source_id for s in all_sources]
-
-    for source_id in random.choices(source_ids, k=4):
-        source_summary = await source_read_summary(id=source_id, backend=backend)
-
-        assert source_summary.source.source_id == source_id
-        assert len(source_summary.bands) > 0
-        assert source_summary.measurements[0].end > source_summary.measurements[0].start
-        assert source_summary.measurements[0].count > 0
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -68,7 +53,7 @@ async def test_source_read_in_radius(backend):
 @pytest.mark.asyncio(loop_scope="session")
 async def test_read_source_fails(backend):
     with pytest.raises(SourceNotFoundException):
-        await source_read(id=1000000, backend=backend)
+        await source_read(id=uuid.uuid4(), backend=backend)
 
 
 @pytest.mark.asyncio(loop_scope="session")

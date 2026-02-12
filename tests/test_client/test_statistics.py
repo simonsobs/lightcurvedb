@@ -7,9 +7,9 @@ from datetime import timezone
 
 import pytest
 
-from lightcurvedb.models.band import Band
 from lightcurvedb.models.flux import FluxMeasurementCreate
-from lightcurvedb.models.source import SourceCreate
+from lightcurvedb.models.instrument import Instrument
+from lightcurvedb.models.source import Source
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -19,29 +19,31 @@ async def test_weighted_statistics(backend):
     """
     # Create source and band
     source = await backend.sources.create(
-        SourceCreate(name="WEIGHTED-TEST-001", ra=150.0, dec=30.0, variable=True)
+        Source(name="WEIGHTED-TEST-001", ra=150.0, dec=30.0, variable=True)
     )
-    _ = await backend.bands.create(
-        Band(
-            band_name="test-weighted",
+    _ = await backend.instruments.create(
+        Instrument(
+            frequency=999,
+            module="test-weighted",
             telescope="TEST",
             instrument="TEST-CAM",
-            frequency=500.0,
+            details={},
         )
     )
 
     base_time = datetime.datetime(2024, 1, 1, tzinfo=timezone.utc)
     measurements = [
         FluxMeasurementCreate(
-            band_name="test-weighted",
+            module="test-weighted",
+            frequency=999,
             source_id=source,
             time=base_time + datetime.timedelta(days=i),
             ra=150.0,
             dec=30.0,
             ra_uncertainty=0.1,
             dec_uncertainty=0.1,
-            i_flux=10.0,
-            i_uncertainty=2.0,
+            flux=10.0,
+            flux_err=2.0,
         )
         for i in range(5)
     ]
@@ -50,7 +52,8 @@ async def test_weighted_statistics(backend):
     # Get statistics
     stats = await backend.fluxes.get_statistics(
         source_id=source,
-        band_name="test-weighted",
+        module="test-weighted",
+        frequency=999,
         start_time=base_time,
         end_time=base_time + datetime.timedelta(days=10),
     )

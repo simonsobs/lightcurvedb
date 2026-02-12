@@ -7,7 +7,7 @@ import datetime
 from pydantic import BaseModel
 
 from lightcurvedb.models.flux import FluxMeasurement
-from lightcurvedb.protocols.storage import FluxStorageBackend
+from lightcurvedb.storage.prototype.backend import Backend
 
 
 class MeasurementSummaryResult(BaseModel):
@@ -18,9 +18,7 @@ class MeasurementSummaryResult(BaseModel):
     count: int
 
 
-async def measurement_flux_add(
-    measurement: FluxMeasurement, backend: FluxStorageBackend
-) -> int:
+async def measurement_flux_add(measurement: FluxMeasurement, backend: Backend) -> int:
     """
     Add a flux measurement.
     """
@@ -28,7 +26,7 @@ async def measurement_flux_add(
     return created
 
 
-async def measurement_flux_delete(id: int, backend: FluxStorageBackend) -> None:
+async def measurement_flux_delete(id: int, backend: Backend) -> None:
     """
     Delete a flux measurement by ID.
     """
@@ -36,7 +34,7 @@ async def measurement_flux_delete(id: int, backend: FluxStorageBackend) -> None:
 
 
 async def measurement_summary(
-    source_id: int, band_name: str, backend: FluxStorageBackend
+    source_id: int, band_name: str, backend: Backend
 ) -> MeasurementSummaryResult:
     """
     Get a measurement summary for a specific band and source ID.

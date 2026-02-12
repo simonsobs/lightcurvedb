@@ -2,8 +2,11 @@
 Source information
 """
 
-from pydantic import BaseModel
+from uuid import UUID
+
+from pydantic import BaseModel, Field
 from pydantic import Field as PydanticField
+from uuid_extensions import uuid7
 
 
 class CrossMatch(BaseModel):
@@ -24,17 +27,15 @@ class SourceMetadata(BaseModel):
     socat_id: int | None = None
 
 
-class SourceCreate(BaseModel):
+class Source(BaseModel):
     """
     Input model for creating sources.
     """
 
+    source_id: UUID = Field(default_factory=uuid7)
+    socat_id: int | None = None
     name: str | None = None
     ra: float | None
     dec: float | None
     variable: bool = False
     extra: SourceMetadata | None = None
-
-
-class Source(SourceCreate):
-    source_id: int | None = None

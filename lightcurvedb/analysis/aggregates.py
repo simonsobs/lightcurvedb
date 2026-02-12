@@ -134,19 +134,19 @@ class MetricsRegistry:
 
     @staticmethod
     def sum_flux_over_uncertainty_squared(table):
-        return func.sum(table.i_flux / (table.i_uncertainty * table.i_uncertainty))
+        return func.sum(table.flux / (table.flux_err * table.flux_err))
 
     @staticmethod
     def sum_inverse_uncertainty_squared(table):
-        return func.sum(1 / (table.i_uncertainty * table.i_uncertainty))
+        return func.sum(1 / (table.flux_err * table.flux_err))
 
     @staticmethod
     def min_flux(table):
-        return func.min(table.i_flux)
+        return func.min(table.flux)
 
     @staticmethod
     def max_flux(table):
-        return func.max(table.i_flux)
+        return func.max(table.flux)
 
     @staticmethod
     def data_points_count(table):
@@ -154,11 +154,11 @@ class MetricsRegistry:
 
     @staticmethod
     def sum_flux(table):
-        return func.sum(table.i_flux)
+        return func.sum(table.flux)
 
     @staticmethod
     def sum_flux_squared(table):
-        return func.sum(table.i_flux * table.i_flux)
+        return func.sum(table.flux * table.flux)
 
     def get_continuous_aggregate_table(self, view_name: str):
         """

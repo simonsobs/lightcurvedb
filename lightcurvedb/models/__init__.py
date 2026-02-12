@@ -1,29 +1,27 @@
-from .band import Band
 from .cutout import Cutout
 from .exceptions import (
-    BandNotFoundException,
+    InstrumentNotFoundException,
     SourceNotFoundException,
     StorageException,
 )
 from .flux import FluxMeasurement, FluxMeasurementCreate, MeasurementMetadata
-from .responses import LightcurveBandData, SourceStatistics
-from .source import CrossMatch, Source, SourceCreate, SourceMetadata
+from .instrument import Instrument
+from .responses import SourceStatistics
+from .source import CrossMatch, Source, SourceMetadata
 
 __all__ = [
-    "Band",
-    "BandNotFoundException",
+    "Instrument",
+    "InstrumentNotFoundException",
     "CrossMatch",
     "Cutout",
     "FluxMeasurement",
     "FluxMeasurementCreate",
-    "LightcurveBandData",
     "MeasurementMetadata",
     "Source",
-    "SourceCreate",
     "SourceMetadata",
     "SourceNotFoundException",
     "SourceStatistics",
     "StorageException",
 ]
 
-MODELS = [Cutout, FluxMeasurement, Source, Band]
+MODELS = [Cutout, FluxMeasurement, Source, Instrument]

@@ -4,7 +4,9 @@ Simulates cut-outs around sources, based upon the flux measurements.
 
 import numpy as np
 
-from ..models import Cutout, FluxMeasurement
+from lightcurvedb.models.flux import FluxMeasurement
+
+from ..models import Cutout
 
 
 def create_cutout_core(
@@ -44,9 +46,9 @@ def create_cutout(
     nside: int,
     flux: FluxMeasurement,
 ):
-    cutout = create_cutout_core(nside, flux.i_flux, flux.i_uncertainty)
+    cutout = create_cutout_core(nside, flux.flux, flux.flux_err)
 
-    if flux.flux_id is None:
+    if flux.measurement_id is None:
         raise ValueError("FluxMeasurement must have an ID to create a cutout.")
 
     return Cutout(
@@ -54,6 +56,7 @@ def create_cutout(
         time=flux.time,
         units="mJy",
         source_id=flux.source_id,
-        band_name=flux.band_name,
-        flux_id=flux.flux_id,
+        module=flux.module,
+        frequency=flux.frequency,
+        measurement_id=flux.measurement_id,
     )
