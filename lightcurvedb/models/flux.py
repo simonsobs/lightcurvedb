@@ -20,7 +20,7 @@ class MeasurementMetadata(BaseModel):
 
 class FluxMeasurementCreate(BaseModel):
     frequency: int
-    module: str 
+    module: str
     source_id: UUID
     time: datetime
     ra: float
