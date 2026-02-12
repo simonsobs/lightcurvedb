@@ -6,8 +6,8 @@ from .exceptions import (
 )
 from .flux import FluxMeasurement, FluxMeasurementCreate, MeasurementMetadata
 from .instrument import Instrument
-from .responses import SourceStatistics
 from .source import CrossMatch, Source, SourceMetadata
+from .statistics import SourceStatistics
 
 __all__ = [
     "Instrument",

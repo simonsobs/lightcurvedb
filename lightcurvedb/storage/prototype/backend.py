@@ -1,3 +1,4 @@
+from lightcurvedb.storage.prototype.analysis import ProvidesAnalysis
 from lightcurvedb.storage.prototype.cutout import ProvidesCutoutStorage
 from lightcurvedb.storage.prototype.flux import ProvidesFluxMeasurementStorage
 from lightcurvedb.storage.prototype.instrument import ProvidesInstrumentStorage
@@ -11,6 +12,7 @@ class Backend:
     fluxes: ProvidesFluxMeasurementStorage
     cutouts: ProvidesCutoutStorage
     lightcurves: ProvidesLightcurves
+    analysis: ProvidesAnalysis
 
     def __init__(
         self,
@@ -19,11 +21,13 @@ class Backend:
         fluxes: ProvidesFluxMeasurementStorage,
         cutouts: ProvidesCutoutStorage,
         lightcurves: ProvidesLightcurves,
+        analysis: ProvidesAnalysis,
     ) -> None:
         self.sources = sources
         self.instruments = instruments
         self.fluxes = fluxes
         self.cutouts = cutouts
+        self.analysis = analysis
         self.lightcurves = lightcurves
 
     async def setup(self) -> None:
@@ -32,5 +36,6 @@ class Backend:
         await self.fluxes.setup()
         await self.cutouts.setup()
         await self.lightcurves.setup()
+        await self.analysis.setup()
 
         return

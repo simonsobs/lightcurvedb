@@ -4,15 +4,12 @@ PostgreSQL implementation of FluxMeasurementStorage protocol.
 
 import json
 from collections import defaultdict
-from datetime import datetime
+from uuid import UUID
 
 from psycopg import AsyncConnection
 from psycopg.rows import class_row
 
-from lightcurvedb.models.flux import (
-    FluxMeasurementCreate,
-)
-from lightcurvedb.models.responses import SourceStatistics
+from lightcurvedb.models.flux import FluxMeasurement, FluxMeasurementCreate
 from lightcurvedb.storage.postgres.schema import FLUX_INDEXES, FLUX_MEASUREMENTS_TABLE
 from lightcurvedb.storage.prototype.flux import ProvidesFluxMeasurementStorage
 
@@ -30,7 +27,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
             await cur.execute(FLUX_MEASUREMENTS_TABLE)
             await cur.execute(FLUX_INDEXES)
 
-    async def create(self, measurement: FluxMeasurementCreate) -> int:
+    async def create(self, measurement: FluxMeasurementCreate) -> UUID:
         """
         Insert single measurement.
         """
@@ -60,7 +57,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
 
     async def create_batch(
         self, measurements: list[FluxMeasurementCreate]
-    ) -> list[int]:
+    ) -> list[UUID]:
         """
         Bulk insert
         """
@@ -100,60 +97,22 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
 
         return inserted_measurement_ids
 
-    async def get_statistics(
-        self,
-        source_id: int,
-        module: str,
-        frequency: int,
-        start_time: datetime | None = None,
-        end_time: datetime | None = None,
-    ) -> SourceStatistics:
+    async def get(self, measurement_id: UUID) -> FluxMeasurement:
         """
-        Compute statistics using database-side aggregations.
+        Get a flux measurement by ID.
         """
-        where_clauses = [
-            "source_id = %(source_id)s",
-            "module = %(module)s",
-            "frequency = %(frequency)s",
-        ]
-        params: dict[str, int | str | datetime] = {
-            "source_id": source_id,
-            "module": module,
-            "frequency": frequency,
-        }
-
-        if start_time is not None:
-            where_clauses.append("time >= %(start_time)s")
-            params["start_time"] = start_time
-        if end_time is not None:
-            where_clauses.append("time <= %(end_time)s")
-            params["end_time"] = end_time
-
-        query = f"""
-            SELECT
-                COUNT(*) as measurement_count,
-                MIN(flux) as min_flux,
-                MAX(flux) as max_flux,
-                AVG(flux) as mean_flux,
-                STDDEV(flux) as stddev_flux,
-                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY flux) as median_flux,
-                SUM(flux / NULLIF(POWER(flux_err, 2), 0)) /
-                    NULLIF(SUM(1.0 / NULLIF(POWER(flux_err, 2), 0)), 0)
-                    AS weighted_mean_flux,
-                1.0 / SQRT(NULLIF(SUM(1.0 / NULLIF(POWER(flux_err, 2), 0)), 0))
-                    AS weighted_error_on_mean_flux,
-                MIN(time) as start_time,
-                MAX(time) as end_time
+        query = """
+            SELECT *
             FROM flux_measurements
-            WHERE {" AND ".join(where_clauses)}
+            WHERE measurement_id = %(measurement_id)s
         """
 
-        async with self.conn.cursor(row_factory=class_row(SourceStatistics)) as cur:
-            await cur.execute(query, params)
+        async with self.conn.cursor(row_factory=class_row(FluxMeasurement)) as cur:
+            await cur.execute(query, {"measurement_id": measurement_id})
             row = await cur.fetchone()
             return row
 
-    async def delete(self, measurement_id: int) -> None:
+    async def delete(self, measurement_id: UUID) -> None:
         """
         Delete a flux measurement by ID.
         """

@@ -4,7 +4,7 @@ from typing import Protocol
 from lightcurvedb.models import (
     FluxMeasurementCreate,
 )
-from lightcurvedb.models.responses import SourceStatistics
+from lightcurvedb.models.statistics import SourceStatistics
 
 
 class ProvidesFluxMeasurementStorage(Protocol):

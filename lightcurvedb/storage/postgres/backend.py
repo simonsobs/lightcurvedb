@@ -8,6 +8,7 @@ from typing import AsyncIterator
 from psycopg import AsyncConnection
 
 from lightcurvedb.config import Settings
+from lightcurvedb.storage.postgres.analysis import PostgresAnalysisProvider
 from lightcurvedb.storage.postgres.cutout import PostgresCutoutStorage
 from lightcurvedb.storage.postgres.flux import PostgresFluxMeasurementStorage
 from lightcurvedb.storage.postgres.instrument import PostgresInstrumentStorage
@@ -18,13 +19,19 @@ from lightcurvedb.storage.prototype.backend import Backend
 
 async def generate_postgres_backend(conn: AsyncConnection) -> Backend:
     fluxes = PostgresFluxMeasurementStorage(conn)
+    lightcurves = PostgresLightcurveProvider(flux_storage=fluxes)
+    analysis = PostgresAnalysisProvider(
+        flux_storage=fluxes,
+        lightcurve_provider=lightcurves,
+    )
 
     backend = Backend(
         sources=PostgresSourceStorage(conn),
         instruments=PostgresInstrumentStorage(conn),
         fluxes=fluxes,
         cutouts=PostgresCutoutStorage(conn),
-        lightcurves=PostgresLightcurveProvider(flux_storage=fluxes),
+        lightcurves=lightcurves,
+        analysis=analysis,
     )
 
     await backend.setup()
