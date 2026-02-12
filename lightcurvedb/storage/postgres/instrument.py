@@ -32,7 +32,7 @@ class PostgresInstrumentStorage(ProvidesInstrumentStorage):
         query = """
             INSERT INTO instruments (frequency, module, telescope, instrument, details)
             VALUES (%(frequency)s, %(module)s, %(telescope)s, %(instrument)s, %(details)s)
-            RETURNING frequency
+            RETURNING instrument
         """
 
         params = instrument.model_dump()

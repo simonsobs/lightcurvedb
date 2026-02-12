@@ -21,19 +21,21 @@ async def test_weighted_statistics(backend):
     source = await backend.sources.create(
         Source(name="WEIGHTED-TEST-001", ra=150.0, dec=30.0, variable=True)
     )
-    _ = await backend.bands.create(
+    _ = await backend.instruments.create(
         Instrument(
-            band_name="test-weighted",
+            frequency=999,
+            module="test-weighted",
             telescope="TEST",
             instrument="TEST-CAM",
-            frequency=500.0,
+            details={},
         )
     )
 
     base_time = datetime.datetime(2024, 1, 1, tzinfo=timezone.utc)
     measurements = [
         FluxMeasurementCreate(
-            band_name="test-weighted",
+            module="test-weighted",
+            frequency=999,
             source_id=source,
             time=base_time + datetime.timedelta(days=i),
             ra=150.0,
@@ -50,7 +52,8 @@ async def test_weighted_statistics(backend):
     # Get statistics
     stats = await backend.fluxes.get_statistics(
         source_id=source,
-        band_name="test-weighted",
+        module="test-weighted",
+        frequency=999,
         start_time=base_time,
         end_time=base_time + datetime.timedelta(days=10),
     )

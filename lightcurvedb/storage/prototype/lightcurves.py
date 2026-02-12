@@ -30,7 +30,7 @@ class ProvidesLightcurves(Protocol):
         ...
 
     async def get_instrument_lightcurve(
-        self, source_id: UUID, module: str, frequency: int
+        self, source_id: UUID, module: str, frequency: int, limit: int = 1000000
     ) -> InstrumentLightcurve:
         """
         Get a lightcurve for a specific source, module, and frequency.
@@ -38,7 +38,7 @@ class ProvidesLightcurves(Protocol):
         ...
 
     async def get_frequency_lightcurve(
-        self, source_id: UUID, frequency: int
+        self, source_id: UUID, frequency: int, limit: int = 1000000
     ) -> FrequencyLightcurve:
         """
         Get a lightcurve for a specific source andd frequency, for all modules.
@@ -53,6 +53,7 @@ class ProvidesLightcurves(Protocol):
         binning_strategy: Literal["1 day", "7 days", "30 days"],
         start_time: datetime.datetime,
         end_time: datetime.datetime,
+        limit: int = 1000000,
     ) -> BinnedInstrumentLightcurve:
         """
         Get a binned lightcurve for a specific source, module, and frequency.
@@ -66,6 +67,7 @@ class ProvidesLightcurves(Protocol):
         binning_strategy: Literal["1 day", "7 days", "30 days"],
         start_time: datetime.datetime,
         end_time: datetime.datetime,
+        limit: int = 1000000,
     ) -> BinnedFrequencyLightcurve:
         """
         Get a binned lightcurve for a specific source and frequency, for all modules.
@@ -91,6 +93,7 @@ class ProvidesLightcurves(Protocol):
         self,
         source_id: UUID,
         selection_strategy: Literal["frequency"],
+        limit: int = 1000000,
     ) -> SourceLightcurveFrequency: ...
 
     @overload
@@ -98,12 +101,14 @@ class ProvidesLightcurves(Protocol):
         self,
         source_id: UUID,
         selection_strategy: Literal["instrument"],
+        limit: int = 1000000,
     ) -> SourceLightcurveInstrument: ...
 
     async def get_source_lightcurve(
         self,
         source_id: UUID,
         selection_strategy: Literal["frequency", "instrument"],
+        limit: int = 1000000,
     ) -> SourceLightcurveInstrument | SourceLightcurveFrequency:
         """
         Get a lightcurve for a specific source, with the given strategy and binning.
@@ -118,6 +123,7 @@ class ProvidesLightcurves(Protocol):
         binning_strategy: Literal["1 day", "7 days", "30 days"],
         start_time: datetime.datetime,
         end_time: datetime.datetime,
+        limit: int = 1000000,
     ) -> SourceLightcurveBinnedFrequency: ...
 
     @overload
@@ -128,6 +134,7 @@ class ProvidesLightcurves(Protocol):
         binning_strategy: Literal["1 day", "7 days", "30 days"],
         start_time: datetime.datetime,
         end_time: datetime.datetime,
+        limit: int = 1000000,
     ) -> SourceLightcurveBinnedInstrument: ...
 
     async def get_binned_source_lightcurve(
@@ -137,6 +144,7 @@ class ProvidesLightcurves(Protocol):
         binning_strategy: Literal["1 day", "7 days", "30 days"],
         start_time: datetime.datetime,
         end_time: datetime.datetime,
+        limit: int = 1000000,
     ) -> SourceLightcurveBinnedFrequency | SourceLightcurveBinnedInstrument:
         """
         Get a binned lightcurve for a specific source, with the given strategy and binning.

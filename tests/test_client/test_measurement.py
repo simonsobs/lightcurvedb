@@ -4,6 +4,7 @@ Tests adding and removing a measurement.
 
 import datetime
 import random
+import uuid
 
 import pytest
 
@@ -26,6 +27,8 @@ async def test_measurement_add_and_delete(backend, setup_test_data):
     measurement = FluxMeasurement(
         band_name=band,
         source_id=source_id,
+        module=band[0],
+        frequency=band[1],
         time=datetime.datetime.now(),
         flux=0.0,
         flux_err=0.0,
@@ -51,24 +54,18 @@ async def test_get_band_data(backend, setup_test_data):
     bands = await source_read_bands(source_id, backend=backend)
     band = random.choice(bands)
 
-    time_start = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(
-        days=30
-    )
-    time_end = datetime.datetime.now(tz=datetime.timezone.utc)
-
-    measurements = await backend.fluxes.get_band_data(
-        source_id=source_id, band_name=band, start_time=time_start, end_time=time_end
+    measurements = await backend.lightcurves.get_frequency_lightcurve(
+        source_id=source_id, frequency=band[1], limit=100
     )
 
     for measurement in measurements:
         assert measurement.source_id == source_id
-        assert measurement.band_name == band
-        assert time_start <= measurement.time <= time_end
+        assert measurement.frequency == band[1]
 
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_recent_measurements_for_non_existent_source(backend):
-    measurements = await backend.fluxes.get_recent_measurements(
-        source_id=9999999, limit=5, band_name="non_existent"
+    measurements = await backend.lightcurves.get_frequency_lightcurve(
+        source_id=uuid.uuid4(), frequency=123415, limit=100
     )
     assert len(measurements.flux) == 0

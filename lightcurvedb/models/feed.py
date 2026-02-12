@@ -3,12 +3,13 @@ Responses from the feed.
 """
 
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel
 
 
 class FeedResultItem(BaseModel):
-    source_id: int
+    source_id: UUID
     source_name: str | None = None
     ra: float
     dec: float

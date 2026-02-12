@@ -26,7 +26,7 @@ async def test_cutout_write_and_delete(backend: Backend, setup_test_data):
     lightcurve = await backend.lightcurves.get_source_lightcurve(
         source_id=source_id, selection_strategy="instrument"
     )
-    fluxes = lightcurve.lightcurves[0]
+    fluxes = lightcurve.lightcurves["i1"]
 
     # Create a new cutout
     measurement_id = await backend.cutouts.create(

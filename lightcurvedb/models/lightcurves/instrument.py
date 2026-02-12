@@ -61,7 +61,7 @@ class BinnedInstrumentLightcurve(BaseModel):
     end_time: datetime
 
     def __len__(self):
-        return len(self.measurement_id)
+        return len(self.times)
 
     def _measurement(self, index: int) -> FluxMeasurement:
         return FluxMeasurement(
@@ -80,7 +80,7 @@ class BinnedInstrumentLightcurve(BaseModel):
         )
 
     def __iter__(self):
-        for i in range(len(self.measurement_id)):
+        for i in range(len(self.times)):
             yield self._measurement(i)
 
     def __getitem__(self, index: int) -> FluxMeasurement:

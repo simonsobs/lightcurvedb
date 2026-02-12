@@ -31,17 +31,23 @@ async def test_instrument_creation_deletion_flow(backend: Backend):
 
     # Add instrument
     instrument_name = await backend.instruments.create(instrument=instrument)
-    assert instrument_name == instrument.instrument_name
+    assert instrument_name == instrument.instrument
 
     # Read instrument back
-    read_instrument = await backend.instruments.get(instrument.instrument_name)
-    assert read_instrument.instrument_name == instrument.instrument_name
+    read_instrument = await backend.instruments.get(
+        frequency=instrument.frequency, module=instrument.module
+    )
+    assert read_instrument.instrument == instrument.instrument
     assert read_instrument.telescope == instrument.telescope
     assert read_instrument.instrument == instrument.instrument
     assert read_instrument.frequency == instrument.frequency
 
     # Delete instrument
-    await backend.instruments.delete(instrument.instrument_name)
+    await backend.instruments.delete(
+        frequency=instrument.frequency, module=instrument.module
+    )
 
     with pytest.raises(InstrumentNotFoundException):
-        await backend.instruments.get(instrument.instrument_name)
+        await backend.instruments.get(
+            frequency=instrument.frequency, module=instrument.module
+        )

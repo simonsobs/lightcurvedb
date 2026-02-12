@@ -103,17 +103,23 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
     async def get_statistics(
         self,
         source_id: int,
-        band_name: str,
+        module: str,
+        frequency: int,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
     ) -> SourceStatistics:
         """
         Compute statistics using database-side aggregations.
         """
-        where_clauses = ["source_id = %(source_id)s", "band_name = %(band_name)s"]
+        where_clauses = [
+            "source_id = %(source_id)s",
+            "module = %(module)s",
+            "frequency = %(frequency)s",
+        ]
         params: dict[str, int | str | datetime] = {
             "source_id": source_id,
-            "band_name": band_name,
+            "module": module,
+            "frequency": frequency,
         }
 
         if start_time is not None:
