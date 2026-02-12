@@ -18,7 +18,7 @@ def test_database():
     Sets up a testcontainer PostgreSQL database for the session.
     """
     with PostgresContainer(
-        image="postgres:16-alpine",
+        image="postgres:18-alpine",
         username="postgres",
         password="password",
         dbname="test_lightcurvedb",
