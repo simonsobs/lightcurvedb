@@ -20,13 +20,13 @@ class MeasurementMetadata(BaseModel):
 
 class FluxMeasurementCreate(BaseModel):
     frequency: int
-    module: str
+    module: str | None = None
     source_id: UUID
     time: datetime
     ra: float
     dec: float
-    ra_uncertainty: float
-    dec_uncertainty: float
+    ra_uncertainty: float | None
+    dec_uncertainty: float | None
     flux: float
     flux_err: float
     extra: MeasurementMetadata | None = None

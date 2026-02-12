@@ -21,21 +21,21 @@ async def test_cutout_read(backend: Backend, setup_test_data):
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_cutout_write_and_delete(backend: Backend, setup_test_data):
-    source_ids = setup_test_data
-    source_id = source_ids[1]
+    source_id = setup_test_data[1]
 
-    bands = await backend.fluxes.get_bands_for_source(source_id=source_id)
-    fluxes = await backend.fluxes.get_recent_measurements(
-        source_id, limit=100, band_name=bands[0]
+    lightcurve = await backend.lightcurves.get_source_lightcurve(
+        source_id=source_id, selection_strategy="instrument"
     )
+    fluxes = lightcurve.lightcurves[0]
 
     # Create a new cutout
     measurement_id = await backend.cutouts.create(
         cutout=Cutout(
             source_id=source_id,
-            measurement_id=fluxes.measurement_ids[0],
-            time=fluxes.times[0],
-            band_name=fluxes.band_name,
+            measurement_id=fluxes.measurement_id[0],
+            time=fluxes.time[0],
+            frequency=fluxes.frequency,
+            module=fluxes.module,
             data=[[0.1, 0.2], [0.3, 0.4]],
             units="mJy",
         )

@@ -3,7 +3,7 @@ Provider for lightcurves from postgres data stores.
 """
 
 import datetime
-from typing import Literal, Protocol
+from typing import Literal, Protocol, overload
 from uuid import UUID
 
 from lightcurvedb.models.lightcurves import (
@@ -11,7 +11,10 @@ from lightcurvedb.models.lightcurves import (
     BinnedInstrumentLightcurve,
     FrequencyLightcurve,
     InstrumentLightcurve,
-    SourceLightcurve,
+    SourceLightcurveBinnedFrequency,
+    SourceLightcurveBinnedInstrument,
+    SourceLightcurveFrequency,
+    SourceLightcurveInstrument,
 )
 
 
@@ -83,15 +86,49 @@ class ProvidesLightcurves(Protocol):
         """
         ...
 
+    @overload
+    async def get_source_lightcurve(
+        self,
+        source_id: UUID,
+        selection_strategy: Literal["frequency"],
+    ) -> SourceLightcurveFrequency: ...
+
+    @overload
+    async def get_source_lightcurve(
+        self,
+        source_id: UUID,
+        selection_strategy: Literal["instrument"],
+    ) -> SourceLightcurveInstrument: ...
+
     async def get_source_lightcurve(
         self,
         source_id: UUID,
         selection_strategy: Literal["frequency", "instrument"],
-    ) -> SourceLightcurve:
+    ) -> SourceLightcurveInstrument | SourceLightcurveFrequency:
         """
         Get a lightcurve for a specific source, with the given strategy and binning.
         """
         ...
+
+    @overload
+    async def get_binned_source_lightcurve(
+        self,
+        source_id: UUID,
+        selection_strategy: Literal["frequency"],
+        binning_strategy: Literal["1 day", "7 days", "30 days"],
+        start_time: datetime.datetime,
+        end_time: datetime.datetime,
+    ) -> SourceLightcurveBinnedFrequency: ...
+
+    @overload
+    async def get_binned_source_lightcurve(
+        self,
+        source_id: UUID,
+        selection_strategy: Literal["instrument"],
+        binning_strategy: Literal["1 day", "7 days", "30 days"],
+        start_time: datetime.datetime,
+        end_time: datetime.datetime,
+    ) -> SourceLightcurveBinnedInstrument: ...
 
     async def get_binned_source_lightcurve(
         self,
@@ -100,7 +137,7 @@ class ProvidesLightcurves(Protocol):
         binning_strategy: Literal["1 day", "7 days", "30 days"],
         start_time: datetime.datetime,
         end_time: datetime.datetime,
-    ) -> SourceLightcurve:
+    ) -> SourceLightcurveBinnedFrequency | SourceLightcurveBinnedInstrument:
         """
         Get a binned lightcurve for a specific source, with the given strategy and binning.
         """

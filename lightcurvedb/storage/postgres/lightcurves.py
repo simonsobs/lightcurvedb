@@ -14,7 +14,10 @@ from lightcurvedb.models.lightcurves import (
     BinnedInstrumentLightcurve,
     FrequencyLightcurve,
     InstrumentLightcurve,
-    SourceLightcurve,
+    SourceLightcurveBinnedFrequency,
+    SourceLightcurveBinnedInstrument,
+    SourceLightcurveFrequency,
+    SourceLightcurveInstrument,
 )
 from lightcurvedb.storage.postgres.flux import PostgresFluxMeasurementStorage
 from lightcurvedb.storage.prototype.lightcurves import ProvidesLightcurves
@@ -275,7 +278,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
         source_id: UUID,
         selection_strategy: Literal["frequency", "instrument"],
         limit: int = 1000000,
-    ) -> SourceLightcurve:
+    ) -> SourceLightcurveFrequency | SourceLightcurveInstrument:
         """
         Get a lightcurve for a specific source, with the given strategy and binning.
         """
@@ -287,6 +290,12 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
                     self.get_frequency_lightcurve(source_id, frequency, limit=limit)
                     for frequency in frequencies
                 ]
+            )
+            return SourceLightcurveFrequency(
+                source_id=source_id,
+                selection_strategy="frequency",
+                binning_strategy="none",
+                lightcurves=lightcurves,
             )
         elif selection_strategy == "instrument":
             module_frequency_pairs = await self.get_module_frequency_pairs_for_source(
@@ -300,15 +309,14 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
                     for module, frequency in module_frequency_pairs
                 ]
             )
+            return SourceLightcurveInstrument(
+                source_id=source_id,
+                selection_strategy="instrument",
+                binning_strategy="none",
+                lightcurves=lightcurves,
+            )
         else:
             raise ValueError(f"Invalid strategy: {selection_strategy}")
-
-        return SourceLightcurve(
-            source_id=source_id,
-            selection_strategy=selection_strategy,
-            binning_strategy="none",
-            lightcurves=lightcurves,
-        )
 
     async def get_binned_source_lightcurve(
         self,
@@ -318,7 +326,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
         start_time: datetime.datetime,
         end_time: datetime.datetime,
         limit: int = 1000000,
-    ) -> SourceLightcurve:
+    ) -> SourceLightcurveBinnedFrequency | SourceLightcurveBinnedInstrument:
         """
         Get a binned lightcurve for a specific source, with the given strategy and binning.
         """
@@ -338,6 +346,14 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
                     for frequency in frequencies
                 ]
             )
+            return SourceLightcurveBinnedFrequency(
+                source_id=source_id,
+                selection_strategy="frequency",
+                binning_strategy=binning_strategy,
+                start_time=start_time,
+                end_time=end_time,
+                lightcurves=lightcurves,
+            )
         elif selection_strategy == "instrument":
             module_frequency_pairs = await self.get_module_frequency_pairs_for_source(
                 source_id
@@ -356,12 +372,13 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
                     for module, frequency in module_frequency_pairs
                 ]
             )
+            return SourceLightcurveBinnedInstrument(
+                source_id=source_id,
+                selection_strategy="instrument",
+                binning_strategy=binning_strategy,
+                start_time=start_time,
+                end_time=end_time,
+                lightcurves=lightcurves,
+            )
         else:
             raise ValueError(f"Invalid strategy: {selection_strategy}")
-
-        return SourceLightcurve(
-            source_id=source_id,
-            selection_strategy=selection_strategy,
-            binning_strategy=binning_strategy,
-            lightcurves=lightcurves,
-        )

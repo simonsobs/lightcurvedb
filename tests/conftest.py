@@ -92,12 +92,7 @@ async def setup_test_data(backend: Backend):
         if len(fluxes) == 0:
             continue
 
-        cutouts = [
-            sim_cutouts.create_cutout(
-                nside=32, flux=flux, module="i1", frequency=frequency
-            )
-            for flux in fluxes
-        ]
+        cutouts = [sim_cutouts.create_cutout(nside=32, flux=flux) for flux in fluxes]
         _ = await backend.cutouts.create_batch(cutouts)
 
     yield source_ids
