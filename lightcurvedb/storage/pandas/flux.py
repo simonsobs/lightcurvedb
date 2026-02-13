@@ -85,7 +85,7 @@ class PandasFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
 
         await self._write_file(measurement.source_id, new_table)
 
-        return new_id
+        return UUID(new_id)
 
     async def create_batch(
         self, measurements: list[FluxMeasurementCreate]
@@ -110,7 +110,7 @@ class PandasFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
 
             await self._write_file(source_id, new_table)
 
-        return measurement_ids
+        return list(map(UUID, measurement_ids))
 
     async def delete(self, measurement_id: UUID) -> None:
         """

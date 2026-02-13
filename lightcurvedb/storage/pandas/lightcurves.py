@@ -39,24 +39,6 @@ class PandasLightcurves(ProvidesLightcurves):
         """
         return None
 
-    async def _load_source_table(self, source_id: UUID) -> pd.DataFrame:
-        table = await self.flux_storage._read_file(source_id)
-        if table is None:
-            return pd.DataFrame(
-                columns=[
-                    "measurement_id",
-                    "time",
-                    "module",
-                    "frequency",
-                    "ra",
-                    "dec",
-                    "flux",
-                    "flux_err",
-                    "extra",
-                ]
-            ).set_index("measurement_id")
-        return table
-
     def _normalize_times(self, values: list) -> list[datetime.datetime]:
         times: list[datetime.datetime] = []
         for value in values:
@@ -76,47 +58,20 @@ class PandasLightcurves(ProvidesLightcurves):
             "30 days": "30D",
         }[binning_strategy]
 
-    def _empty_instrument_lightcurve(
-        self, source_id: UUID, module: str, frequency: int
-    ) -> InstrumentLightcurve:
-        return InstrumentLightcurve(
-            source_id=source_id,
-            module=module,
-            frequency=frequency,
-            measurement_id=[],
-            time=[],
-            ra=[],
-            dec=[],
-            flux=[],
-            flux_err=[],
-            extra=[],
-        )
-
-    def _empty_frequency_lightcurve(
-        self, source_id: UUID, frequency: int
-    ) -> FrequencyLightcurve:
-        return FrequencyLightcurve(
-            source_id=source_id,
-            frequency=frequency,
-            measurement_id=[],
-            time=[],
-            module=[],
-            ra=[],
-            dec=[],
-            flux=[],
-            flux_err=[],
-            extra=[],
-        )
-
     async def get_instrument_lightcurve(
         self, source_id: UUID, module: str, frequency: int, limit: int = 1000000
     ) -> InstrumentLightcurve:
         """
         Get a lightcurve for a specific source, module, and frequency.
         """
-        table = await self._load_source_table(source_id)
-        if table.empty:
-            return self._empty_instrument_lightcurve(source_id, module, frequency)
+        table = await self.flux_storage._read_file(source_id)
+
+        if table is None:
+            return InstrumentLightcurve(
+                module=module,
+                frequency=frequency,
+                source_id=source_id,
+            )
 
         filtered = table[
             (table["module"] == module) & (table["frequency"] == frequency)
@@ -125,20 +80,17 @@ class PandasLightcurves(ProvidesLightcurves):
         if limit is not None:
             filtered = filtered.head(limit)
 
-        if filtered.empty:
-            return self._empty_instrument_lightcurve(source_id, module, frequency)
-
         return InstrumentLightcurve(
             source_id=source_id,
             module=module,
             frequency=frequency,
-            measurement_id=[UUID(m) for m in filtered.index.astype(str)],
-            time=self._normalize_times(filtered["time"].tolist()),
-            ra=filtered["ra"].tolist(),
-            dec=filtered["dec"].tolist(),
-            flux=filtered["flux"].tolist(),
-            flux_err=filtered["flux_err"].tolist(),
-            extra=filtered["extra"].tolist(),
+            measurement_id=filtered.index.values,
+            time=pd.to_datetime(filtered.time, utc=True),
+            ra=filtered.ra,
+            dec=filtered.dec,
+            flux=filtered.flux,
+            flux_err=filtered.flux_err,
+            extra=filtered.extra,
         )
 
     async def get_frequency_lightcurve(
@@ -147,28 +99,36 @@ class PandasLightcurves(ProvidesLightcurves):
         """
         Get a lightcurve for a specific source andd frequency, for all modules.
         """
-        table = await self._load_source_table(source_id)
-        if table.empty:
-            return self._empty_frequency_lightcurve(source_id, frequency)
+        table = await self.flux_storage._read_file(source_id)
+
+        if table is None:
+            return FrequencyLightcurve(
+                frequency=frequency,
+                source_id=source_id,
+            )
 
         filtered = table[table["frequency"] == frequency].sort_values("time")
+
         if limit is not None:
             filtered = filtered.head(limit)
 
         if filtered.empty:
-            return self._empty_frequency_lightcurve(source_id, frequency)
+            return FrequencyLightcurve(
+                frequency=frequency,
+                source_id=source_id,
+            )
 
         return FrequencyLightcurve(
             source_id=source_id,
             frequency=frequency,
-            measurement_id=[UUID(m) for m in filtered.index.astype(str)],
-            time=self._normalize_times(filtered["time"].tolist()),
-            module=filtered["module"].tolist(),
-            ra=filtered["ra"].tolist(),
-            dec=filtered["dec"].tolist(),
-            flux=filtered["flux"].tolist(),
-            flux_err=filtered["flux_err"].tolist(),
-            extra=filtered["extra"].tolist(),
+            measurement_id=filtered.index.values,
+            time=pd.to_datetime(filtered.time, utc=True),
+            module=filtered.module,
+            ra=filtered.ra,
+            dec=filtered.dec,
+            flux=filtered.flux,
+            flux_err=filtered.flux_err,
+            extra=filtered.extra,
         )
 
     async def get_binned_instrument_lightcurve(
@@ -184,17 +144,13 @@ class PandasLightcurves(ProvidesLightcurves):
         """
         Get a binned lightcurve for a specific source, module, and frequency.
         """
-        table = await self._load_source_table(source_id)
-        if table.empty:
+        table = await self.flux_storage._read_file(source_id)
+
+        if table is None:
             return BinnedInstrumentLightcurve(
                 source_id=source_id,
                 module=module,
                 frequency=frequency,
-                time=[],
-                ra=[],
-                dec=[],
-                flux=[],
-                flux_err=[],
                 binning_strategy=binning_strategy,
                 start_time=start_time,
                 end_time=end_time,
@@ -212,11 +168,6 @@ class PandasLightcurves(ProvidesLightcurves):
                 source_id=source_id,
                 module=module,
                 frequency=frequency,
-                time=[],
-                ra=[],
-                dec=[],
-                flux=[],
-                flux_err=[],
                 binning_strategy=binning_strategy,
                 start_time=start_time,
                 end_time=end_time,
@@ -295,16 +246,12 @@ class PandasLightcurves(ProvidesLightcurves):
         """
         Get a binned lightcurve for a specific source and frequency, for all modules.
         """
-        table = await self._load_source_table(source_id)
-        if table.empty:
+        table = await self.flux_storage._read_file(source_id)
+
+        if table is None:
             return BinnedFrequencyLightcurve(
                 source_id=source_id,
                 frequency=frequency,
-                time=[],
-                ra=[],
-                dec=[],
-                flux=[],
-                flux_err=[],
                 binning_strategy=binning_strategy,
                 start_time=start_time,
                 end_time=end_time,
@@ -393,8 +340,9 @@ class PandasLightcurves(ProvidesLightcurves):
         """
         Get all frequencies for a given source.
         """
-        table = await self._load_source_table(source_id)
-        if table.empty:
+        table = await self.flux_storage._read_file(source_id)
+
+        if table is None:
             return []
 
         return sorted(table["frequency"].dropna().unique().tolist())
@@ -405,8 +353,9 @@ class PandasLightcurves(ProvidesLightcurves):
         """
         Get all modules for a given source.
         """
-        table = await self._load_source_table(source_id)
-        if table.empty:
+        table = await self.flux_storage._read_file(source_id)
+
+        if table is None:
             return []
 
         pairs = (
@@ -415,7 +364,14 @@ class PandasLightcurves(ProvidesLightcurves):
             .drop_duplicates()
             .itertuples(index=False, name=None)
         )
-        return [(module, int(frequency)) for module, frequency in pairs]
+
+        pairs = (
+            table[["module", "frequency"]]
+            .value_counts(ascending=True)
+            .reset_index(name="count")
+        )
+
+        return [(row.module, row.frequency) for _, row in pairs.iterrows()]
 
     @overload
     async def get_source_lightcurve(
