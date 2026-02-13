@@ -8,6 +8,8 @@ import asyncio
 from datetime import datetime
 from uuid import UUID
 
+import pandas as pd
+
 from lightcurvedb.models.statistics import SourceStatistics
 from lightcurvedb.storage.pandas.flux import PandasFluxMeasurementStorage
 from lightcurvedb.storage.prototype.analysis import ProvidesAnalysis
@@ -36,12 +38,55 @@ class PandasAnalysis(ProvidesAnalysis):
         Supports "module = 'all'" to get statistics across all modules for the
         given frequency.
         """
-        band_name = f"{module}_{frequency}" if module != "all" else f"f{frequency}"
-        return await self.flux_storage.get_statistics(
+
+        if (table := await self.flux_storage._read_file(source_id)) is None:
+            raise ValueError(f"No flux data for source {source_id}")
+
+        filtered = table
+
+        if module != "all":
+            filtered = filtered[filtered["module"] == module]
+
+        filtered = filtered[filtered["frequency"] == frequency]
+
+        if start_time is not None:
+            filtered = filtered[filtered["time"] >= start_time]
+        if end_time is not None:
+            filtered = filtered[filtered["time"] <= end_time]
+
+        if filtered.empty:
+            raise ValueError(
+                f"No flux data for source {source_id} and combination {module} {frequency}"
+            )
+
+        flux = filtered["flux"]
+        flux_err = filtered["flux_err"].replace(0, pd.NA)
+        valid_err = flux_err.notna()
+
+        weights = 1.0 / (flux_err[valid_err] ** 2)
+        if weights.empty or weights.sum() == 0:
+            weighted_mean = float("nan")
+            weighted_error = float("nan")
+        else:
+            weighted_mean = (
+                flux[valid_err] / (flux_err[valid_err] ** 2)
+            ).sum() / weights.sum()
+            weighted_error = 1.0 / weights.sum() ** 0.5
+
+        return SourceStatistics(
             source_id=source_id,
-            band_name=band_name,
-            start_time=start_time,
-            end_time=end_time,
+            module=module,
+            frequency=frequency,
+            start_time=filtered["time"].min(),
+            end_time=filtered["time"].max(),
+            measurement_count=int(filtered.shape[0]),
+            min_flux=float(flux.min()),
+            max_flux=float(flux.max()),
+            mean_flux=float(flux.mean()),
+            stddev_flux=float(flux.std()),
+            median_flux=float(flux.median()),
+            weighted_mean_flux=float(weighted_mean),
+            weighted_error_on_mean_flux=float(weighted_error),
         )
 
     async def get_source_statistics_for_frequency(
