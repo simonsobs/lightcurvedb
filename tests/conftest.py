@@ -42,7 +42,7 @@ def timescale_database():
         yield container
 
 
-@async_fixture(scope="session", params=["pandas"])  # , "postgres", "timescale"])
+@async_fixture(scope="session", params=["pandas", "postgres", "timescale"])
 async def backend(
     request, postgres_database, timescale_database, tmp_path_factory
 ) -> Backend:
