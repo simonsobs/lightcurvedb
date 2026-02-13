@@ -36,7 +36,7 @@ def _get_container_for_backend(backend_type: str):
             password="password",
             dbname="lightcurvedb",
         )
-    elif backend_type == "timescaledb":
+    elif backend_type == "timescale":
         return PostgresContainer(
             image="timescale/timescaledb:latest-pg16",
             port=5432,
@@ -52,7 +52,7 @@ def _get_container_for_backend(backend_type: str):
 
 @contextmanager
 def core(
-    backend_type: str = "postgres", number: int = 128, probability_of_flare: float = 0.1
+    backend_type: str = "postgres", number: int = 128, probability_of_flare: float = 0.8
 ):
     from lightcurvedb.config import Settings
     from lightcurvedb.models.instrument import Instrument
@@ -140,7 +140,7 @@ def main():
         "--backend",
         type=str,
         default="postgres",
-        choices=["postgres", "timescaledb", "numpy"],
+        choices=["postgres", "timescale", "numpy"],
         help="Backend type to use",
     )
     parser.add_argument(

@@ -17,7 +17,7 @@ def generate_fluxes_fixed_source_core(
     start_time: datetime,
     cadence: timedelta,
     number: int,
-    insturments: list[Instrument],
+    instruments: list[Instrument],
     probability_of_flare: float = 0.1,
     peak_flux: float = 5.0,
     peak_flux_band_index: int = 0,
@@ -29,9 +29,9 @@ def generate_fluxes_fixed_source_core(
     flare_index = random.randint(0, int(number / probability_of_flare))
     flare_time = start_time + flare_index * cadence
 
-    fluxes = [np.random.rand(number) * np.sqrt(noise_floor) + noise_floor] * len(
-        insturments
-    )
+    fluxes = [
+        np.random.rand(number) * np.sqrt(noise_floor) + noise_floor for _ in instruments
+    ]
 
     if flare_index < (number + flare_duration / cadence * 3):
         # We need to actually generate flare info.
@@ -40,13 +40,13 @@ def generate_fluxes_fixed_source_core(
         )
 
         spectral_index = random.uniform(*spectral_index_range)
-        for index, instrument in enumerate(insturments):
+        for index, instrument in enumerate(instruments):
             if index == peak_flux_band_index:
                 continue
 
             fluxes[index] = (
                 fluxes[peak_flux_band_index]
-                * (instrument.frequency / insturments[peak_flux_band_index].frequency)
+                * (instrument.frequency / instruments[peak_flux_band_index].frequency)
                 ** spectral_index
             )
 
@@ -108,7 +108,7 @@ async def generate_fluxes_fixed_source(
         start_time=start_time,
         cadence=cadence,
         number=number,
-        insturments=instruments,
+        instruments=instruments,
         probability_of_flare=probability_of_flare,
         peak_flux=peak_flux,
         peak_flux_band_index=peak_flux_instrument_index,
