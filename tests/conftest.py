@@ -8,8 +8,9 @@ from pytest_asyncio import fixture as async_fixture
 from testcontainers.postgres import PostgresContainer
 
 from lightcurvedb.config import Settings
-from lightcurvedb.storage.postgres.backend import postgres_backend
-from lightcurvedb.storage.prototype.backend import Backend
+
+# from lightcurvedb.storage.prototype.backend import Backend
+from lightcurvedb.storage.timescale.backend import Backend, timescale_backend
 
 
 @sync_fixture(scope="session")
@@ -18,7 +19,8 @@ def test_database():
     Sets up a testcontainer PostgreSQL database for the session.
     """
     with PostgresContainer(
-        image="postgres:18-alpine",
+        image="timescale/timescaledb:latest-pg18",
+        # image="postgres:latest",
         username="postgres",
         password="password",
         dbname="test_lightcurvedb",
@@ -28,15 +30,15 @@ def test_database():
 
 @async_fixture(scope="session")
 async def backend(test_database):
-    async with postgres_backend(
+    async with timescale_backend(
         settings=Settings(
             postgres_host=test_database.get_container_host_ip(),
             postgres_port=test_database.get_exposed_port(5432),
             postgres_user="postgres",
             postgres_password="password",
             postgres_db="test_lightcurvedb",
-            backend_type="postgres",
-            postgres_partition_count=4,
+            # backend_type="postgres",
+            backend_type="timescale",
         )
     ) as backend_instance:
         yield backend_instance

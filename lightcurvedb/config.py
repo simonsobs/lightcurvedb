@@ -14,9 +14,7 @@ class Settings(BaseSettings):
     postgres_host: str = "127.0.0.1"
     postgres_db: str = "lightcurvedb"
 
-    backend_type: Literal["postgres", "timescaledb", "numpy"] = "postgres"
-
-    postgres_partition_count: int = 4
+    backend_type: Literal["postgres", "timescale", "numpy"] = "postgres"
 
     model_config = SettingsConfigDict(env_prefix="LIGHTCURVEDB_")
 

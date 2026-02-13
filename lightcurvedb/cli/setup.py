@@ -23,6 +23,13 @@ async def setup_database():
             # Backend 'auto' sets up.
             await sleep(0.1)
 
+    elif settings.backend_type == "timescale":
+        from lightcurvedb.storage.timescale.backend import timescale_backend
+
+        with timescale_backend(settings) as _:
+            # Backend 'auto' sets up.
+            await sleep(0.1)
+
 
 def main():
     asyncio.run(setup_database())
