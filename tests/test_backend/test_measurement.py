@@ -8,27 +8,25 @@ import uuid
 
 import pytest
 
-from lightcurvedb.client.measurement import (
-    measurement_flux_add,
-    measurement_flux_delete,
-)
-from lightcurvedb.client.source import source_read_bands
 from lightcurvedb.models.flux import FluxMeasurement
+from lightcurvedb.storage.prototype.backend import Backend
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_measurement_add_and_delete(backend, setup_test_data):
+async def test_measurement_add_and_delete(backend: Backend, setup_test_data):
     source_ids = setup_test_data
     source_id = random.choice(source_ids)
 
-    bands = await source_read_bands(source_id, backend=backend)
+    bands = await backend.lightcurves.get_module_frequency_pairs_for_source(
+        source_id=source_id
+    )
     band = random.choice(bands)
 
     measurement = FluxMeasurement(
         source_id=source_id,
         module=band[0],
         frequency=band[1],
-        time=datetime.datetime.now(),
+        time=datetime.datetime.now(tz=datetime.timezone.utc),
         flux=0.0,
         flux_err=0.0,
         ra=0.0,
@@ -38,11 +36,29 @@ async def test_measurement_add_and_delete(backend, setup_test_data):
         extra={"bad_measurement": True},
     )
 
-    measurement_id = await measurement_flux_add(
-        measurement=measurement, backend=backend
+    measurement_id = await backend.fluxes.create(measurement=measurement)
+
+    # Grab the lightcurve for this source and ensure that the measurement is there.
+    measurements = await backend.lightcurves.get_instrument_lightcurve(
+        source_id=source_id, module=band[0], frequency=band[1]
     )
 
-    await measurement_flux_delete(id=measurement_id, backend=backend)
+    measurement_recovered = [
+        m for m in measurements if m.measurement_id == measurement_id
+    ][0]
+
+    assert len(measurements) > 1, "Expected at least two measurement in the lightcurve"
+
+    for x, y in zip(
+        sorted(measurement.model_dump().items()),
+        sorted(measurement_recovered.model_dump().items()),
+    ):
+        if x[0] in ["measurement_id", "dec_uncertainty", "ra_uncertainty"]:
+            continue
+
+        assert x == y, f"Expected {x} but got {y}"
+
+    await backend.fluxes.delete(measurement_id=measurement_id)
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -50,7 +66,9 @@ async def test_get_band_data(backend, setup_test_data):
     source_ids = setup_test_data
     source_id = random.choice(source_ids)
 
-    bands = await source_read_bands(source_id, backend=backend)
+    bands = await backend.lightcurves.get_module_frequency_pairs_for_source(
+        source_id=source_id
+    )
     band = random.choice(bands)
 
     measurements = await backend.lightcurves.get_frequency_lightcurve(

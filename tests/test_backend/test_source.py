@@ -7,10 +7,6 @@ import uuid
 import pytest
 
 from lightcurvedb.client.source import (
-    source_add,
-    source_delete,
-    source_read,
-    source_read_all,
     source_read_in_radius,
 )
 from lightcurvedb.models.exceptions import SourceNotFoundException
@@ -19,7 +15,7 @@ from lightcurvedb.models.source import Source
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_read_source(backend, setup_test_data):
-    source = await source_read(id=setup_test_data[0], backend=backend)
+    source = await backend.sources.get(setup_test_data[0])
 
     assert isinstance(source, Source)
     assert source.ra is not None
@@ -28,7 +24,7 @@ async def test_read_source(backend, setup_test_data):
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_read_all_sources(backend):
-    all_sources = await source_read_all(backend=backend)
+    all_sources = await backend.sources.get_all()
     assert len(all_sources) == 64
 
 
@@ -53,24 +49,24 @@ async def test_source_read_in_radius(backend):
 @pytest.mark.asyncio(loop_scope="session")
 async def test_read_source_fails(backend):
     with pytest.raises(SourceNotFoundException):
-        await source_read(id=uuid.uuid4(), backend=backend)
+        await backend.sources.get(uuid.uuid4())
 
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_add_read_remove_source(backend):
     source = Source(ra=2.134, dec=89.37, variable=True, extra={"haha": "hoho"})
-    id = await source_add(source=source, backend=backend)
+    id = await backend.sources.create(source=source)
 
-    read_source = await source_read(id=id, backend=backend)
+    read_source = await backend.sources.get(id)
 
     assert read_source.ra == source.ra
     assert read_source.dec == source.dec
     assert read_source.variable == source.variable
 
-    await source_delete(id=id, backend=backend)
+    await backend.sources.delete(id)
 
     with pytest.raises(SourceNotFoundException):
-        await source_read(id=id, backend=backend)
+        await backend.sources.get(id)
 
     with pytest.raises(SourceNotFoundException):
-        await source_delete(id=id, backend=backend)
+        await backend.sources.delete(id)

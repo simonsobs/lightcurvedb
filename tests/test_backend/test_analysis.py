@@ -47,10 +47,10 @@ async def test_weighted_statistics(backend):
         )
         for i in range(5)
     ]
-    await backend.fluxes.create_batch(measurements)
+    measurement_ids = await backend.fluxes.create_batch(measurements)
 
     # Get statistics
-    stats = await backend.fluxes.get_statistics(
+    stats = await backend.analysis.get_source_statistics_for_frequency_and_module(
         source_id=source,
         module="test-weighted",
         frequency=999,
@@ -61,3 +61,8 @@ async def test_weighted_statistics(backend):
     assert stats.measurement_count == 5
     assert stats.min_flux == 10.0
     assert stats.max_flux == 10.0
+
+    for measurement_id in measurement_ids:
+        await backend.fluxes.delete(measurement_id=measurement_id)
+
+    await backend.sources.delete(source_id=source)

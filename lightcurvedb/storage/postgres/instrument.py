@@ -9,7 +9,7 @@ from psycopg import AsyncConnection
 from psycopg.rows import class_row
 
 from lightcurvedb.models.instrument import Instrument
-from lightcurvedb.storage.base.schema import INSTRUMENTS_TABLE
+from lightcurvedb.storage.postgres.schema import INSTRUMENTS_TABLE
 from lightcurvedb.storage.prototype.instrument import ProvidesInstrumentStorage
 
 
