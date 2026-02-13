@@ -8,3 +8,4 @@ htmlcov/*
 dist/*
 build/*
 uv.lock
+*copilot-instructions.md

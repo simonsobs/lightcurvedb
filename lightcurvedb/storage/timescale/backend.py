@@ -10,16 +10,16 @@ from psycopg import AsyncConnection
 from lightcurvedb.config import Settings
 from lightcurvedb.storage.postgres.analysis import PostgresAnalysisProvider
 from lightcurvedb.storage.postgres.instrument import PostgresInstrumentStorage
-from lightcurvedb.storage.postgres.lightcurves import PostgresLightcurveProvider
 from lightcurvedb.storage.postgres.source import PostgresSourceStorage
 from lightcurvedb.storage.prototype.backend import Backend
 from lightcurvedb.storage.timescale.cutout import TimescaleCutoutStorage
 from lightcurvedb.storage.timescale.flux import TimescaleFluxMeasurementStorage
+from lightcurvedb.storage.timescale.lightcurves import TimescaleLightcurveProvider
 
 
 async def generate_timescale_backend(conn: AsyncConnection) -> Backend:
     fluxes = TimescaleFluxMeasurementStorage(conn)
-    lightcurves = PostgresLightcurveProvider(flux_storage=fluxes)
+    lightcurves = TimescaleLightcurveProvider(flux_storage=fluxes)
     analysis = PostgresAnalysisProvider(
         flux_storage=fluxes,
         lightcurve_provider=lightcurves,
