@@ -1,5 +1,5 @@
 FLUX_MEASUREMENTS_TABLE = """
-CREATE TABLE flux_measurements (
+CREATE TABLE IF NOT EXISTS flux_measurements (
     measurement_id UUID DEFAULT gen_random_uuid(),
 
     frequency INTEGER NOT NULL,
@@ -21,9 +21,10 @@ CREATE TABLE flux_measurements (
 
     PRIMARY KEY (time, source_id, frequency, module)
 ) with (
-  tsdb.hypertable,
-  tsdb.segmentby = 'source_id',
-  tsdb.orderby = 'time DESC'
+  timescaledb.hypertable,  
+  timescaledb.compress = 'true',  
+  timescaledb.compress_segmentby = 'source_id',  
+  timescaledb.compress_orderby = 'time DESC'  
 );
 """
 
@@ -68,7 +69,7 @@ CREATE INDEX IF NOT EXISTS idx_cutouts_measurement_id
 
 CONTINUOUS_AGGREGATE_DAILY = """
 CREATE MATERIALIZED VIEW IF NOT EXISTS flux_daily
-WITH (timescaledb.continuous) AS
+WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS
 SELECT
     time_bucket('1 day', time) AS bucket,
     source_id,
@@ -90,7 +91,7 @@ WITH NO DATA;
 
 CONTINUOUS_AGGREGATE_WEEKLY = """
 CREATE MATERIALIZED VIEW IF NOT EXISTS flux_weekly
-WITH (timescaledb.continuous) AS
+WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS
 SELECT
     time_bucket('7 days', time) AS bucket,
     source_id,
@@ -112,7 +113,7 @@ WITH NO DATA;
 
 CONTINUOUS_AGGREGATE_MONTHLY = """
 CREATE MATERIALIZED VIEW IF NOT EXISTS flux_monthly
-WITH (timescaledb.continuous) AS
+WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS
 SELECT
     time_bucket('30 days', time) AS bucket,
     source_id,

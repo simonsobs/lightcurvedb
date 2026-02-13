@@ -19,14 +19,14 @@ async def setup_database():
     if settings.backend_type == "postgres":
         from lightcurvedb.storage.postgres.backend import postgres_backend
 
-        with postgres_backend(settings) as _:
+        async with postgres_backend(settings) as _:
             # Backend 'auto' sets up.
             await sleep(0.1)
 
     elif settings.backend_type == "timescale":
         from lightcurvedb.storage.timescale.backend import timescale_backend
 
-        with timescale_backend(settings) as _:
+        async with timescale_backend(settings) as _:
             # Backend 'auto' sets up.
             await sleep(0.1)
 

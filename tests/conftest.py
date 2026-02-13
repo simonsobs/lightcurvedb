@@ -19,7 +19,7 @@ def postgres_database():
     Sets up a testcontainer PostgreSQL database for the session.
     """
     with PostgresContainer(
-        image="postgres:latest",
+        image="postgres:18",
         username="postgres",
         password="password",
         dbname="test_lightcurvedb",
