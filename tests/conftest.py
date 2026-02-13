@@ -8,19 +8,18 @@ from pytest_asyncio import fixture as async_fixture
 from testcontainers.postgres import PostgresContainer
 
 from lightcurvedb.config import Settings
-
-# from lightcurvedb.storage.prototype.backend import Backend
-from lightcurvedb.storage.timescale.backend import Backend, timescale_backend
+from lightcurvedb.storage.postgres.backend import postgres_backend
+from lightcurvedb.storage.prototype.backend import Backend
+from lightcurvedb.storage.timescale.backend import timescale_backend
 
 
 @sync_fixture(scope="session")
-def test_database():
+def postgres_database():
     """
     Sets up a testcontainer PostgreSQL database for the session.
     """
     with PostgresContainer(
-        image="timescale/timescaledb:latest-pg18",
-        # image="postgres:latest",
+        image="postgres:latest",
         username="postgres",
         password="password",
         dbname="test_lightcurvedb",
@@ -28,20 +27,46 @@ def test_database():
         yield container
 
 
-@async_fixture(scope="session")
-async def backend(test_database):
-    async with timescale_backend(
-        settings=Settings(
-            postgres_host=test_database.get_container_host_ip(),
-            postgres_port=test_database.get_exposed_port(5432),
-            postgres_user="postgres",
-            postgres_password="password",
-            postgres_db="test_lightcurvedb",
-            # backend_type="postgres",
-            backend_type="timescale",
-        )
-    ) as backend_instance:
-        yield backend_instance
+@sync_fixture(scope="session")
+def timescale_database():
+    """
+    Sets up a testcontainer PostgreSQL database for the session.
+    """
+    with PostgresContainer(
+        image="timescale/timescaledb:latest-pg18",
+        username="postgres",
+        password="password",
+        dbname="test_lightcurvedb",
+    ) as container:
+        yield container
+
+
+@async_fixture(scope="session", params=["postgres", "timescale"])
+async def backend(request, postgres_database, timescale_database):
+    if request.param == "postgres":
+        async with postgres_backend(
+            settings=Settings(
+                postgres_host=postgres_database.get_container_host_ip(),
+                postgres_port=postgres_database.get_exposed_port(5432),
+                postgres_user="postgres",
+                postgres_password="password",
+                postgres_db="test_lightcurvedb",
+                backend_type="postgres",
+            )
+        ) as backend:
+            yield backend
+    elif request.param == "timescale":
+        async with timescale_backend(
+            settings=Settings(
+                postgres_host=timescale_database.get_container_host_ip(),
+                postgres_port=timescale_database.get_exposed_port(5432),
+                postgres_user="postgres",
+                postgres_password="password",
+                postgres_db="test_lightcurvedb",
+                backend_type="timescale",
+            )
+        ) as backend:
+            yield backend
 
 
 @async_fixture(scope="session", autouse=True)
