@@ -10,7 +10,7 @@ from psycopg import AsyncConnection
 from psycopg.rows import class_row
 
 from lightcurvedb.models.source import Source
-from lightcurvedb.storage.base.schema import SOURCES_TABLE
+from lightcurvedb.storage.postgres.schema import SOURCES_TABLE
 from lightcurvedb.storage.prototype.source import ProvidesSourceStorage
 
 
