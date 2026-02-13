@@ -52,7 +52,7 @@ def _get_container_for_backend(backend_type: str):
 
 @contextmanager
 def core(
-    backend_type: str = "postgres", number: int = 128, probability_of_flare: float = 0.1
+    backend_type: str = "postgres", number: int = 128, probability_of_flare: float = 0.8
 ):
     from lightcurvedb.config import Settings
     from lightcurvedb.models.instrument import Instrument
