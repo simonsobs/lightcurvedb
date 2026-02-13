@@ -3,8 +3,6 @@ Sets up a testcontainer with a few lightcurves and cut-outs in it for
 testing purposes.
 """
 
-from typing import AsyncGenerator
-
 from pytest import fixture as sync_fixture
 from pytest_asyncio import fixture as async_fixture
 from testcontainers.postgres import PostgresContainer
@@ -45,9 +43,7 @@ def timescale_database():
 
 
 @async_fixture(scope="session", params=["pandas", "postgres", "timescale"])
-async def backend(
-    request, postgres_database, timescale_database, tmp_path_factory
-) -> AsyncGenerator[Backend, None, None]:
+async def backend(request, postgres_database, timescale_database, tmp_path_factory):
     if request.param == "postgres":
         async with postgres_backend(
             settings=Settings(
