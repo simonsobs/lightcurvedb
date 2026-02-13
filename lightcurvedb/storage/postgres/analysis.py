@@ -4,6 +4,7 @@ Analysis of flux measurements and lightcurves.
 
 import asyncio
 from datetime import datetime
+from uuid import UUID
 
 from psycopg.rows import class_row
 
@@ -14,6 +15,9 @@ from lightcurvedb.storage.prototype.analysis import ProvidesAnalysis
 
 
 class PostgresAnalysisProvider(ProvidesAnalysis):
+    async def setup(self) -> None:
+        pass
+
     def __init__(
         self,
         flux_storage: PostgresFluxMeasurementStorage,
@@ -24,7 +28,7 @@ class PostgresAnalysisProvider(ProvidesAnalysis):
 
     async def get_source_statistics_for_frequency_and_module(
         self,
-        source_id: int,
+        source_id: UUID,
         module: str,
         frequency: int,
         start_time: datetime | None = None,
@@ -57,7 +61,7 @@ class PostgresAnalysisProvider(ProvidesAnalysis):
         query = f"""
             SELECT
                 %(source_id)s as source_id,
-                {'%(module)s' if module != 'all' else "'all'"} as module,
+                {"%(module)s" if module != "all" else "'all'"} as module,
                 %(frequency)s as frequency,
                 COUNT(*) as measurement_count,
                 MIN(flux) as min_flux,
@@ -85,7 +89,7 @@ class PostgresAnalysisProvider(ProvidesAnalysis):
 
     async def get_source_statistics_for_frequency(
         self,
-        source_id: int,
+        source_id: UUID,
         frequency: int,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
@@ -104,7 +108,7 @@ class PostgresAnalysisProvider(ProvidesAnalysis):
 
     async def get_source_statistics(
         self,
-        source_id: int,
+        source_id: UUID,
         collate_modules: bool = False,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
@@ -137,7 +141,7 @@ class PostgresAnalysisProvider(ProvidesAnalysis):
         )
 
         if collate_modules:
-            return {stats.frequency: stats for stats in statistics}
+            return {str(stats.frequency): stats for stats in statistics}
 
         else:
             return {f"{stats.module}_{stats.frequency}": stats for stats in statistics}

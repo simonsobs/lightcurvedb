@@ -4,6 +4,7 @@ Analysis of flux measurements and lightcurves.
 
 from datetime import datetime
 from typing import Protocol
+from uuid import UUID
 
 from lightcurvedb.models.statistics import SourceStatistics
 
@@ -17,7 +18,7 @@ class ProvidesAnalysis(Protocol):
 
     async def get_source_statistics_for_frequency_and_module(
         self,
-        source_id: int,
+        source_id: UUID,
         module: str,
         frequency: int,
         start_time: datetime | None = None,
@@ -32,7 +33,7 @@ class ProvidesAnalysis(Protocol):
 
     async def get_source_statistics_for_frequency(
         self,
-        source_id: int,
+        source_id: UUID,
         frequency: int,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
@@ -44,7 +45,7 @@ class ProvidesAnalysis(Protocol):
 
     async def get_source_statistics(
         self,
-        source_id: int,
+        source_id: UUID,
         collate_modules: bool = False,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
