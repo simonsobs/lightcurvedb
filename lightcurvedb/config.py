@@ -2,6 +2,7 @@
 Configuration for lightcurvedb.
 """
 
+from pathlib import Path
 from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -14,7 +15,9 @@ class Settings(BaseSettings):
     postgres_host: str = "127.0.0.1"
     postgres_db: str = "lightcurvedb"
 
-    backend_type: Literal["postgres", "timescale", "numpy"] = "postgres"
+    pandas_base_path: Path = "./data"
+
+    backend_type: Literal["postgres", "timescale", "pandas"] = "postgres"
 
     model_config = SettingsConfigDict(env_prefix="LIGHTCURVEDB_")
 

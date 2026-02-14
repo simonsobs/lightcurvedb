@@ -17,7 +17,9 @@ dependencies = [
     "tqdm",
     "socat @ git+https://github.com/simonsobs/socat",
     "astropy",
-    "uuid7==0.1.0"
+    "uuid7==0.1.0",
+    "pandas[pyarrow]",
+    "asyncer",
 ]
 
 [project.optional-dependencies]

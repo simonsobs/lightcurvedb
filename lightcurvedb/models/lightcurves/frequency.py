@@ -10,14 +10,14 @@ from lightcurvedb.models.flux import FluxMeasurement
 class FrequencyLightcurve(BaseModel):
     frequency: int
     source_id: UUID
-    measurement_id: list[UUID]
-    time: list[datetime]
-    module: list[str]
-    ra: list[float]
-    dec: list[float]
-    flux: list[float]
-    flux_err: list[float | None]
-    extra: list[dict | None]
+    measurement_id: list[UUID] = []
+    time: list[datetime] = []
+    module: list[str] = []
+    ra: list[float] = []
+    dec: list[float] = []
+    flux: list[float] = []
+    flux_err: list[float | None] = []
+    extra: list[dict | None] = []
 
     def __len__(self):
         return len(self.measurement_id)
@@ -49,11 +49,11 @@ class FrequencyLightcurve(BaseModel):
 class BinnedFrequencyLightcurve(BaseModel):
     frequency: int
     source_id: UUID
-    time: list[datetime]
-    ra: list[float]
-    dec: list[float]
-    flux: list[float]
-    flux_err: list[float | None]
+    time: list[datetime] = []
+    ra: list[float] = []
+    dec: list[float] = []
+    flux: list[float] = []
+    flux_err: list[float | None] = []
 
     binning_strategy: Literal["1 day", "7 days", "30 days"]
     start_time: datetime

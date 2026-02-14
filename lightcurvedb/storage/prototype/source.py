@@ -1,4 +1,5 @@
 from typing import Protocol
+from uuid import UUID
 
 from lightcurvedb.models import Source
 
@@ -9,19 +10,19 @@ class ProvidesSourceStorage(Protocol):
         Set up the source storage system (e.g. create the tables).
         """
 
-    async def create(self, source: Source) -> int:
+    async def create(self, source: Source) -> UUID:
         """
         Create a new source and return its ID.
         """
         ...
 
-    async def create_batch(self, sources: list[Source]) -> list[int]:
+    async def create_batch(self, sources: list[Source]) -> list[UUID]:
         """
         Bulk insert sources, returns created source IDs.
         """
         ...
 
-    async def get(self, source_id: int) -> Source:
+    async def get(self, source_id: UUID) -> Source:
         """
         Retrieve source details by ID.
         """
@@ -39,7 +40,7 @@ class ProvidesSourceStorage(Protocol):
         """
         ...
 
-    async def delete(self, source_id: int) -> None:
+    async def delete(self, source_id: UUID) -> None:
         """
         Delete a source by ID.
         """

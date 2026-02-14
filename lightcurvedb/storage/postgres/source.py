@@ -26,7 +26,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
         async with self.conn.cursor() as cur:
             await cur.execute(SOURCES_TABLE)
 
-    async def create(self, source: Source) -> int:
+    async def create(self, source: Source) -> UUID:
         """
         Create a source.
         """
@@ -58,7 +58,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
 
         return row[0]
 
-    async def create_batch(self, sources: list[Source]) -> list[int]:
+    async def create_batch(self, sources: list[Source]) -> list[UUID]:
         """
         Bulk insert sources, returns created source IDs.
         """
