@@ -39,5 +39,5 @@ async def pandas_backend(settings: Settings) -> AsyncIterator[Backend]:
     """
     Get a Pandas storage backend.
     """
-    backend = await generate_pandas_backend(directory=settings.pandas_base_path)
+    backend = await generate_pandas_backend(directory=settings.parquet_base_path)
     yield backend

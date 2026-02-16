@@ -71,7 +71,7 @@ async def backend(request, postgres_database, timescale_database, tmp_path_facto
     elif request.param == "parquet":
         async with pandas_backend(
             settings=Settings(
-                pandas_base_path=tmp_path_factory.mktemp("pandas_test_data"),
+                parquet_base_path=tmp_path_factory.mktemp("pandas_test_data"),
                 backend_type="parquet",
             )
         ) as backend:

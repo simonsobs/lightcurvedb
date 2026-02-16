@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     postgres_host: str = "127.0.0.1"
     postgres_db: str = "lightcurvedb"
 
-    pandas_base_path: Path = "./data"
+    parquet_base_path: Path = "./data"
 
     backend_type: Literal["postgres", "timescale", "parquet"] = "postgres"
 
