@@ -8,7 +8,7 @@ from pytest_asyncio import fixture as async_fixture
 from testcontainers.postgres import PostgresContainer
 
 from lightcurvedb.config import Settings
-from lightcurvedb.storage.pandas.backend import pandas_backend
+from lightcurvedb.storage.parquet.backend import pandas_backend
 from lightcurvedb.storage.postgres.backend import postgres_backend
 from lightcurvedb.storage.prototype.backend import Backend
 from lightcurvedb.storage.timescale.backend import timescale_backend

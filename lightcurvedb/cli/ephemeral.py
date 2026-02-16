@@ -67,7 +67,7 @@ def get_backend(settings):
 
         return timescale_backend(settings)
     elif backend_type == "pandas":
-        from lightcurvedb.storage.pandas.backend import pandas_backend
+        from lightcurvedb.storage.parquet.backend import pandas_backend
 
         return pandas_backend(settings)
 
