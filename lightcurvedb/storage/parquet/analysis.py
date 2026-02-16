@@ -11,7 +11,7 @@ from uuid import UUID
 import pandas as pd
 
 from lightcurvedb.models.statistics import SourceStatistics
-from lightcurvedb.storage.pandas.flux import PandasFluxMeasurementStorage
+from lightcurvedb.storage.parquet.flux import PandasFluxMeasurementStorage
 from lightcurvedb.storage.prototype.analysis import ProvidesAnalysis
 
 

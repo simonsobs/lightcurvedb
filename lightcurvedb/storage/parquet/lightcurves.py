@@ -21,7 +21,7 @@ from lightcurvedb.models.lightcurves import (
     SourceLightcurveFrequency,
     SourceLightcurveInstrument,
 )
-from lightcurvedb.storage.pandas.flux import PandasFluxMeasurementStorage
+from lightcurvedb.storage.parquet.flux import PandasFluxMeasurementStorage
 from lightcurvedb.storage.prototype.lightcurves import ProvidesLightcurves
 
 

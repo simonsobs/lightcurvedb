@@ -3,12 +3,12 @@ from pathlib import Path
 from typing import AsyncIterator
 
 from lightcurvedb.config import Settings
-from lightcurvedb.storage.pandas.analysis import PandasAnalysis
-from lightcurvedb.storage.pandas.cutout import PandasCutoutStorage
-from lightcurvedb.storage.pandas.flux import PandasFluxMeasurementStorage
-from lightcurvedb.storage.pandas.instrument import PandasInstrumentStorage
-from lightcurvedb.storage.pandas.lightcurves import PandasLightcurves
-from lightcurvedb.storage.pandas.source import PandasSourceStorage
+from lightcurvedb.storage.parquet.analysis import PandasAnalysis
+from lightcurvedb.storage.parquet.cutout import PandasCutoutStorage
+from lightcurvedb.storage.parquet.flux import PandasFluxMeasurementStorage
+from lightcurvedb.storage.parquet.instrument import PandasInstrumentStorage
+from lightcurvedb.storage.parquet.lightcurves import PandasLightcurves
+from lightcurvedb.storage.parquet.source import PandasSourceStorage
 from lightcurvedb.storage.prototype.backend import Backend
 
 
