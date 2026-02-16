@@ -1,10 +1,7 @@
-from datetime import datetime
 from typing import Protocol
+from uuid import UUID
 
-from lightcurvedb.models import (
-    FluxMeasurementCreate,
-)
-from lightcurvedb.models.statistics import SourceStatistics
+from lightcurvedb.models import FluxMeasurement, FluxMeasurementCreate
 
 
 class ProvidesFluxMeasurementStorage(Protocol):
@@ -13,9 +10,15 @@ class ProvidesFluxMeasurementStorage(Protocol):
         Set up the flux storage system (e.g. create the tables).
         """
 
-    async def create(self, measurement: FluxMeasurementCreate) -> int:
+    async def create(self, measurement: FluxMeasurementCreate) -> UUID:
         """
         Insert single measurement.
+        """
+        ...
+
+    async def get(self, measurement_id: UUID) -> FluxMeasurement:
+        """
+        Retrieve a flux measurement by ID.
         """
         ...
 
@@ -27,19 +30,7 @@ class ProvidesFluxMeasurementStorage(Protocol):
         """
         ...
 
-    async def get_statistics(
-        self,
-        source_id: int,
-        band_name: str,
-        start_time: datetime | None = None,
-        end_time: datetime | None = None,
-    ) -> SourceStatistics:
-        """
-        Retrieve statistical summary of flux measurements for a specific band and source.
-        """
-        ...
-
-    async def delete(self, id: int) -> None:
+    async def delete(self, measurement_id: UUID) -> None:
         """
         Delete a flux measurement by ID.
         """

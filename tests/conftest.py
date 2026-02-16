@@ -8,6 +8,7 @@ from pytest_asyncio import fixture as async_fixture
 from testcontainers.postgres import PostgresContainer
 
 from lightcurvedb.config import Settings
+from lightcurvedb.storage.parquet.backend import pandas_backend
 from lightcurvedb.storage.postgres.backend import postgres_backend
 from lightcurvedb.storage.prototype.backend import Backend
 from lightcurvedb.storage.timescale.backend import timescale_backend
@@ -41,8 +42,8 @@ def timescale_database():
         yield container
 
 
-@async_fixture(scope="session", params=["postgres", "timescale"])
-async def backend(request, postgres_database, timescale_database):
+@async_fixture(scope="session", params=["parquet", "postgres", "timescale"])
+async def backend(request, postgres_database, timescale_database, tmp_path_factory):
     if request.param == "postgres":
         async with postgres_backend(
             settings=Settings(
@@ -64,6 +65,14 @@ async def backend(request, postgres_database, timescale_database):
                 postgres_password="password",
                 postgres_db="test_lightcurvedb",
                 backend_type="timescale",
+            )
+        ) as backend:
+            yield backend
+    elif request.param == "parquet":
+        async with pandas_backend(
+            settings=Settings(
+                parquet_base_path=tmp_path_factory.mktemp("pandas_test_data"),
+                backend_type="parquet",
             )
         ) as backend:
             yield backend

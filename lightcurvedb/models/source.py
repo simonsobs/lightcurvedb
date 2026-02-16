@@ -34,7 +34,7 @@ class Source(BaseModel):
 
     source_id: UUID = Field(default_factory=uuid7)
     socat_id: int | None = None
-    name: str | None = None
+    name: str | None = "No Name"
     ra: float | None
     dec: float | None
     variable: bool = False

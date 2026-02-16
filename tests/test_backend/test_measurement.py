@@ -43,6 +43,8 @@ async def test_measurement_add_and_delete(backend: Backend, setup_test_data):
         source_id=source_id, module=band[0], frequency=band[1]
     )
 
+    print(measurements, measurement_id)
+
     measurement_recovered = [
         m for m in measurements if m.measurement_id == measurement_id
     ][0]

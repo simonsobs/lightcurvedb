@@ -12,6 +12,8 @@ import tqdm
 from loguru import logger
 from testcontainers.postgres import PostgresContainer
 
+from lightcurvedb.simulation import cutouts as sim_cutouts
+
 
 def _setup_backend_env(backend_type: str, container=None):
     """
@@ -44,10 +46,30 @@ def _get_container_for_backend(backend_type: str):
             password="password",
             dbname="lightcurvedb",
         )
-    elif backend_type == "numpy":
+    elif backend_type == "parquet":
         return None
     else:
         raise ValueError(f"Unknown backend: {backend_type}")
+
+
+def get_backend(settings):
+    """
+    Context manager to get a backend instance based on settings.
+    """
+    backend_type = settings.backend_type
+
+    if backend_type == "postgres":
+        from lightcurvedb.storage.postgres.backend import postgres_backend
+
+        return postgres_backend(settings)
+    elif backend_type == "timescale":
+        from lightcurvedb.storage.timescale.backend import timescale_backend
+
+        return timescale_backend(settings)
+    elif backend_type == "parquet":
+        from lightcurvedb.storage.parquet.backend import pandas_backend
+
+        return pandas_backend(settings)
 
 
 @contextmanager
@@ -58,10 +80,9 @@ def core(
     from lightcurvedb.models.instrument import Instrument
     from lightcurvedb.simulation.fluxes import generate_fluxes_fixed_source
     from lightcurvedb.simulation.sources import create_fixed_sources
-    from lightcurvedb.storage.postgres.backend import postgres_backend
 
     async def setup_and_simulate():
-        async with postgres_backend(Settings()) as backend:
+        async with get_backend(Settings()) as backend:
             logger.info(f"Schema created for {backend_type}")
 
             # Create bands
@@ -106,6 +127,22 @@ def core(
 
             logger.info(f"Generated flux measurements for {len(source_ids)} sources")
 
+            # Generate cutouts for only the first source.
+            for frequency in [27, 39, 93, 145, 225, 280]:
+                fluxes = await backend.lightcurves.get_frequency_lightcurve(
+                    source_id=source_ids[0], frequency=frequency, limit=1024
+                )
+
+                if len(fluxes) == 0:
+                    continue
+
+                cutouts = [
+                    sim_cutouts.create_cutout(nside=32, flux=flux) for flux in fluxes
+                ]
+                _ = await backend.cutouts.create_batch(cutouts)
+
+            logger.info(f"Generated cutouts for source {source_ids[0]}")
+
     container = _get_container_for_backend(backend_type)
 
     if container is None:
@@ -140,7 +177,7 @@ def main():
         "--backend",
         type=str,
         default="postgres",
-        choices=["postgres", "timescale", "numpy"],
+        choices=["postgres", "timescale", "parquet"],
         help="Backend type to use",
     )
     parser.add_argument(
