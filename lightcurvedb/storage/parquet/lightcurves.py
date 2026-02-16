@@ -58,6 +58,33 @@ class PandasLightcurves(ProvidesLightcurves):
             "30 days": "30D",
         }[binning_strategy]
 
+    def _rolling_binned_table(self, subset: pd.DataFrame, freq: str) -> pd.DataFrame:
+        if subset.empty:
+            return subset
+
+        subset = subset.copy()
+        subset["time"] = pd.to_datetime(subset["time"], utc=True)
+        subset = subset.sort_values("time").set_index("time")
+
+        rolling = subset.rolling(window=freq, min_periods=1, center=True)
+
+        def rolling_flux_err(values: pd.Series) -> float | None:
+            cleaned = pd.Series(values).dropna()
+            if cleaned.empty:
+                return None
+            return float((cleaned.pow(2).sum() ** 0.5) / len(cleaned))
+
+        aggregated = pd.DataFrame(
+            {
+                "ra": rolling["ra"].mean(),
+                "dec": rolling["dec"].mean(),
+                "flux": rolling["flux"].mean(),
+                "flux_err": rolling["flux_err"].apply(rolling_flux_err, raw=False),
+            }
+        ).reset_index()
+
+        return aggregated
+
     async def get_instrument_lightcurve(
         self, source_id: UUID, module: str, frequency: int, limit: int = 1000000
     ) -> InstrumentLightcurve:
@@ -174,35 +201,9 @@ class PandasLightcurves(ProvidesLightcurves):
             )
 
         freq = self._bin_freq(binning_strategy)
-        interval = pd.Timedelta(freq)
+        rolled = self._rolling_binned_table(subset, freq)
 
-        grouped = subset.groupby(
-            pd.Grouper(
-                key="time", freq=freq, origin=start_time, closed="left", label="left"
-            )
-        )
-
-        rows = []
-        for bin_start, group in grouped:
-            if group.empty:
-                continue
-            flux_err = group["flux_err"].dropna()
-            if flux_err.empty:
-                bin_flux_err = None
-            else:
-                bin_flux_err = float((flux_err.pow(2).sum() ** 0.5) / len(flux_err))
-
-            rows.append(
-                {
-                    "time": bin_start + interval / 2,
-                    "ra": float(group["ra"].mean()),
-                    "dec": float(group["dec"].mean()),
-                    "flux": float(group["flux"].mean()),
-                    "flux_err": bin_flux_err,
-                }
-            )
-
-        if not rows:
+        if rolled.empty:
             return BinnedInstrumentLightcurve(
                 source_id=source_id,
                 module=module,
@@ -218,17 +219,21 @@ class PandasLightcurves(ProvidesLightcurves):
             )
 
         if limit is not None:
-            rows = rows[:limit]
+            rolled = rolled.head(limit)
+
+        flux_err = [
+            None if pd.isna(value) else float(value) for value in rolled["flux_err"]
+        ]
 
         return BinnedInstrumentLightcurve(
             source_id=source_id,
             module=module,
             frequency=frequency,
-            time=self._normalize_times([row["time"] for row in rows]),
-            ra=[row["ra"] for row in rows],
-            dec=[row["dec"] for row in rows],
-            flux=[row["flux"] for row in rows],
-            flux_err=[row["flux_err"] for row in rows],
+            time=self._normalize_times(rolled["time"].tolist()),
+            ra=rolled["ra"].astype(float).tolist(),
+            dec=rolled["dec"].astype(float).tolist(),
+            flux=rolled["flux"].astype(float).tolist(),
+            flux_err=flux_err,
             binning_strategy=binning_strategy,
             start_time=start_time,
             end_time=end_time,
@@ -278,35 +283,9 @@ class PandasLightcurves(ProvidesLightcurves):
             )
 
         freq = self._bin_freq(binning_strategy)
-        interval = pd.Timedelta(freq)
+        rolled = self._rolling_binned_table(subset, freq)
 
-        grouped = subset.groupby(
-            pd.Grouper(
-                key="time", freq=freq, origin=start_time, closed="left", label="left"
-            )
-        )
-
-        rows = []
-        for bin_start, group in grouped:
-            if group.empty:
-                continue
-            flux_err = group["flux_err"].dropna()
-            if flux_err.empty:
-                bin_flux_err = None
-            else:
-                bin_flux_err = float((flux_err.pow(2).sum() ** 0.5) / len(flux_err))
-
-            rows.append(
-                {
-                    "time": bin_start + interval / 2,
-                    "ra": float(group["ra"].mean()),
-                    "dec": float(group["dec"].mean()),
-                    "flux": float(group["flux"].mean()),
-                    "flux_err": bin_flux_err,
-                }
-            )
-
-        if not rows:
+        if rolled.empty:
             return BinnedFrequencyLightcurve(
                 source_id=source_id,
                 frequency=frequency,
@@ -321,16 +300,20 @@ class PandasLightcurves(ProvidesLightcurves):
             )
 
         if limit is not None:
-            rows = rows[:limit]
+            rolled = rolled.head(limit)
+
+        flux_err = [
+            None if pd.isna(value) else float(value) for value in rolled["flux_err"]
+        ]
 
         return BinnedFrequencyLightcurve(
             source_id=source_id,
             frequency=frequency,
-            time=self._normalize_times([row["time"] for row in rows]),
-            ra=[row["ra"] for row in rows],
-            dec=[row["dec"] for row in rows],
-            flux=[row["flux"] for row in rows],
-            flux_err=[row["flux_err"] for row in rows],
+            time=self._normalize_times(rolled["time"].tolist()),
+            ra=rolled["ra"].astype(float).tolist(),
+            dec=rolled["dec"].astype(float).tolist(),
+            flux=rolled["flux"].astype(float).tolist(),
+            flux_err=flux_err,
             binning_strategy=binning_strategy,
             start_time=start_time,
             end_time=end_time,
