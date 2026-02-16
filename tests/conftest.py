@@ -42,7 +42,7 @@ def timescale_database():
         yield container
 
 
-@async_fixture(scope="session", params=["pandas", "postgres", "timescale"])
+@async_fixture(scope="session", params=["parquet", "postgres", "timescale"])
 async def backend(request, postgres_database, timescale_database, tmp_path_factory):
     if request.param == "postgres":
         async with postgres_backend(
@@ -68,11 +68,11 @@ async def backend(request, postgres_database, timescale_database, tmp_path_facto
             )
         ) as backend:
             yield backend
-    elif request.param == "pandas":
+    elif request.param == "parquet":
         async with pandas_backend(
             settings=Settings(
                 pandas_base_path=tmp_path_factory.mktemp("pandas_test_data"),
-                backend_type="pandas",
+                backend_type="parquet",
             )
         ) as backend:
             yield backend

@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     pandas_base_path: Path = "./data"
 
-    backend_type: Literal["postgres", "timescale", "pandas"] = "postgres"
+    backend_type: Literal["postgres", "timescale", "parquet"] = "postgres"
 
     model_config = SettingsConfigDict(env_prefix="LIGHTCURVEDB_")
 

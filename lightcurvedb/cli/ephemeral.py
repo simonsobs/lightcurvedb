@@ -46,7 +46,7 @@ def _get_container_for_backend(backend_type: str):
             password="password",
             dbname="lightcurvedb",
         )
-    elif backend_type == "pandas":
+    elif backend_type == "parquet":
         return None
     else:
         raise ValueError(f"Unknown backend: {backend_type}")
@@ -66,7 +66,7 @@ def get_backend(settings):
         from lightcurvedb.storage.timescale.backend import timescale_backend
 
         return timescale_backend(settings)
-    elif backend_type == "pandas":
+    elif backend_type == "parquet":
         from lightcurvedb.storage.parquet.backend import pandas_backend
 
         return pandas_backend(settings)
@@ -177,7 +177,7 @@ def main():
         "--backend",
         type=str,
         default="postgres",
-        choices=["postgres", "timescale", "pandas"],
+        choices=["postgres", "timescale", "parquet"],
         help="Backend type to use",
     )
     parser.add_argument(
