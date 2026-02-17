@@ -37,4 +37,7 @@ async def create_fixed_sources(number: int, backend: Backend) -> list[int]:
         for i in range(number)
     ]
 
-    return await backend.sources.create_batch(sources)
+    if sources:
+        return await backend.sources.create_batch(sources)
+    else:
+        return []
