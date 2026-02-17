@@ -21,7 +21,7 @@ def main():
 
     from lightcurvedb.config import settings as lightcurvedb_settings
 
-    asyncio.run(core(lightcurvedb_settings, socat_settings))
+    asyncio.run(core(lightcurvedb_settings, socat_settings.SOCatClientSettings()))
 
 
 if __name__ == "__main__":
