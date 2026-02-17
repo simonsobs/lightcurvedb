@@ -10,9 +10,7 @@ from typing import Iterable
 from uuid import UUID
 
 import pandas as pd
-import pyarrow as pa
 from asyncer import asyncify
-from pydantic_to_pyarrow import get_pyarrow_schema
 
 from lightcurvedb.models import Cutout
 from lightcurvedb.models.exceptions import CutoutNotFoundException
@@ -41,19 +39,7 @@ class PandasCutoutStorage(ProvidesCutoutStorage):
 
     def _write_file_sync(self, source_id: UUID, table: pd.DataFrame) -> None:
         self.base_path.mkdir(parents=True, exist_ok=True)
-        schema = get_pyarrow_schema(Cutout, allow_losing_tz=True)
-
-        # Default schema for these is 'bytes' but we use friendlier strings.
-        def update_by_name(name: str, new_type: pa.DataType, schema):
-            for index, field in enumerate(schema):
-                if field.name == name:
-                    return schema.set(index, pa.field(name, new_type))
-
-        schema = update_by_name("measurement_id", pa.string(), schema)
-        schema = update_by_name("source_id", pa.string(), schema)
-        schema = update_by_name("time", pa.timestamp("us"), schema)
-
-        table.to_parquet(self._source_path(source_id), schema=schema)
+        table.to_parquet(self._source_path(source_id))
 
     def _new_table(self, cutouts: Iterable[Cutout]) -> pd.DataFrame:
         rows = []
