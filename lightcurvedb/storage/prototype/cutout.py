@@ -3,6 +3,7 @@ Prototype for cutout storage interactions
 """
 
 from typing import Protocol
+from uuid import UUID
 
 from lightcurvedb.models import Cutout
 
@@ -26,19 +27,19 @@ class ProvidesCutoutStorage(Protocol):
         """
         ...
 
-    async def retrieve_cutouts_for_source(self, source_id: int) -> list[Cutout]:
+    async def retrieve_cutouts_for_source(self, source_id: UUID) -> list[Cutout]:
         """
         Retrieve cutouts for a given source.
         """
         ...
 
-    async def retrieve_cutout(self, source_id: int, measurement_id: int) -> Cutout:
+    async def retrieve_cutout(self, source_id: UUID, measurement_id: UUID) -> Cutout:
         """
         Retrieve a cutout for a given source and band.
         """
         ...
 
-    async def delete(self, cutout_id: int) -> None:
+    async def delete(self, measurement_id: UUID) -> None:
         """
         Delete a cutout by ID.
         """
