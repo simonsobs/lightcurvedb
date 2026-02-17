@@ -52,26 +52,6 @@ def _get_container_for_backend(backend_type: str):
         raise ValueError(f"Unknown backend: {backend_type}")
 
 
-def get_backend(settings):
-    """
-    Context manager to get a backend instance based on settings.
-    """
-    backend_type = settings.backend_type
-
-    if backend_type == "postgres":
-        from lightcurvedb.storage.postgres.backend import postgres_backend
-
-        return postgres_backend(settings)
-    elif backend_type == "timescale":
-        from lightcurvedb.storage.timescale.backend import timescale_backend
-
-        return timescale_backend(settings)
-    elif backend_type == "parquet":
-        from lightcurvedb.storage.parquet.backend import pandas_backend
-
-        return pandas_backend(settings)
-
-
 @contextmanager
 def core(
     backend_type: str = "postgres", number: int = 128, probability_of_flare: float = 0.8
@@ -82,7 +62,7 @@ def core(
     from lightcurvedb.simulation.sources import create_fixed_sources
 
     async def setup_and_simulate():
-        async with get_backend(Settings()) as backend:
+        async with Settings().backend as backend:
             logger.info(f"Schema created for {backend_type}")
 
             # Create bands

@@ -20,6 +20,7 @@ dependencies = [
     "uuid7==0.1.0",
     "pandas[pyarrow]",
     "asyncer",
+    "pydantic-to-pyarrow"
 ]
 
 [project.optional-dependencies]

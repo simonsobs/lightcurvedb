@@ -10,7 +10,9 @@ from typing import Iterable
 from uuid import UUID
 
 import pandas as pd
+import pyarrow as pa
 from asyncer import asyncify
+from pydantic_to_pyarrow import get_pyarrow_schema
 
 from lightcurvedb.models import Cutout
 from lightcurvedb.models.exceptions import CutoutNotFoundException
@@ -35,36 +37,31 @@ class PandasCutoutStorage(ProvidesCutoutStorage):
         if not path.exists():
             return None
         table = pd.read_parquet(path)
-        return self._normalize_table(table)
+        return table
 
     def _write_file_sync(self, source_id: UUID, table: pd.DataFrame) -> None:
         self.base_path.mkdir(parents=True, exist_ok=True)
-        table.to_parquet(self._source_path(source_id))
+        schema = get_pyarrow_schema(Cutout, allow_losing_tz=True)
 
-    def _normalize_table(self, table: pd.DataFrame) -> pd.DataFrame:
-        if "measurement_id" in table.columns:
-            table = table.set_index("measurement_id")
+        # Default schema for these is 'bytes' but we use friendlier strings.
+        def update_by_name(name: str, new_type: pa.DataType, schema):
+            for index, field in enumerate(schema):
+                if field.name == name:
+                    return schema.set(index, pa.field(name, new_type))
 
-        table.index = table.index.astype(str)
+        schema = update_by_name("measurement_id", pa.string(), schema)
+        schema = update_by_name("source_id", pa.string(), schema)
+        schema = update_by_name("time", pa.timestamp("us"), schema)
 
-        if "source_id" in table.columns:
-            table["source_id"] = table["source_id"].astype(str)
-
-        if "time" in table.columns:
-            table["time"] = pd.to_datetime(table["time"], utc=False)
-
-        return table
+        table.to_parquet(self._source_path(source_id), schema=schema)
 
     def _new_table(self, cutouts: Iterable[Cutout]) -> pd.DataFrame:
         rows = []
         for cutout in cutouts:
-            if cutout.measurement_id is None:
-                raise ValueError("Cutout requires measurement_id")
-            if cutout.source_id is None:
-                raise ValueError("Cutout requires source_id")
             row = cutout.model_dump()
             row["measurement_id"] = str(cutout.measurement_id)
             row["source_id"] = str(cutout.source_id)
+
             rows.append(row)
 
         table = pd.DataFrame(rows)
@@ -82,11 +79,6 @@ class PandasCutoutStorage(ProvidesCutoutStorage):
         """
         Store a cutout for a given source and band.
         """
-        if cutout.source_id is None:
-            raise ValueError("Cutout requires source_id")
-        if cutout.measurement_id is None:
-            raise ValueError("Cutout requires measurement_id")
-
         new_table = self._new_table([cutout])
 
         if (table := await self._read_file(cutout.source_id)) is not None:
@@ -105,8 +97,6 @@ class PandasCutoutStorage(ProvidesCutoutStorage):
 
         grouped: dict[UUID, list[Cutout]] = defaultdict(list)
         for cutout in cutouts:
-            if cutout.source_id is None:
-                raise ValueError("Cutout requires source_id")
             grouped[cutout.source_id].append(cutout)
 
         for source_id, group in grouped.items():
