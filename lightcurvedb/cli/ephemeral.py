@@ -54,7 +54,10 @@ def _get_container_for_backend(backend_type: str):
 
 @contextmanager
 def core(
-    backend_type: str = "postgres", number: int = 128, probability_of_flare: float = 0.8
+    backend_type: str = "postgres",
+    number: int = 128,
+    probability_of_flare: float = 0.8,
+    generate_cutouts: bool = True,
 ):
     from lightcurvedb.config import Settings
     from lightcurvedb.models.instrument import Instrument
@@ -108,20 +111,22 @@ def core(
             logger.info(f"Generated flux measurements for {len(source_ids)} sources")
 
             # Generate cutouts for only the first source.
-            for frequency in [27, 39, 93, 145, 225, 280]:
-                fluxes = await backend.lightcurves.get_frequency_lightcurve(
-                    source_id=source_ids[0], frequency=frequency, limit=1024
-                )
+            if generate_cutouts and source_ids:
+                for frequency in [27, 39, 93, 145, 225, 280]:
+                    fluxes = await backend.lightcurves.get_frequency_lightcurve(
+                        source_id=source_ids[0], frequency=frequency, limit=1024
+                    )
 
-                if len(fluxes) == 0:
-                    continue
+                    if len(fluxes) == 0:
+                        continue
 
-                cutouts = [
-                    sim_cutouts.create_cutout(nside=32, flux=flux) for flux in fluxes
-                ]
-                _ = await backend.cutouts.create_batch(cutouts)
+                    cutouts = [
+                        sim_cutouts.create_cutout(nside=32, flux=flux)
+                        for flux in fluxes
+                    ]
+                    _ = await backend.cutouts.create_batch(cutouts)
 
-            logger.info(f"Generated cutouts for source {source_ids[0]}")
+                logger.info(f"Generated cutouts for source {source_ids[0]}")
 
     container = _get_container_for_backend(backend_type)
 
