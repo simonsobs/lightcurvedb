@@ -10,7 +10,7 @@ from lightcurvedb.integrations.socat import upsert_sources
 async def core(lightcurvedb_settings, socat_settings):
     async with lightcurvedb_settings.backend as backend:
         await upsert_sources(
-            client=socat_settings.client(),
+            client=socat_settings.client,
             backend=backend,
             progress_bar=True,
         )
