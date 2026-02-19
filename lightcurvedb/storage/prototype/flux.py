@@ -24,7 +24,7 @@ class ProvidesFluxMeasurementStorage(Protocol):
 
     async def create_batch(
         self, measurements: list[FluxMeasurementCreate]
-    ) -> list[int]:
+    ) -> list[UUID]:
         """
         Bulk insert
         """

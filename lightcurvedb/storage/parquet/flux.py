@@ -89,7 +89,7 @@ class PandasFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
 
     async def create_batch(
         self, measurements: list[FluxMeasurementCreate]
-    ) -> list[int]:
+    ) -> list[UUID]:
         """
         Bulk insert
         """
