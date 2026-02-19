@@ -24,6 +24,6 @@ class FeedResult(BaseModel):
     start: int
     stop: int
 
-    band_name: str
+    frequency: int
 
     total_number_of_sources: int
