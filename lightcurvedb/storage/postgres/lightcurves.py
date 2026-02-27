@@ -313,7 +313,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
                 source_id=source_id,
                 selection_strategy="instrument",
                 binning_strategy="none",
-                lightcurves={x.module: x for x in lightcurves},
+                lightcurves={f"{x.module} {x.frequency}": x for x in lightcurves},
             )
         else:
             raise ValueError(f"Invalid strategy: {selection_strategy}")
@@ -378,7 +378,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
                 binning_strategy=binning_strategy,
                 start_time=start_time,
                 end_time=end_time,
-                lightcurves={x.module: x for x in lightcurves},
+                lightcurves={f"{x.module} {x.frequency}": x for x in lightcurves},
             )
         else:
             raise ValueError(f"Invalid strategy: {selection_strategy}")
