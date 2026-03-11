@@ -15,13 +15,13 @@ class ProvidesCutoutStorage(Protocol):
         """
         ...
 
-    async def create(self, cutout: Cutout) -> int:
+    async def create(self, cutout: Cutout) -> UUID:
         """
         Store a cutout for a given source and band.
         """
         ...
 
-    async def create_batch(self, cutouts: list[Cutout]) -> list[int]:
+    async def create_batch(self, cutouts: list[Cutout]) -> list[UUID]:
         """
         Store a cutout for a given source and band.
         """

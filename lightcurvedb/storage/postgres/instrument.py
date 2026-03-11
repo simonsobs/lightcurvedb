@@ -43,9 +43,11 @@ class PostgresInstrumentStorage(ProvidesInstrumentStorage):
         async with self.conn.cursor() as cur:
             await cur.execute(query, params)
             row = await cur.fetchone()
+            if row is None:
+                raise ValueError("INSERT RETURNING instrument returned no row")
             return row[0]
 
-    async def create_batch(self, instruments: list[Instrument]) -> int:
+    async def create_batch(self, instruments: list[Instrument]) -> list[str]:
         """
         Bulk insert instruments.
         """
@@ -74,7 +76,7 @@ class PostgresInstrumentStorage(ProvidesInstrumentStorage):
         async with self.conn.cursor() as cur:
             await cur.execute(query, data)
 
-        return len(instruments)
+        return [instrument.instrument for instrument in instruments]
 
     async def get(self, frequency: int, module: str) -> Instrument:
         """Get instrument by frequency and module."""

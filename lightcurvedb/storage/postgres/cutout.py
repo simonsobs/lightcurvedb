@@ -28,7 +28,7 @@ class PostgresCutoutStorage(ProvidesCutoutStorage):
             await cur.execute(CUTOUT_SCHEMA)
             await cur.execute(CUTOUT_INDEXES)
 
-    async def create(self, cutout: Cutout) -> int:
+    async def create(self, cutout: Cutout) -> UUID:
         """
         Store a cutout for a given source and band.
         """
@@ -56,9 +56,11 @@ class PostgresCutoutStorage(ProvidesCutoutStorage):
         async with self.conn.cursor() as cur:
             await cur.execute(query, params)
 
+        if cutout.measurement_id is None:
+            raise ValueError("Cutout measurement_id must not be None after creation")
         return cutout.measurement_id
 
-    async def create_batch(self, cutouts: list[Cutout]) -> list[int]:
+    async def create_batch(self, cutouts: list[Cutout]) -> list[UUID]:
         """
         Store a cutout for a given source and band.
         """
@@ -91,7 +93,12 @@ class PostgresCutoutStorage(ProvidesCutoutStorage):
         async with self.conn.cursor() as cur:
             await cur.executemany(query, params_list)
 
-        return [c.measurement_id for c in cutouts]
+        measurement_ids: list[UUID] = []
+        for c in cutouts:
+            if c.measurement_id is None:
+                raise ValueError("Cutout measurement_id must not be None after creation")
+            measurement_ids.append(c.measurement_id)
+        return measurement_ids
 
     async def retrieve_cutout(self, source_id: UUID, measurement_id: UUID) -> Cutout:
         """

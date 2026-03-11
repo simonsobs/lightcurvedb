@@ -53,6 +53,8 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
         async with self.conn.cursor() as cur:
             await cur.execute(query, params)
             row = await cur.fetchone()
+            if row is None:
+                raise ValueError("INSERT RETURNING measurement_id returned no row")
             return row[0]
 
     async def create_batch(
@@ -110,6 +112,14 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
         async with self.conn.cursor(row_factory=class_row(FluxMeasurement)) as cur:
             await cur.execute(query, {"measurement_id": measurement_id})
             row = await cur.fetchone()
+            if row is None:
+                from lightcurvedb.models.exceptions import (
+                    FluxMeasurementNotFoundException,
+                )
+
+                raise FluxMeasurementNotFoundException(
+                    f"FluxMeasurement {measurement_id} not found"
+                )
             return row
 
     async def delete(self, measurement_id: UUID) -> None:

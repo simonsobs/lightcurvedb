@@ -17,3 +17,7 @@ class InstrumentNotFoundException(StorageException):
 
 class CutoutNotFoundException(StorageException):
     pass
+
+
+class FluxMeasurementNotFoundException(StorageException):
+    pass
