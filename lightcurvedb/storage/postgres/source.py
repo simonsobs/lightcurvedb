@@ -6,24 +6,21 @@ import json
 from collections import defaultdict
 from uuid import UUID
 
-from psycopg import AsyncConnection
 from psycopg.rows import class_row
 
 from lightcurvedb.models.source import Source
+from lightcurvedb.storage.postgres.pooler import PostgresPoolUser
 from lightcurvedb.storage.postgres.schema import SOURCES_TABLE
 from lightcurvedb.storage.prototype.source import ProvidesSourceStorage
 
 
-class PostgresSourceStorage(ProvidesSourceStorage):
+class PostgresSourceStorage(ProvidesSourceStorage, PostgresPoolUser):
     """
     PostgreSQL source storage.
     """
 
-    def __init__(self, conn: AsyncConnection):
-        self.conn = conn
-
     async def setup(self) -> None:
-        async with self.conn.cursor() as cur:
+        async with self.cursor() as cur:
             await cur.execute(SOURCES_TABLE)
 
     async def create(self, source: Source) -> UUID:
@@ -52,7 +49,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
         if params["extra"] is not None:
             params["extra"] = json.dumps(params["extra"])
 
-        async with self.conn.cursor() as cur:
+        async with self.cursor() as cur:
             await cur.execute(query, params)
             row = await cur.fetchone()
 
@@ -87,7 +84,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
             for key, value in source_dict.items():
                 data[key].append(value)
 
-        async with self.conn.cursor() as cur:
+        async with self.cursor() as cur:
             await cur.execute(query, data)
             response = await cur.fetchall()
             source_ids = [row[0] for row in response]
@@ -104,7 +101,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
             WHERE source_id = %(source_id)s
         """
 
-        async with self.conn.cursor(row_factory=class_row(Source)) as cur:
+        async with self.cursor(row_factory=class_row(Source)) as cur:
             await cur.execute(query, {"source_id": source_id})
             row = await cur.fetchone()
 
@@ -125,7 +122,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
             WHERE socat_id = %(socat_id)s
         """
 
-        async with self.conn.cursor(row_factory=class_row(Source)) as cur:
+        async with self.cursor(row_factory=class_row(Source)) as cur:
             await cur.execute(query, {"socat_id": socat_id})
             row = await cur.fetchone()
 
@@ -146,7 +143,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
             ORDER BY source_id
         """
 
-        async with self.conn.cursor(row_factory=class_row(Source)) as cur:
+        async with self.cursor(row_factory=class_row(Source)) as cur:
             await cur.execute(query)
             rows = await cur.fetchall()
             return rows
@@ -165,7 +162,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
 
         query = "DELETE FROM sources WHERE source_id = %(source_id)s"
 
-        async with self.conn.cursor() as cur:
+        async with self.cursor() as cur:
             await cur.execute(query, {"source_id": source_id})
 
     async def get_in_bounds(
@@ -190,7 +187,7 @@ class PostgresSourceStorage(ProvidesSourceStorage):
             "dec_max": dec_max,
         }
 
-        async with self.conn.cursor(row_factory=class_row(Source)) as cur:
+        async with self.cursor(row_factory=class_row(Source)) as cur:
             await cur.execute(query, params)
             rows = await cur.fetchall()
 

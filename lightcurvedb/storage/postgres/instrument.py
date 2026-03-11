@@ -5,24 +5,21 @@ PostgreSQL implementation of BandStorage protocol.
 import json
 from collections import defaultdict
 
-from psycopg import AsyncConnection
 from psycopg.rows import class_row
 
 from lightcurvedb.models.instrument import Instrument
+from lightcurvedb.storage.postgres.pooler import PostgresPoolUser
 from lightcurvedb.storage.postgres.schema import INSTRUMENTS_TABLE
 from lightcurvedb.storage.prototype.instrument import ProvidesInstrumentStorage
 
 
-class PostgresInstrumentStorage(ProvidesInstrumentStorage):
+class PostgresInstrumentStorage(ProvidesInstrumentStorage, PostgresPoolUser):
     """
     PostgreSQL instrument storage.
     """
 
-    def __init__(self, conn: AsyncConnection):
-        self.conn = conn
-
     async def setup(self) -> None:
-        async with self.conn.cursor() as cur:
+        async with self.cursor() as cur:
             await cur.execute(INSTRUMENTS_TABLE)
 
     async def create(self, instrument: Instrument) -> str:
@@ -40,7 +37,7 @@ class PostgresInstrumentStorage(ProvidesInstrumentStorage):
         if params["details"] is not None:
             params["details"] = json.dumps(params["details"])
 
-        async with self.conn.cursor() as cur:
+        async with self.cursor() as cur:
             await cur.execute(query, params)
             row = await cur.fetchone()
             if row is None:
@@ -73,7 +70,7 @@ class PostgresInstrumentStorage(ProvidesInstrumentStorage):
                     value = json.dumps(value)
                 data[key].append(value)
 
-        async with self.conn.cursor() as cur:
+        async with self.cursor() as cur:
             await cur.execute(query, data)
 
         return [instrument.instrument for instrument in instruments]
@@ -86,7 +83,7 @@ class PostgresInstrumentStorage(ProvidesInstrumentStorage):
             WHERE frequency = %(frequency)s AND module = %(module)s
         """
 
-        async with self.conn.cursor(row_factory=class_row(Instrument)) as cur:
+        async with self.cursor(row_factory=class_row(Instrument)) as cur:
             await cur.execute(query, {"frequency": frequency, "module": module})
             row = await cur.fetchone()
 
@@ -107,7 +104,7 @@ class PostgresInstrumentStorage(ProvidesInstrumentStorage):
             ORDER BY frequency, module
         """
 
-        async with self.conn.cursor(row_factory=class_row(Instrument)) as cur:
+        async with self.cursor(row_factory=class_row(Instrument)) as cur:
             await cur.execute(query)
             rows = await cur.fetchall()
             return rows
@@ -128,5 +125,5 @@ class PostgresInstrumentStorage(ProvidesInstrumentStorage):
 
         query = "DELETE FROM instruments WHERE frequency = %(frequency)s AND module = %(module)s"
 
-        async with self.conn.cursor() as cur:
+        async with self.cursor() as cur:
             await cur.execute(query, {"frequency": frequency, "module": module})
