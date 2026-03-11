@@ -25,9 +25,6 @@ class FeedResult(BaseModel):
     stop: int
 
     frequency: int
+    band_name: str
 
     total_number_of_sources: int
-
-    @property
-    def band_name(self) -> str:
-        return f"f{self.frequency}"
