@@ -4,7 +4,6 @@ Analysis of flux measurements and lightcurves.
 
 import asyncio
 from datetime import datetime
-from typing import LiteralString
 from uuid import UUID
 
 from psycopg.rows import class_row
@@ -40,7 +39,7 @@ class PostgresAnalysisProvider(ProvidesAnalysis):
         Supports "module = 'all'" to get statistics across all modules for the
         given frequency.
         """
-        where_clauses: list[LiteralString] = [
+        where_clauses = [
             "source_id = %(source_id)s",
             "frequency = %(frequency)s",
         ]
@@ -59,7 +58,7 @@ class PostgresAnalysisProvider(ProvidesAnalysis):
             where_clauses.append("module = %(module)s")
             params["module"] = module
 
-        module_col: LiteralString = "%(module)s" if module != "all" else "'all'"
+        module_col = "%(module)s" if module != "all" else "'all'"
         query = f"""
             SELECT
                 %(source_id)s as source_id,
@@ -82,10 +81,10 @@ class PostgresAnalysisProvider(ProvidesAnalysis):
             WHERE {" AND ".join(where_clauses)}
         """
 
-        async with self.flux_storage.conn.cursor(
+        async with self.flux_storage.cursor(
             row_factory=class_row(SourceStatistics)
         ) as cur:
-            await cur.execute(query.encode(), params)
+            await cur.execute(query, params)
             row = await cur.fetchone()
             if row is None:
                 raise ValueError(

@@ -60,7 +60,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             )
         """
 
-        async with self.flux_storage.conn.cursor(
+        async with self.flux_storage.cursor(
             row_factory=class_row(InstrumentLightcurve)
         ) as cur:
             await cur.execute(
@@ -108,7 +108,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             )
         """
 
-        async with self.flux_storage.conn.cursor(
+        async with self.flux_storage.cursor(
             row_factory=class_row(FrequencyLightcurve)
         ) as cur:
             await cur.execute(
@@ -171,7 +171,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             ) AS binned
         """
 
-        async with self.flux_storage.conn.cursor(
+        async with self.flux_storage.cursor(
             row_factory=class_row(BinnedInstrumentLightcurve)
         ) as cur:
             await cur.execute(
@@ -243,7 +243,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             ) AS binned
         """
 
-        async with self.flux_storage.conn.cursor(
+        async with self.flux_storage.cursor(
             row_factory=class_row(BinnedFrequencyLightcurve)
         ) as cur:
             await cur.execute(
@@ -275,7 +275,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             WHERE source_id = %(source_id)s
         """
 
-        async with self.flux_storage.conn.cursor() as cur:
+        async with self.flux_storage.cursor() as cur:
             await cur.execute(query, {"source_id": source_id})
             rows = await cur.fetchall()
             return [row[0] for row in rows]
@@ -292,7 +292,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             WHERE source_id = %(source_id)s
         """
 
-        async with self.flux_storage.conn.cursor() as cur:
+        async with self.flux_storage.cursor() as cur:
             await cur.execute(query, {"source_id": source_id})
             rows = await cur.fetchall()
             return [(row[1], row[0]) for row in rows]

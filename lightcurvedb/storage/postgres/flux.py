@@ -53,7 +53,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
             if row is None:
                 raise ValueError("INSERT RETURNING measurement_id returned no row")
             return row[0]
-      
+
     async def create_batch(
         self, measurements: list[FluxMeasurementCreate]
     ) -> list[UUID]:
