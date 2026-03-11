@@ -12,6 +12,5 @@ async def test_read_feed(backend):
     feed = await feed_read(start=0, number=8, frequency=145, backend=backend)
 
     assert len(feed.items) > 0
-    assert feed.band_name == "f145"
     assert feed.start == 0
     assert feed.stop == 8

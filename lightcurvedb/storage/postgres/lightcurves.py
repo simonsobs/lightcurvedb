@@ -4,7 +4,7 @@ Provider for lightcurves from postgres data stores.
 
 import asyncio
 import datetime
-from typing import Literal
+from typing import Literal, overload
 from uuid import UUID
 
 from psycopg.rows import class_row
@@ -60,7 +60,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             )
         """
 
-        async with self.flux_storage.conn.cursor(
+        async with self.flux_storage.cursor(
             row_factory=class_row(InstrumentLightcurve)
         ) as cur:
             await cur.execute(
@@ -72,7 +72,13 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
                     "limit": limit,
                 },
             )
-            return await cur.fetchone()
+            row = await cur.fetchone()
+            if row is None:
+                raise ValueError(
+                    f"No instrument lightcurve found for source {source_id}, "
+                    f"module {module}, frequency {frequency}"
+                )
+            return row
 
     async def get_frequency_lightcurve(
         self, source_id: UUID, frequency: int, limit: int = 1000000
@@ -102,13 +108,19 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             )
         """
 
-        async with self.flux_storage.conn.cursor(
+        async with self.flux_storage.cursor(
             row_factory=class_row(FrequencyLightcurve)
         ) as cur:
             await cur.execute(
                 query, {"source_id": source_id, "frequency": frequency, "limit": limit}
             )
-            return await cur.fetchone()
+            row = await cur.fetchone()
+            if row is None:
+                raise ValueError(
+                    f"No frequency lightcurve found for source {source_id}, "
+                    f"frequency {frequency}"
+                )
+            return row
 
     async def get_binned_instrument_lightcurve(
         self,
@@ -159,7 +171,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             ) AS binned
         """
 
-        async with self.flux_storage.conn.cursor(
+        async with self.flux_storage.cursor(
             row_factory=class_row(BinnedInstrumentLightcurve)
         ) as cur:
             await cur.execute(
@@ -174,7 +186,13 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
                     "limit": limit,
                 },
             )
-            return await cur.fetchone()
+            row = await cur.fetchone()
+            if row is None:
+                raise ValueError(
+                    f"No binned instrument lightcurve found for source {source_id}, "
+                    f"module {module}, frequency {frequency}"
+                )
+            return row
 
     async def get_binned_frequency_lightcurve(
         self,
@@ -225,7 +243,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             ) AS binned
         """
 
-        async with self.flux_storage.conn.cursor(
+        async with self.flux_storage.cursor(
             row_factory=class_row(BinnedFrequencyLightcurve)
         ) as cur:
             await cur.execute(
@@ -239,7 +257,13 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
                     "limit": limit,
                 },
             )
-            return await cur.fetchone()
+            row = await cur.fetchone()
+            if row is None:
+                raise ValueError(
+                    f"No binned frequency lightcurve found for source {source_id}, "
+                    f"frequency {frequency}"
+                )
+            return row
 
     async def get_frequencies_for_source(self, source_id: UUID) -> list[int]:
         """
@@ -251,7 +275,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             WHERE source_id = %(source_id)s
         """
 
-        async with self.flux_storage.conn.cursor() as cur:
+        async with self.flux_storage.cursor() as cur:
             await cur.execute(query, {"source_id": source_id})
             rows = await cur.fetchall()
             return [row[0] for row in rows]
@@ -268,10 +292,26 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             WHERE source_id = %(source_id)s
         """
 
-        async with self.flux_storage.conn.cursor() as cur:
+        async with self.flux_storage.cursor() as cur:
             await cur.execute(query, {"source_id": source_id})
             rows = await cur.fetchall()
             return [(row[1], row[0]) for row in rows]
+
+    @overload
+    async def get_source_lightcurve(
+        self,
+        source_id: UUID,
+        selection_strategy: Literal["frequency"],
+        limit: int = 1000000,
+    ) -> SourceLightcurveFrequency: ...
+
+    @overload
+    async def get_source_lightcurve(
+        self,
+        source_id: UUID,
+        selection_strategy: Literal["instrument"],
+        limit: int = 1000000,
+    ) -> SourceLightcurveInstrument: ...
 
     async def get_source_lightcurve(
         self,
@@ -317,6 +357,28 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             )
         else:
             raise ValueError(f"Invalid strategy: {selection_strategy}")
+
+    @overload
+    async def get_binned_source_lightcurve(
+        self,
+        source_id: UUID,
+        selection_strategy: Literal["frequency"],
+        binning_strategy: Literal["1 day", "7 days", "30 days"],
+        start_time: datetime.datetime,
+        end_time: datetime.datetime,
+        limit: int = 1000000,
+    ) -> SourceLightcurveBinnedFrequency: ...
+
+    @overload
+    async def get_binned_source_lightcurve(
+        self,
+        source_id: UUID,
+        selection_strategy: Literal["instrument"],
+        binning_strategy: Literal["1 day", "7 days", "30 days"],
+        start_time: datetime.datetime,
+        end_time: datetime.datetime,
+        limit: int = 1000000,
+    ) -> SourceLightcurveBinnedInstrument: ...
 
     async def get_binned_source_lightcurve(
         self,

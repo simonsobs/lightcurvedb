@@ -47,7 +47,7 @@ class TimescaleLightcurveProvider(PostgresLightcurveProvider):
         Create the continuous aggregate materialized views and their
         refresh policies.
         """
-        async with self.flux_storage.conn.cursor() as cur:
+        async with self.flux_storage.cursor() as cur:
             for statement in CONTINUOUS_AGGREGATES:
                 await cur.execute(statement)
 
@@ -99,7 +99,7 @@ class TimescaleLightcurveProvider(PostgresLightcurveProvider):
             ) AS binned
         """.format(view=view)
 
-        async with self.flux_storage.conn.cursor(
+        async with self.flux_storage.cursor(
             row_factory=class_row(BinnedInstrumentLightcurve)
         ) as cur:
             await cur.execute(
@@ -114,7 +114,13 @@ class TimescaleLightcurveProvider(PostgresLightcurveProvider):
                     "limit": limit,
                 },
             )
-            return await cur.fetchone()
+            row = await cur.fetchone()
+            if row is None:
+                raise ValueError(
+                    f"No binned instrument lightcurve found for source {source_id}, "
+                    f"module {module}, frequency {frequency}"
+                )
+            return row
 
     async def get_binned_frequency_lightcurve(
         self,
@@ -163,7 +169,7 @@ class TimescaleLightcurveProvider(PostgresLightcurveProvider):
             ) AS binned
         """.format(view=view)
 
-        async with self.flux_storage.conn.cursor(
+        async with self.flux_storage.cursor(
             row_factory=class_row(BinnedFrequencyLightcurve)
         ) as cur:
             await cur.execute(
@@ -177,4 +183,10 @@ class TimescaleLightcurveProvider(PostgresLightcurveProvider):
                     "limit": limit,
                 },
             )
-            return await cur.fetchone()
+            row = await cur.fetchone()
+            if row is None:
+                raise ValueError(
+                    f"No binned frequency lightcurve found for source {source_id}, "
+                    f"frequency {frequency}"
+                )
+            return row

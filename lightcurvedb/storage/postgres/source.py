@@ -53,6 +53,8 @@ class PostgresSourceStorage(ProvidesSourceStorage, PostgresPoolUser):
             await cur.execute(query, params)
             row = await cur.fetchone()
 
+        if row is None:
+            raise ValueError("INSERT RETURNING source_id returned no row")
         return row[0]
 
     async def create_batch(self, sources: list[Source]) -> list[UUID]:

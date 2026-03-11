@@ -5,7 +5,7 @@ PostgreSQL storage backend.
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from psycopg import AsyncConnection
+from psycopg_pool import AsyncConnectionPool
 
 from lightcurvedb.config import Settings
 from lightcurvedb.storage.postgres.analysis import PostgresAnalysisProvider
@@ -17,8 +17,8 @@ from lightcurvedb.storage.timescale.flux import TimescaleFluxMeasurementStorage
 from lightcurvedb.storage.timescale.lightcurves import TimescaleLightcurveProvider
 
 
-async def generate_timescale_backend(conn: AsyncConnection) -> Backend:
-    fluxes = TimescaleFluxMeasurementStorage(conn)
+async def generate_timescale_backend(pool: AsyncConnectionPool) -> Backend:
+    fluxes = TimescaleFluxMeasurementStorage(pool)
     lightcurves = TimescaleLightcurveProvider(flux_storage=fluxes)
     analysis = PostgresAnalysisProvider(
         flux_storage=fluxes,
@@ -26,10 +26,10 @@ async def generate_timescale_backend(conn: AsyncConnection) -> Backend:
     )
 
     backend = Backend(
-        sources=PostgresSourceStorage(conn),
-        instruments=PostgresInstrumentStorage(conn),
+        sources=PostgresSourceStorage(pool),
+        instruments=PostgresInstrumentStorage(pool),
         fluxes=fluxes,
-        cutouts=TimescaleCutoutStorage(conn),
+        cutouts=TimescaleCutoutStorage(pool),
         lightcurves=lightcurves,
         analysis=analysis,
     )
@@ -44,6 +44,6 @@ async def timescale_backend(settings: Settings) -> AsyncIterator[Backend]:
     """
     Get a TimescaleDB storage backend.
     """
-    async with await AsyncConnection.connect(settings.database_url) as conn:
-        backend = await generate_timescale_backend(conn)
+    async with AsyncConnectionPool(conninfo=settings.database_url) as pool:
+        backend = await generate_timescale_backend(pool)
         yield backend
