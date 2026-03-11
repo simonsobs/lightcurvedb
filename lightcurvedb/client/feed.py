@@ -66,6 +66,5 @@ async def feed_read(
         start=start,
         stop=start + number,
         frequency=frequency,
-        band_name=f"f{frequency}",
         total_number_of_sources=total_number_of_sources,
     )
