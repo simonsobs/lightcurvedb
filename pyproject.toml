@@ -11,7 +11,7 @@ dependencies = [
     "pydantic-settings",
     "numpy",
     "pydantic_numpy",
-    "psycopg[binary]",
+    "psycopg[binary,pool]",
     "testcontainers",
     "loguru",
     "tqdm",

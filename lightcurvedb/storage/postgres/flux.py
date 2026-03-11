@@ -6,24 +6,21 @@ import json
 from collections import defaultdict
 from uuid import UUID
 
-from psycopg import AsyncConnection
 from psycopg.rows import class_row
 
 from lightcurvedb.models.flux import FluxMeasurement, FluxMeasurementCreate
+from lightcurvedb.storage.postgres.pooler import PostgresPoolUser
 from lightcurvedb.storage.postgres.schema import FLUX_INDEXES, FLUX_MEASUREMENTS_TABLE
 from lightcurvedb.storage.prototype.flux import ProvidesFluxMeasurementStorage
 
 
-class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
+class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoolUser):
     """
     PostgreSQL flux measurement storage with array aggregations.
     """
 
-    def __init__(self, conn: AsyncConnection):
-        self.conn = conn
-
     async def setup(self) -> None:
-        async with self.conn.cursor() as cur:
+        async with self.cursor() as cur:
             await cur.execute(FLUX_MEASUREMENTS_TABLE)
             await cur.execute(FLUX_INDEXES)
 
@@ -50,10 +47,13 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
         if params["extra"] is not None:
             params["extra"] = json.dumps(params["extra"])
 
-        async with self.conn.cursor() as cur:
+        async with self.cursor() as cur:
             await cur.execute(query, params)
             row = await cur.fetchone()
-            return row[0]
+            if row:
+                return row[0]
+            else:
+                raise ValueError("Unexpected error retrieving generated UUID")
 
     async def create_batch(
         self, measurements: list[FluxMeasurementCreate]
@@ -90,7 +90,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
             for key, value in measurement_dict.items():
                 data[key].append(value)
 
-        async with self.conn.cursor() as cur:
+        async with self.cursor() as cur:
             await cur.execute(query, data)
             response = await cur.fetchall()
             inserted_measurement_ids = [row[0] for row in response]
@@ -107,7 +107,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
             WHERE measurement_id = %(measurement_id)s
         """
 
-        async with self.conn.cursor(row_factory=class_row(FluxMeasurement)) as cur:
+        async with self.cursor(row_factory=class_row(FluxMeasurement)) as cur:
             await cur.execute(query, {"measurement_id": measurement_id})
             row = await cur.fetchone()
             return row
@@ -120,5 +120,5 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
             "DELETE FROM flux_measurements WHERE measurement_id = %(measurement_id)s"
         )
 
-        async with self.conn.cursor() as cur:
+        async with self.cursor() as cur:
             await cur.execute(query, {"measurement_id": measurement_id})
