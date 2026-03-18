@@ -87,9 +87,7 @@ class PostgresAnalysisProvider(ProvidesAnalysis):
             await cur.execute(query, params)
             row = await cur.fetchone()
             if row is None:
-                raise ValueError(
-                    f"No statistics found for source {source_id}"
-                )
+                raise ValueError(f"No statistics found for source {source_id}")
             return row
 
     async def get_source_statistics_for_frequency(

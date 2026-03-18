@@ -39,7 +39,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
                 %(ra)s, %(dec)s, %(ra_uncertainty)s, %(dec_uncertainty)s,
                 %(flux)s, %(flux_err)s, %(extra)s
             )
-            RETURNING measurement_id
+            RETURNING measurement_id 
         """
 
         params = measurement.model_dump()
@@ -77,7 +77,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
                 %(flux_err)s::real[],
                 %(extra)s::jsonb[]
             )
-            RETURNING measurement_id
+            RETURNING measurement_id 
         """
 
         data = defaultdict(list)

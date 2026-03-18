@@ -93,7 +93,9 @@ class PostgresCutoutStorage(ProvidesCutoutStorage, PostgresPoolUser):
         measurement_ids: list[UUID] = []
         for c in cutouts:
             if c.measurement_id is None:
-                raise ValueError("Cutout measurement_id must not be None after creation")
+                raise ValueError(
+                    "Cutout measurement_id must not be None after creation"
+                )
             measurement_ids.append(c.measurement_id)
         return measurement_ids
 
