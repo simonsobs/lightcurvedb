@@ -112,6 +112,40 @@ class PandasFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
 
         return list(map(UUID, measurement_ids))
 
+    def _parse_source_id(self, source_id: object) -> UUID:
+        if isinstance(source_id, UUID):
+            return source_id
+        if isinstance(source_id, (bytes, bytearray, memoryview)):
+            return UUID(bytes=bytes(source_id))
+        return UUID(str(source_id))
+
+    async def ingest_dataframe(self, df: pd.DataFrame) -> None:
+        """
+        Bulk insert from a DataFrame, usually a transferred Parquet file.
+        """
+        df["source_id"] = [
+            str(self._parse_source_id(source_id))
+            for source_id in df["source_id"].tolist()
+        ]
+
+        if "extra" not in df.columns:
+            df["extra"] = None
+
+        for column in ["ra_uncertainty", "dec_uncertainty", "extra"]:
+            df[column] = df[column].where(df[column].notna(), None)
+
+        df["measurement_id"] = [str(uuid7()) for _ in range(len(df))]
+        df.set_index("measurement_id", inplace=True)
+
+        for source_id_str, group in df.groupby("source_id", sort=False):
+            source_id = UUID(source_id_str)
+            new_table = group
+
+            if (current := await self._read_file(source_id)) is not None:
+                new_table = pd.concat([current, new_table])
+
+            await self._write_file(source_id, new_table)
+
     async def delete(self, measurement_id: UUID) -> None:
         """
         Delete a flux measurement by ID.

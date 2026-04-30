@@ -1,6 +1,8 @@
 from typing import Protocol
 from uuid import UUID
 
+from pandas import DataFrame
+
 from lightcurvedb.models import FluxMeasurement, FluxMeasurementCreate
 
 
@@ -27,6 +29,12 @@ class ProvidesFluxMeasurementStorage(Protocol):
     ) -> list[UUID]:
         """
         Bulk insert
+        """
+        ...
+
+    async def ingest_dataframe(self, df: DataFrame) -> None:
+        """
+        Bulk insert from a DataFrame, usually a transferred Parquet file.
         """
         ...
 

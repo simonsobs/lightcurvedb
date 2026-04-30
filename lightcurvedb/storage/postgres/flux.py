@@ -6,6 +6,7 @@ import json
 from collections import defaultdict
 from uuid import UUID
 
+import pandas as pd
 from psycopg.rows import class_row
 
 from lightcurvedb.models.flux import FluxMeasurement, FluxMeasurementCreate
@@ -41,7 +42,6 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
             )
             RETURNING measurement_id 
         """
-
         params = measurement.model_dump()
 
         if params["extra"] is not None:
@@ -60,6 +60,18 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
         """
         Bulk insert
         """
+        data = defaultdict(list)
+
+        for measurement in measurements:
+            measurement_dict = measurement.model_dump()
+            if measurement_dict["extra"] is not None:
+                measurement_dict["extra"] = json.dumps(measurement_dict["extra"])
+            for key, value in measurement_dict.items():
+                data[key].append(value)
+
+        return await self._insert_batch_data(data)
+
+    async def _insert_batch_data(self, data: dict[str, list]) -> list[UUID]:
         query = """
             INSERT INTO flux_measurements (frequency, module, source_id, time, ra,
             dec, ra_uncertainty, dec_uncertainty, flux, flux_err, extra)
@@ -80,21 +92,51 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
             RETURNING measurement_id 
         """
 
-        data = defaultdict(list)
-
-        for measurement in measurements:
-            measurement_dict = measurement.model_dump()
-            if measurement_dict["extra"] is not None:
-                measurement_dict["extra"] = json.dumps(measurement_dict["extra"])
-            for key, value in measurement_dict.items():
-                data[key].append(value)
-
         async with self.cursor() as cur:
             await cur.execute(query, data)
             response = await cur.fetchall()
             inserted_measurement_ids = [row[0] for row in response]
 
         return inserted_measurement_ids
+
+    def _parse_source_id(self, source_id: object) -> UUID:
+        if isinstance(source_id, UUID):
+            return source_id
+        if isinstance(source_id, (bytes, bytearray, memoryview)):
+            return UUID(bytes=bytes(source_id))
+        return UUID(str(source_id))
+
+    async def ingest_dataframe(self, df: pd.DataFrame) -> None:
+        """
+        Bulk insert from a DataFrame, usually a transferred Parquet file.
+        """
+        extra_series = (
+            df["extra"]
+            if "extra" in df.columns
+            else pd.Series([None] * len(df), index=df.index)
+        )
+
+        data: dict[str, list] = {
+            "frequency": df["frequency"].tolist(),
+            "module": df["module"].tolist(),
+            "source_id": [self._parse_source_id(value) for value in df["source_id"]],
+            "time": df["time"].tolist(),
+            "ra": df["ra"].tolist(),
+            "dec": df["dec"].tolist(),
+            "ra_uncertainty": [
+                None if pd.isna(value) else value for value in df["ra_uncertainty"]
+            ],
+            "dec_uncertainty": [
+                None if pd.isna(value) else value for value in df["dec_uncertainty"]
+            ],
+            "flux": df["flux"].tolist(),
+            "flux_err": df["flux_err"].tolist(),
+            "extra": [
+                None if pd.isna(value) else json.dumps(value) for value in extra_series
+            ],
+        }
+
+        await self._insert_batch_data(data)
 
     async def get(self, measurement_id: UUID) -> FluxMeasurement:
         """

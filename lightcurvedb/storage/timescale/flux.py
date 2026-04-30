@@ -58,6 +58,18 @@ class TimescaleFluxMeasurementStorage(PostgresFluxMeasurementStorage):
         """
         Bulk insert
         """
+        data = defaultdict(list)
+
+        for measurement in measurements:
+            measurement_dict = measurement.model_dump()
+            if measurement_dict["extra"] is not None:
+                measurement_dict["extra"] = json.dumps(measurement_dict["extra"])
+            for key, value in measurement_dict.items():
+                data[key].append(value)
+
+        return await self._insert_batch_data(data)
+
+    async def _insert_batch_data(self, data: dict[str, list]) -> list[UUID]:
         query = """
             INSERT INTO flux_measurements (frequency, module, source_id, time, ra,
             dec, ra_uncertainty, dec_uncertainty, flux, flux_err, extra)
@@ -78,15 +90,6 @@ class TimescaleFluxMeasurementStorage(PostgresFluxMeasurementStorage):
             ON CONFLICT (time, frequency, module, source_id) DO NOTHING
             RETURNING measurement_id 
         """
-
-        data = defaultdict(list)
-
-        for measurement in measurements:
-            measurement_dict = measurement.model_dump()
-            if measurement_dict["extra"] is not None:
-                measurement_dict["extra"] = json.dumps(measurement_dict["extra"])
-            for key, value in measurement_dict.items():
-                data[key].append(value)
 
         async with self.cursor() as cur:
             await cur.execute(query, data)
