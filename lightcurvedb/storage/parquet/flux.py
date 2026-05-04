@@ -119,7 +119,7 @@ class PandasFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
             return UUID(bytes=bytes(source_id))
         return UUID(str(source_id))
 
-    async def ingest_dataframe(self, df: pd.DataFrame) -> None:
+    async def ingest_dataframe(self, df: pd.DataFrame) -> list[UUID]:
         """
         Bulk insert from a DataFrame, usually a transferred Parquet file.
         """
@@ -145,6 +145,8 @@ class PandasFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
                 new_table = pd.concat([current, new_table])
 
             await self._write_file(source_id, new_table)
+
+        return [UUID(idx) for idx in df.index.tolist()]
 
     async def delete(self, measurement_id: UUID) -> None:
         """

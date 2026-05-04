@@ -106,7 +106,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
             return UUID(bytes=bytes(source_id))
         return UUID(str(source_id))
 
-    async def ingest_dataframe(self, df: pd.DataFrame) -> None:
+    async def ingest_dataframe(self, df: pd.DataFrame) -> list[UUID]:
         """
         Bulk insert from a DataFrame, usually a transferred Parquet file.
         """
@@ -136,7 +136,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
             ],
         }
 
-        await self._insert_batch_data(data)
+        return await self._insert_batch_data(data)
 
     async def get(self, measurement_id: UUID) -> FluxMeasurement:
         """

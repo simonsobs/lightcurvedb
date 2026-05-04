@@ -32,7 +32,7 @@ class ProvidesFluxMeasurementStorage(Protocol):
         """
         ...
 
-    async def ingest_dataframe(self, df: DataFrame) -> None:
+    async def ingest_dataframe(self, df: DataFrame) -> list[UUID]:
         """
         Bulk insert from a DataFrame, usually a transferred Parquet file.
         """
