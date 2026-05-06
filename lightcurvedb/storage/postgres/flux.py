@@ -4,6 +4,7 @@ PostgreSQL implementation of FluxMeasurementStorage protocol.
 
 import json
 from collections import defaultdict
+from io import BytesIO, StringIO
 from uuid import UUID
 
 import pandas as pd
@@ -71,12 +72,51 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
 
         return await self._insert_batch_data(data)
 
+    async def _insert_batch_data_copy(self, data: dict[str, list]) -> list[UUID]:
+        """
+        Alternative bulk insert using COPY. This is not currently used because COPY doesn't support RETURNING, so we can't get the inserted measurement IDs.
+        """
+        import csv
+
+        async with self.cursor() as cur:
+            async with cur.copy(
+                """
+                COPY flux_measurements (
+                    measurement_id, frequency, module, source_id, time, ra, dec,
+                    ra_uncertainty, dec_uncertainty, flux, flux_err, extra
+                )
+                FROM STDIN WITH (FORMAT CSV)
+                """
+            ) as copy:
+                copy_buffer = StringIO()
+                writer = csv.writer(copy_buffer)
+                for row in zip(
+                    data["frequency"],
+                    data["module"],
+                    data["source_id"],
+                    data["time"],
+                    data["ra"],
+                    data["dec"],
+                    data["ra_uncertainty"],
+                    data["dec_uncertainty"],
+                    data["flux"],
+                    data["flux_err"],
+                    data["extra"],
+                ):
+                    writer.writerow(row)
+                copy_buffer.seek(0)
+
+                await copy.write(copy_buffer.read())
+
+        return []
+
     async def _insert_batch_data(self, data: dict[str, list]) -> list[UUID]:
         query = """
-            INSERT INTO flux_measurements (frequency, module, source_id, time, ra,
+            INSERT INTO flux_measurements (measurement_id, frequency, module, source_id, time, ra,
             dec, ra_uncertainty, dec_uncertainty, flux, flux_err, extra)
             SELECT * 
             FROM UNNEST(
+                %(measurement_id)s::uuid[],
                 %(frequency)s::integer[],
                 %(module)s::text[],
                 %(source_id)s::uuid[],
@@ -89,15 +129,12 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
                 %(flux_err)s::real[],
                 %(extra)s::jsonb[]
             )
-            RETURNING measurement_id 
         """
 
         async with self.cursor() as cur:
             await cur.execute(query, data)
-            response = await cur.fetchall()
-            inserted_measurement_ids = [row[0] for row in response]
 
-        return inserted_measurement_ids
+        return []
 
     def _parse_source_id(self, source_id: object) -> UUID:
         if isinstance(source_id, UUID):
@@ -105,6 +142,77 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
         if isinstance(source_id, (bytes, bytearray, memoryview)):
             return UUID(bytes=bytes(source_id))
         return UUID(str(source_id))
+
+    async def ingest_dataframe_csv(self, parquet_bytes: BytesIO) -> list[UUID]:
+        """
+        Bulk insert from a DataFrame, usually a transferred Parquet file.
+        """
+        import pyarrow as pa
+        import pyarrow.csv as pc
+        import pyarrow.parquet as pq
+
+        table = pq.read_table(parquet_bytes)
+
+        for name in table.schema.names:
+            if name in ("measurement_id", "source_id"):
+                # This is temporary
+                string_list = [str(uuid.as_py()) for uuid in table[name]]
+                table = table.set_column(
+                    table.schema.get_field_index(name), name, pa.array(string_list)
+                )
+
+        async with self.cursor() as cur:
+            async with cur.copy(
+                """
+                COPY flux_measurements (
+                    measurement_id, frequency, module, source_id, time, ra, dec,
+                    ra_uncertainty, dec_uncertainty, flux, flux_err
+                )
+                FROM STDIN WITH (FORMAT CSV)
+                """
+            ) as copy:
+                for batch in table.to_batches(max_chunksize=128000):
+                    sink = BytesIO()
+                    pc.write_csv(
+                        batch, sink, write_options=pc.WriteOptions(include_header=False)
+                    )
+                    sink.seek(0)
+
+                    # async write into COPY stream
+                    await copy.write(sink.read())
+
+        return []
+
+    async def ingest_parquet_duckdb(self, parquet_bytes: BytesIO) -> list[UUID]:
+        import duckdb
+        import pyarrow.parquet as pq
+
+        table = pq.read_table(parquet_bytes)
+
+        con = duckdb.connect()  # ONE connection
+
+        # register arrow table
+        con.register("temp_flux_measurements_source", table)
+
+        # load postgres extension
+        con.execute("INSTALL postgres;")
+        con.execute("LOAD postgres;")
+
+        # attach postgres
+        con.execute(f"""
+            ATTACH '{self.pool.conninfo}' AS pg (TYPE postgres)
+        """)
+
+        # insert
+        con.execute("""
+            INSERT INTO pg.flux_measurements (
+                measurement_id, frequency, module, source_id, time, ra,
+                dec, ra_uncertainty, dec_uncertainty, flux, flux_err
+            )
+            SELECT * FROM temp_flux_measurements_source
+        """)
+
+        return []
 
     async def ingest_dataframe(self, df: pd.DataFrame) -> list[UUID]:
         """
