@@ -68,7 +68,7 @@ class TimescaleFluxMeasurementStorage(PostgresFluxMeasurementStorage):
             for key, value in measurement_dict.items():
                 data[key].append(value)
 
-        return await self._insert_batch_data(data)
+        return await self._insert_batch_data_copy(data)
 
     async def _insert_batch_data(self, data: dict[str, list]) -> list[UUID]:
         query = """
