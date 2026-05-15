@@ -53,7 +53,7 @@ async def upsert_sources(
         Number of sources modified in the database.
     """
 
-    all_sources = client.get_box(
+    all_sources = client.get_box_fixed(
         lower_left=ICRS(ra=0.0 * u.deg, dec=-90.0 * u.deg),
         upper_right=ICRS(ra=359.999999 * u.deg, dec=90.0 * u.deg),
     )
