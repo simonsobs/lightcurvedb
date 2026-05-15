@@ -7,6 +7,7 @@ import random
 import uuid
 
 import pytest
+from uuid_extensions import uuid7
 
 from lightcurvedb.models.flux import FluxMeasurement
 from lightcurvedb.storage.prototype.backend import Backend
@@ -22,7 +23,10 @@ async def test_measurement_add_and_delete(backend: Backend, setup_test_data):
     )
     band = random.choice(bands)
 
+    import uuid
+
     measurement = FluxMeasurement(
+        measurement_id=uuid.uuid4(),
         source_id=source_id,
         module=band[0],
         frequency=band[1],
@@ -76,7 +80,7 @@ async def test_measurement_multi_add_and_delete(
 
     measurements = [
         FluxMeasurement(
-            measurement_id=uuid.uuid4(),
+            measurement_id=uuid7(),
             source_id=source_id,
             module=band[0],
             frequency=band[1],
@@ -93,6 +97,10 @@ async def test_measurement_multi_add_and_delete(
     ]
 
     measurement_ids = set(x.measurement_id for x in measurements)
+
+    await backend.fluxes.create_batch(
+        measurements=measurements, bulk_insert_mode=bulk_insert_mode
+    )
 
     # Grab the lightcurve for this source and ensure that the measurement is there.
     measurements_read = await backend.lightcurves.get_instrument_lightcurve(

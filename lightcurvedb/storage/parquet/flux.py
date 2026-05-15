@@ -11,7 +11,6 @@ from asyncer import asyncify
 from typing_extensions import Literal
 from uuid_extensions import uuid7
 
-from lightcurvedb.models import FluxMeasurementCreate
 from lightcurvedb.models.flux import FluxMeasurement
 from lightcurvedb.storage.prototype.flux import ProvidesFluxMeasurementStorage
 
@@ -54,18 +53,12 @@ class PandasFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
 
         return table
 
-    def _new_table(
-        self, measurements: Iterable[FluxMeasurementCreate | FluxMeasurement]
-    ) -> pd.DataFrame:
+    def _new_table(self, measurements: Iterable[FluxMeasurement]) -> pd.DataFrame:
         table = pd.DataFrame(
             [
                 {
                     **measurement.model_dump(),
-                    "measurement_id": (
-                        str(measurement.measurement_id or uuid7())
-                        if hasattr(measurement, "measurement_id")
-                        else str(uuid7())
-                    ),
+                    "measurement_id": str(measurement.measurement_id),
                     "source_id": str(measurement.source_id),
                 }
                 for measurement in measurements
@@ -82,7 +75,7 @@ class PandasFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
         """
         self.base_path.mkdir(parents=True, exist_ok=True)
 
-    async def create(self, measurement: FluxMeasurementCreate) -> int:
+    async def create(self, measurement: FluxMeasurement) -> UUID:
         """
         Insert single measurement.
         """

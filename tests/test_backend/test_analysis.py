@@ -6,8 +6,9 @@ import datetime
 from datetime import timezone
 
 import pytest
+from uuid_extensions import uuid7
 
-from lightcurvedb.models.flux import FluxMeasurementCreate
+from lightcurvedb.models.flux import FluxMeasurement
 from lightcurvedb.models.instrument import Instrument
 from lightcurvedb.models.source import Source
 
@@ -33,7 +34,8 @@ async def test_weighted_statistics(backend):
 
     base_time = datetime.datetime(2024, 1, 1, tzinfo=timezone.utc)
     measurements = [
-        FluxMeasurementCreate(
+        FluxMeasurement(
+            measurement_id=uuid7(),
             module="test-weighted",
             frequency=999,
             source_id=source,
@@ -47,7 +49,7 @@ async def test_weighted_statistics(backend):
         )
         for i in range(5)
     ]
-    measurement_ids = await backend.fluxes.create_batch(measurements)
+    await backend.fluxes.create_batch(measurements)
 
     # Get statistics
     stats = await backend.analysis.get_source_statistics_for_frequency_and_module(
@@ -62,7 +64,8 @@ async def test_weighted_statistics(backend):
     assert stats.min_flux == 10.0
     assert stats.max_flux == 10.0
 
-    for measurement_id in measurement_ids:
-        await backend.fluxes.delete(measurement_id=measurement_id)
+    # Delete those measurements:
+    for measurement in measurements:
+        await backend.fluxes.delete(measurement_id=measurement.measurement_id)
 
     await backend.sources.delete(source_id=source)

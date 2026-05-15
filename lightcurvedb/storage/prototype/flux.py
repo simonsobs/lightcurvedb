@@ -2,7 +2,7 @@ from io import BytesIO
 from typing import Literal, Protocol
 from uuid import UUID
 
-from lightcurvedb.models import FluxMeasurement, FluxMeasurementCreate
+from lightcurvedb.models import FluxMeasurement
 
 
 class ProvidesFluxMeasurementStorage(Protocol):
@@ -11,7 +11,7 @@ class ProvidesFluxMeasurementStorage(Protocol):
         Set up the flux storage system (e.g. create the tables).
         """
 
-    async def create(self, measurement: FluxMeasurementCreate) -> UUID:
+    async def create(self, measurement: FluxMeasurement) -> UUID:
         """
         Insert single measurement.
         """

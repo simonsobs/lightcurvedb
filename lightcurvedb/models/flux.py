@@ -18,7 +18,8 @@ class MeasurementMetadata(BaseModel):
     flags: list[str] = PydanticField(default=[])
 
 
-class FluxMeasurementCreate(BaseModel):
+class FluxMeasurement(BaseModel):
+    measurement_id: UUID
     frequency: int
     module: str
     source_id: UUID
@@ -31,11 +32,17 @@ class FluxMeasurementCreate(BaseModel):
     flux_err: float
     extra: MeasurementMetadata | None = None
 
+    def model_dump_tuple(self) -> tuple:
+        """
+        Dump the model as a tuple of values, in the order of the fields.
+        """
+        return tuple(self.model_dump().values())
 
-class FluxMeasurement(FluxMeasurementCreate):
-    """
-    Flux measurement domain model.
-    """
-
-    measurement_id: UUID | None = None
-    module: str | None = None
+    def model_dump_sub_as_json(self) -> dict:
+        """
+        Dump the model as a dict, but with the `extra` field dumped as JSON.
+        """
+        d = self.model_dump()
+        if d["extra"] is not None:
+            d["extra"] = self.extra.model_dump_json()
+        return d

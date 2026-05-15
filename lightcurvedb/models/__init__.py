@@ -4,7 +4,7 @@ from .exceptions import (
     SourceNotFoundException,
     StorageException,
 )
-from .flux import FluxMeasurement, FluxMeasurementCreate, MeasurementMetadata
+from .flux import FluxMeasurement, MeasurementMetadata
 from .instrument import Instrument
 from .source import CrossMatch, Source, SourceMetadata
 from .statistics import SourceStatistics
@@ -15,7 +15,6 @@ __all__ = [
     "CrossMatch",
     "Cutout",
     "FluxMeasurement",
-    "FluxMeasurementCreate",
     "MeasurementMetadata",
     "Source",
     "SourceMetadata",

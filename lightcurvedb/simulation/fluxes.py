@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 import numpy as np
 
-from lightcurvedb.models.flux import FluxMeasurementCreate, MeasurementMetadata
+from lightcurvedb.models.flux import FluxMeasurement, MeasurementMetadata
 from lightcurvedb.models.instrument import Instrument
 from lightcurvedb.models.source import Source
 from lightcurvedb.storage.prototype.backend import Backend
@@ -117,6 +117,8 @@ async def generate_fluxes_fixed_source(
         spectral_index_range=spectral_index_range,
     )
 
+    import uuid
+
     all_measurements = []
 
     for flux_values, band in zip(fluxes, instruments):
@@ -126,7 +128,8 @@ async def generate_fluxes_fixed_source(
             metadata = None
 
         measurements = [
-            FluxMeasurementCreate(
+            FluxMeasurement(
+                measurement_id=uuid.uuid4(),
                 frequency=band.frequency,
                 module=band.module,
                 source_id=source.source_id,

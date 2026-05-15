@@ -6,10 +6,9 @@ import datetime
 from io import BytesIO
 
 import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
 import pytest
 from pytest_asyncio import fixture as async_fixture
+from uuid_extensions import uuid7
 
 from lightcurvedb.storage.prototype.backend import Backend
 
@@ -27,9 +26,10 @@ async def sample_flux_dataframe(backend: Backend, setup_test_data):
 
     rows = [
         {
+            "measurement_id": uuid7(),
             "frequency": frequency,
             "module": module,
-            "source_id": source_id.bytes,
+            "source_id": source_id,
             "time": base_time + datetime.timedelta(minutes=index),
             "ra": 10.0 + index,
             "dec": -20.0 - index,
@@ -41,20 +41,31 @@ async def sample_flux_dataframe(backend: Backend, setup_test_data):
         for index in range(3)
     ]
 
+    file = BytesIO()
+    df = pd.DataFrame(rows)
+    df.to_parquet(file, index=False)
+    file.seek(0)
+
     return {
         "source_id": source_id,
         "module": module,
         "frequency": frequency,
         "rows": rows,
-        "df": pd.DataFrame(rows),
+        "file": file,
     }
 
 
+@pytest.mark.parametrize("parquet_ingest_mode", ["csv", "duckdb", None])
 @pytest.mark.asyncio(loop_scope="session")
-async def test_ingest_dataframe(backend: Backend, sample_flux_dataframe):
+async def test_ingest_dataframe(
+    backend: Backend, sample_flux_dataframe, parquet_ingest_mode
+):
     payload = sample_flux_dataframe
 
-    await backend.fluxes.ingest_dataframe(payload["df"])
+    await backend.fluxes.ingest_dataframe(
+        parquet_bytes=payload["file"], parquet_ingest_mode=parquet_ingest_mode
+    )
+    payload["file"].seek(0)
 
     lightcurve = await backend.lightcurves.get_instrument_lightcurve(
         source_id=payload["source_id"],
@@ -82,40 +93,5 @@ async def test_ingest_dataframe(backend: Backend, sample_flux_dataframe):
         assert measurement.flux == expected["flux"]
         assert measurement.flux_err == expected["flux_err"]
 
-
-@pytest.mark.asyncio(loop_scope="session")
-async def test_ingest_parquet(backend: Backend, sample_flux_dataframe):
-    payload = sample_flux_dataframe
-
-    parquet_buffer = BytesIO()
-    table = pa.Table.from_pandas(payload["df"], preserve_index=False)
-    pq.write_table(table, parquet_buffer)
-    parquet_buffer.seek(0)
-
-    await backend.fluxes.ingest_parquet(parquet_buffer)
-
-    lightcurve = await backend.lightcurves.get_instrument_lightcurve(
-        source_id=payload["source_id"],
-        module=payload["module"],
-        frequency=payload["frequency"],
-    )
-
-    expected_by_time = {row["time"]: row for row in payload["rows"]}
-    inserted = [
-        measurement
-        for measurement in lightcurve
-        if measurement.time in expected_by_time
-    ]
-
-    assert len(inserted) == len(payload["rows"])
-
     for measurement in inserted:
-        expected = expected_by_time[measurement.time]
-
-        assert measurement.source_id == payload["source_id"]
-        assert measurement.module == payload["module"]
-        assert measurement.frequency == payload["frequency"]
-        assert measurement.ra == expected["ra"]
-        assert measurement.dec == expected["dec"]
-        assert measurement.flux == expected["flux"]
-        assert measurement.flux_err == expected["flux_err"]
+        await backend.fluxes.delete(measurement_id=measurement.measurement_id)

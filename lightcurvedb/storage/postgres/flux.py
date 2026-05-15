@@ -14,7 +14,7 @@ from psycopg.rows import class_row
 from uuid_extensions import uuid7
 
 from lightcurvedb.config import settings
-from lightcurvedb.models.flux import FluxMeasurement, FluxMeasurementCreate
+from lightcurvedb.models.flux import FluxMeasurement
 from lightcurvedb.storage.postgres.pooler import PostgresPoolUser
 from lightcurvedb.storage.postgres.schema import FLUX_INDEXES, FLUX_MEASUREMENTS_TABLE
 from lightcurvedb.storage.prototype.flux import ProvidesFluxMeasurementStorage
@@ -30,18 +30,18 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
             await cur.execute(FLUX_MEASUREMENTS_TABLE)
             await cur.execute(FLUX_INDEXES)
 
-    async def create(self, measurement: FluxMeasurementCreate) -> UUID:
+    async def create(self, measurement: FluxMeasurement) -> UUID:
         """
         Insert single measurement.
         """
         query = """
             INSERT INTO flux_measurements (
-                frequency, module, source_id, time, ra, dec,
+                measurement_id, frequency, module, source_id, time, ra, dec,
                 ra_uncertainty, dec_uncertainty,
                 flux, flux_err, extra
             )
             VALUES (
-                %(frequency)s, %(module)s, %(source_id)s, %(time)s,
+                %(measurement_id)s, %(frequency)s, %(module)s, %(source_id)s, %(time)s,
                 %(ra)s, %(dec)s, %(ra_uncertainty)s, %(dec_uncertainty)s,
                 %(flux)s, %(flux_err)s, %(extra)s
             )
@@ -151,7 +151,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
                 copy_buffer = StringIO()
                 writer = csv.writer(copy_buffer)
                 for row in data:
-                    writer.writerow(row.model_dump().values())
+                    writer.writerow(row.model_dump_sub_as_json().values())
                 copy_buffer.seek(0)
 
                 await copy.write(copy_buffer.read())
