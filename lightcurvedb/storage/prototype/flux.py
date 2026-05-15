@@ -1,7 +1,6 @@
-from typing import Protocol
+from io import BytesIO
+from typing import Literal, Protocol
 from uuid import UUID
-
-from pandas import DataFrame
 
 from lightcurvedb.models import FluxMeasurement, FluxMeasurementCreate
 
@@ -25,14 +24,20 @@ class ProvidesFluxMeasurementStorage(Protocol):
         ...
 
     async def create_batch(
-        self, measurements: list[FluxMeasurementCreate]
-    ) -> list[UUID]:
+        self,
+        measurements: list[FluxMeasurement],
+        bulk_insert_mode: Literal["unnest", "json", "csv"] | None = None,
+    ) -> None:
         """
         Bulk insert
         """
         ...
 
-    async def ingest_dataframe(self, df: DataFrame) -> list[UUID]:
+    async def ingest_dataframe(
+        self,
+        parquet_bytes: BytesIO,
+        parquet_ingest_mode: Literal["csv", "duckdb"] | None = None,
+    ) -> None:
         """
         Bulk insert from a DataFrame, usually a transferred Parquet file.
         """

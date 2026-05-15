@@ -61,8 +61,11 @@ async def test_measurement_add_and_delete(backend: Backend, setup_test_data):
     await backend.fluxes.delete(measurement_id=measurement_id)
 
 
+@pytest.mark.parametrize("bulk_insert_mode", ["unnest", "json", "csv", None])
 @pytest.mark.asyncio(loop_scope="session")
-async def test_measurement_multi_add_and_delete(backend: Backend, setup_test_data):
+async def test_measurement_multi_add_and_delete(
+    backend: Backend, setup_test_data, bulk_insert_mode
+):
     source_ids = setup_test_data
     source_id = random.choice(source_ids)
 
@@ -73,6 +76,7 @@ async def test_measurement_multi_add_and_delete(backend: Backend, setup_test_dat
 
     measurements = [
         FluxMeasurement(
+            measurement_id=uuid.uuid4(),
             source_id=source_id,
             module=band[0],
             frequency=band[1],
@@ -88,7 +92,7 @@ async def test_measurement_multi_add_and_delete(backend: Backend, setup_test_dat
         for _ in range(5)
     ]
 
-    measurement_ids = await backend.fluxes.create_batch(measurements=measurements)
+    measurement_ids = set(x.measurement_id for x in measurements)
 
     # Grab the lightcurve for this source and ensure that the measurement is there.
     measurements_read = await backend.lightcurves.get_instrument_lightcurve(

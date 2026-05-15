@@ -2,14 +2,18 @@
 PostgreSQL implementation of FluxMeasurementStorage protocol.
 """
 
+import csv
 import json
 from collections import defaultdict
 from io import BytesIO, StringIO
+from typing import Literal
 from uuid import UUID
 
-import pandas as pd
+import pydantic
 from psycopg.rows import class_row
+from uuid_extensions import uuid7
 
+from lightcurvedb.config import settings
 from lightcurvedb.models.flux import FluxMeasurement, FluxMeasurementCreate
 from lightcurvedb.storage.postgres.pooler import PostgresPoolUser
 from lightcurvedb.storage.postgres.schema import FLUX_INDEXES, FLUX_MEASUREMENTS_TABLE
@@ -56,66 +60,108 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
             return row[0]
 
     async def create_batch(
-        self, measurements: list[FluxMeasurementCreate]
-    ) -> list[UUID]:
+        self,
+        measurements: list[FluxMeasurement],
+        bulk_insert_mode: Literal["unnest", "json", "csv"] | None = None,
+    ) -> None:
         """
-        Bulk insert
+        Bulk insert. Allows for over-ride of the dumper otherwise reads
+        from the settings.
         """
+        bulk_insert_mode = bulk_insert_mode or settings.bulk_insert_mode
+
+        if bulk_insert_mode == "json":
+            return await self._insert_batch_data_copy_json(measurements)
+        elif bulk_insert_mode == "csv":
+            return await self._insert_batch_data_copy_csv(measurements)
+
         data = defaultdict(list)
 
         for measurement in measurements:
             measurement_dict = measurement.model_dump()
+            if measurement_dict.get("measurement_id", None) is None:
+                measurement_dict["measurement_id"] = uuid7()
             if measurement_dict["extra"] is not None:
                 measurement_dict["extra"] = json.dumps(measurement_dict["extra"])
             for key, value in measurement_dict.items():
                 data[key].append(value)
 
-        return await self._insert_batch_data(data)
+        if bulk_insert_mode == "csv":
+            return await self._insert_batch_data_copy_csv(data)
+        else:
+            return await self._insert_batch_data(data)
 
-    async def _insert_batch_data_copy(self, data: dict[str, list]) -> list[UUID]:
+    async def _insert_batch_data_copy_json(self, data: list[FluxMeasurement]) -> None:
         """
-        Alternative bulk insert using COPY. This is not currently used because COPY doesn't support RETURNING, so we can't get the inserted measurement IDs.
+        Bulk insert using JSONB payload + jsonb_to_recordset.
         """
-        import csv
+        ta = pydantic.TypeAdapter(list[FluxMeasurement])
+
+        query = """
+            INSERT INTO flux_measurements (
+                measurement_id, frequency, module, source_id, time, ra, dec,
+                ra_uncertainty, dec_uncertainty, flux, flux_err, extra
+            )
+            SELECT
+                x.measurement_id,
+                x.frequency,
+                x.module,
+                x.source_id,
+                x.time,
+                x.ra,
+                x.dec,
+                x.ra_uncertainty,
+                x.dec_uncertainty,
+                x.flux,
+                x.flux_err,
+                x.extra
+            FROM jsonb_to_recordset(%(payload)s::jsonb) AS x(
+                measurement_id uuid,
+                frequency integer,
+                module text,
+                source_id uuid,
+                time timestamptz,
+                ra real,
+                dec real,
+                ra_uncertainty real,
+                dec_uncertainty real,
+                flux real,
+                flux_err real,
+                extra jsonb
+            )
+            RETURNING measurement_id
+        """
 
         async with self.cursor() as cur:
-            async with cur.copy(
-                """
+            await cur.execute(query, {"payload": ta.dump_json(data).decode("utf-8")})
+
+        return []
+
+    async def _insert_batch_data_copy_csv(self, data: list[FluxMeasurement]) -> None:
+        """
+        Bulk insert using CSV copy.
+        """
+        async with self.cursor() as cur:
+            async with cur.copy(f"""
                 COPY flux_measurements (
-                    measurement_id, frequency, module, source_id, time, ra, dec,
-                    ra_uncertainty, dec_uncertainty, flux, flux_err, extra
+                    {", ".join(data[0].model_dump().keys())}
                 )
                 FROM STDIN WITH (FORMAT CSV)
-                """
-            ) as copy:
+                """) as copy:
                 copy_buffer = StringIO()
                 writer = csv.writer(copy_buffer)
-                for row in zip(
-                    data["frequency"],
-                    data["module"],
-                    data["source_id"],
-                    data["time"],
-                    data["ra"],
-                    data["dec"],
-                    data["ra_uncertainty"],
-                    data["dec_uncertainty"],
-                    data["flux"],
-                    data["flux_err"],
-                    data["extra"],
-                ):
-                    writer.writerow(row)
+                for row in data:
+                    writer.writerow(row.model_dump().values())
                 copy_buffer.seek(0)
 
                 await copy.write(copy_buffer.read())
 
-        return []
-
-    async def _insert_batch_data(self, data: dict[str, list]) -> list[UUID]:
+    async def _insert_batch_data(self, data: dict[str, list]) -> None:
         query = """
-            INSERT INTO flux_measurements (measurement_id, frequency, module, source_id, time, ra,
-            dec, ra_uncertainty, dec_uncertainty, flux, flux_err, extra)
-            SELECT * 
-            FROM UNNEST(
+            INSERT INTO flux_measurements (
+                measurement_id, frequency, module, source_id, time, ra,
+                dec, ra_uncertainty, dec_uncertainty, flux, flux_err, extra
+            ) SELECT * FROM UNNEST(
                 %(measurement_id)s::uuid[],
                 %(frequency)s::integer[],
                 %(module)s::text[],
@@ -134,16 +180,23 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
         async with self.cursor() as cur:
             await cur.execute(query, data)
 
-        return []
+    async def ingest_dataframe(
+        self,
+        parquet_bytes: BytesIO,
+        parquet_ingest_mode: Literal["csv", "duckdb"] | None = None,
+    ) -> None:
+        """
+        Insert a dataframe into flux measurements via parquet.
+        """
 
-    def _parse_source_id(self, source_id: object) -> UUID:
-        if isinstance(source_id, UUID):
-            return source_id
-        if isinstance(source_id, (bytes, bytearray, memoryview)):
-            return UUID(bytes=bytes(source_id))
-        return UUID(str(source_id))
+        parquet_ingest_mode = parquet_ingest_mode or settings.parquet_ingest_mode
 
-    async def ingest_dataframe_csv(self, parquet_bytes: BytesIO) -> list[UUID]:
+        if parquet_ingest_mode == "duckdb":
+            return await self._ingest_dataframe_duckdb(parquet_bytes=parquet_bytes)
+        else:
+            return await self._ingest_dataframe_csv(parquet_bytes=parquet_bytes)
+
+    async def _ingest_dataframe_csv(self, parquet_bytes: BytesIO) -> None:
         """
         Bulk insert from a DataFrame, usually a transferred Parquet file.
         """
@@ -162,15 +215,12 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
                 )
 
         async with self.cursor() as cur:
-            async with cur.copy(
-                """
+            async with cur.copy(f"""
                 COPY flux_measurements (
-                    measurement_id, frequency, module, source_id, time, ra, dec,
-                    ra_uncertainty, dec_uncertainty, flux, flux_err
+                    {", ".join(table.column_names)}
                 )
                 FROM STDIN WITH (FORMAT CSV)
-                """
-            ) as copy:
+                """) as copy:
                 for batch in table.to_batches(max_chunksize=128000):
                     sink = BytesIO()
                     pc.write_csv(
@@ -181,9 +231,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
                     # async write into COPY stream
                     await copy.write(sink.read())
 
-        return []
-
-    async def ingest_parquet_duckdb(self, parquet_bytes: BytesIO) -> list[UUID]:
+    async def _ingest_dataframe_duckdb(self, parquet_bytes: BytesIO) -> None:
         import duckdb
         import pyarrow.parquet as pq
 
@@ -204,47 +252,12 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
         """)
 
         # insert
-        con.execute("""
+        con.execute(f"""
             INSERT INTO pg.flux_measurements (
-                measurement_id, frequency, module, source_id, time, ra,
-                dec, ra_uncertainty, dec_uncertainty, flux, flux_err
+                    {", ".join(table.column_names)}
             )
             SELECT * FROM temp_flux_measurements_source
         """)
-
-        return []
-
-    async def ingest_dataframe(self, df: pd.DataFrame) -> list[UUID]:
-        """
-        Bulk insert from a DataFrame, usually a transferred Parquet file.
-        """
-        extra_series = (
-            df["extra"]
-            if "extra" in df.columns
-            else pd.Series([None] * len(df), index=df.index)
-        )
-
-        data: dict[str, list] = {
-            "frequency": df["frequency"].tolist(),
-            "module": df["module"].tolist(),
-            "source_id": [self._parse_source_id(value) for value in df["source_id"]],
-            "time": df["time"].tolist(),
-            "ra": df["ra"].tolist(),
-            "dec": df["dec"].tolist(),
-            "ra_uncertainty": [
-                None if pd.isna(value) else value for value in df["ra_uncertainty"]
-            ],
-            "dec_uncertainty": [
-                None if pd.isna(value) else value for value in df["dec_uncertainty"]
-            ],
-            "flux": df["flux"].tolist(),
-            "flux_err": df["flux_err"].tolist(),
-            "extra": [
-                None if pd.isna(value) else json.dumps(value) for value in extra_series
-            ],
-        }
-
-        return await self._insert_batch_data(data)
 
     async def get(self, measurement_id: UUID) -> FluxMeasurement:
         """

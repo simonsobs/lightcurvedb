@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from io import BytesIO
 from pathlib import Path
 from typing import Iterable
 from uuid import UUID
 
 import pandas as pd
 from asyncer import asyncify
+from typing_extensions import Literal
 from uuid_extensions import uuid7
 
 from lightcurvedb.models import FluxMeasurementCreate
+from lightcurvedb.models.flux import FluxMeasurement
 from lightcurvedb.storage.prototype.flux import ProvidesFluxMeasurementStorage
 
 
@@ -51,12 +54,18 @@ class PandasFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
 
         return table
 
-    def _new_table(self, measurements: Iterable[FluxMeasurementCreate]) -> pd.DataFrame:
+    def _new_table(
+        self, measurements: Iterable[FluxMeasurementCreate | FluxMeasurement]
+    ) -> pd.DataFrame:
         table = pd.DataFrame(
             [
                 {
                     **measurement.model_dump(),
-                    "measurement_id": str(uuid7()),
+                    "measurement_id": (
+                        str(measurement.measurement_id or uuid7())
+                        if hasattr(measurement, "measurement_id")
+                        else str(uuid7())
+                    ),
                     "source_id": str(measurement.source_id),
                 }
                 for measurement in measurements
@@ -88,8 +97,10 @@ class PandasFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
         return UUID(new_id)
 
     async def create_batch(
-        self, measurements: list[FluxMeasurementCreate]
-    ) -> list[UUID]:
+        self,
+        measurements: list[FluxMeasurement],
+        bulk_insert_mode: Literal["unnest", "json", "csv"] | None = None,
+    ) -> None:
         """
         Bulk insert
         """
@@ -99,18 +110,13 @@ class PandasFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
         for measurement in measurements:
             grouped_measurements[measurement.source_id].append(measurement)
 
-        measurement_ids = []
-
         for source_id, group in grouped_measurements.items():
             new_table = self._new_table(group)
-            measurement_ids.extend(new_table.index.tolist())
 
             if (table := await self._read_file(source_id)) is not None:
                 new_table = pd.concat([table, new_table])
 
             await self._write_file(source_id, new_table)
-
-        return list(map(UUID, measurement_ids))
 
     def _parse_source_id(self, source_id: object) -> UUID:
         if isinstance(source_id, UUID):
@@ -119,10 +125,16 @@ class PandasFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
             return UUID(bytes=bytes(source_id))
         return UUID(str(source_id))
 
-    async def ingest_dataframe(self, df: pd.DataFrame) -> list[UUID]:
+    async def ingest_dataframe(
+        self,
+        parquet_bytes: BytesIO,
+        parquet_ingest_mode: Literal["csv", "duckdb"] | None = None,
+    ) -> None:
         """
         Bulk insert from a DataFrame, usually a transferred Parquet file.
         """
+        df = pd.read_parquet(parquet_bytes)
+
         df["source_id"] = [
             str(self._parse_source_id(source_id))
             for source_id in df["source_id"].tolist()
@@ -145,8 +157,6 @@ class PandasFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
                 new_table = pd.concat([current, new_table])
 
             await self._write_file(source_id, new_table)
-
-        return [UUID(idx) for idx in df.index.tolist()]
 
     async def delete(self, measurement_id: UUID) -> None:
         """
