@@ -33,6 +33,11 @@ dev = [
     "pre-commit",
 ]
 
+telemetry = [
+    "opentelemetry-sdk",
+    "opentelemetry-instrumentation-psycopg",
+]
+
 [project.scripts]
 lightcurvedb-ephemeral = "lightcurvedb.cli.ephemeral:main"
 lightcurvedb-setup = "lightcurvedb.cli.setup:main"
