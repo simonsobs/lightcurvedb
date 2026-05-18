@@ -107,7 +107,7 @@ class TimescaleLightcurveProvider(PostgresLightcurveProvider):
 
         with self.tracer.start_as_current_span(
             "get_binned_instrument_lightcurve",
-            {
+            attributes={
                 "source_id": str(source_id),
                 "module": module,
                 "frequency": frequency,
@@ -191,7 +191,7 @@ class TimescaleLightcurveProvider(PostgresLightcurveProvider):
 
         with self.tracer.start_as_current_span(
             "get_binned_frequency_lightcurve",
-            {
+            attributes={
                 "source_id": str(source_id),
                 "frequency": frequency,
                 "binning_strategy": binning_strategy,

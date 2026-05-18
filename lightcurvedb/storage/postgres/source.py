@@ -45,7 +45,7 @@ class PostgresSourceStorage(ProvidesSourceStorage, PostgresPoolUser):
         """
 
         with self.tracer.start_as_current_span("create_source") as span:
-            span.set_attribute("source.source_id", str(source.source_id))
+            span.set_attribute("source.source_id", source.source_id)
 
             params = source.model_dump()
 
@@ -79,7 +79,7 @@ class PostgresSourceStorage(ProvidesSourceStorage, PostgresPoolUser):
         """
 
         with self.tracer.start_as_current_span("create_batch_sources") as span:
-            span.set_attribute("source.num_sources", len(sources))
+            span.set_attribute("source.num_sources", sources)
 
             data = defaultdict(list)
 
@@ -108,7 +108,7 @@ class PostgresSourceStorage(ProvidesSourceStorage, PostgresPoolUser):
         """
 
         with self.tracer.start_as_current_span("get_source") as span:
-            span.set_attribute("source.source_id", str(source_id))
+            span.set_attribute("source.source_id", source_id)
 
             async with self.cursor(row_factory=class_row(Source)) as cur:
                 await cur.execute(query, {"source_id": source_id})
@@ -166,7 +166,7 @@ class PostgresSourceStorage(ProvidesSourceStorage, PostgresPoolUser):
         Delete a source by ID.
         """
         with self.tracer.start_as_current_span("delete_source") as span:
-            span.set_attribute("source.source_id", str(source_id))
+            span.set_attribute("source.source_id", source_id)
 
             # Check if source exists first
             try:

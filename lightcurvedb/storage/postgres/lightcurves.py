@@ -74,7 +74,11 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
 
         with self.tracer.start_as_current_span(
             "get_instrument_lightcurve",
-            {"source_id": str(source_id), "module": module, "frequency": frequency},
+            attributes={
+                "source_id": str(source_id),
+                "module": module,
+                "frequency": frequency,
+            },
         ) as span:
             async with self.flux_storage.cursor(
                 row_factory=class_row(InstrumentLightcurve)
@@ -129,7 +133,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
 
         with self.tracer.start_as_current_span(
             "get_frequency_lightcurve",
-            {"source_id": str(source_id), "frequency": frequency},
+            attributes={"source_id": str(source_id), "frequency": frequency},
         ) as span:
             async with self.flux_storage.cursor(
                 row_factory=class_row(FrequencyLightcurve)
@@ -200,7 +204,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
 
         with self.tracer.start_as_current_span(
             "get_binned_instrument_lightcurve",
-            {
+            attributes={
                 "source_id": str(source_id),
                 "module": module,
                 "frequency": frequency,
@@ -286,7 +290,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
 
         with self.tracer.start_as_current_span(
             "get_binned_frequency_lightcurve",
-            {
+            attributes={
                 "source_id": str(source_id),
                 "frequency": frequency,
                 "binning_strategy": binning_strategy,
@@ -330,7 +334,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
         """
 
         with self.tracer.start_as_current_span(
-            "get_frequencies_for_source", {"source_id": str(source_id)}
+            "get_frequencies_for_source", attributes={"source_id": str(source_id)}
         ):
             async with self.flux_storage.cursor() as cur:
                 await cur.execute(query, {"source_id": source_id})
@@ -350,7 +354,8 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
         """
 
         with self.tracer.start_as_current_span(
-            "get_module_frequency_pairs_for_source", {"source_id": str(source_id)}
+            "get_module_frequency_pairs_for_source",
+            attributes={"source_id": str(source_id)},
         ):
             async with self.flux_storage.cursor() as cur:
                 await cur.execute(query, {"source_id": source_id})
@@ -385,7 +390,10 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
 
         with self.tracer.start_as_current_span(
             "get_source_lightcurve",
-            {"source_id": str(source_id), "selection_strategy": selection_strategy},
+            attributes={
+                "source_id": str(source_id),
+                "selection_strategy": selection_strategy,
+            },
         ) as span:
             if selection_strategy == "frequency":
                 frequencies = await self.get_frequencies_for_source(source_id)
@@ -461,7 +469,7 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
 
         with self.tracer.start_as_current_span(
             "get_binned_source_lightcurve",
-            {
+            attributes={
                 "source_id": str(source_id),
                 "selection_strategy": selection_strategy,
                 "binning_strategy": binning_strategy,

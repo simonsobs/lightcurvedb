@@ -92,7 +92,7 @@ class PostgresAnalysisProvider(ProvidesAnalysis):
 
         with self.tracer.start_as_current_span(
             "get_source_statistics_for_frequency_and_module",
-            {
+            attributes={
                 "source_id": str(source_id),
                 "module": module,
                 "frequency": frequency,
@@ -143,7 +143,7 @@ class PostgresAnalysisProvider(ProvidesAnalysis):
 
         with self.tracer.start_as_current_span(
             "get_source_statistics",
-            {
+            attributes={
                 "source_id": str(source_id),
                 "collate_modules": collate_modules,
                 "start_time": start_time,
