@@ -32,17 +32,21 @@ class PostgresInstrumentStorage(ProvidesInstrumentStorage, PostgresPoolUser):
             RETURNING instrument
         """
 
-        params = instrument.model_dump()
+        with self.tracer.start_as_current_span("create_instrument") as span:
+            span.set_attribute("instrument.frequency", instrument.frequency)
+            span.set_attribute("instrument.module", instrument.module)
 
-        if params["details"] is not None:
-            params["details"] = json.dumps(params["details"])
+            params = instrument.model_dump()
 
-        async with self.cursor() as cur:
-            await cur.execute(query, params)
-            row = await cur.fetchone()
-            if row is None:
-                raise ValueError("INSERT RETURNING instrument returned no row")
-            return row[0]
+            if params["details"] is not None:
+                params["details"] = json.dumps(params["details"])
+
+            async with self.cursor() as cur:
+                await cur.execute(query, params)
+                row = await cur.fetchone()
+                if row is None:
+                    raise ValueError("INSERT RETURNING instrument returned no row")
+                return row[0]
 
     async def create_batch(self, instruments: list[Instrument]) -> list[str]:
         """
@@ -61,19 +65,22 @@ class PostgresInstrumentStorage(ProvidesInstrumentStorage, PostgresPoolUser):
             ON CONFLICT (frequency, module) DO NOTHING
         """
 
-        data = defaultdict(list)
+        with self.tracer.start_as_current_span("create_batch_instruments") as span:
+            span.set_attribute("instrument.num_instruments", len(instruments))
 
-        for instrument in instruments:
-            instrument_dict = instrument.model_dump()
-            for key, value in instrument_dict.items():
-                if key == "details" and value is not None:
-                    value = json.dumps(value)
-                data[key].append(value)
+            data = defaultdict(list)
 
-        async with self.cursor() as cur:
-            await cur.execute(query, data)
+            for instrument in instruments:
+                instrument_dict = instrument.model_dump()
+                for key, value in instrument_dict.items():
+                    if key == "details" and value is not None:
+                        value = json.dumps(value)
+                    data[key].append(value)
 
-        return [instrument.instrument for instrument in instruments]
+            async with self.cursor() as cur:
+                await cur.execute(query, data)
+
+            return [instrument.instrument for instrument in instruments]
 
     async def get(self, frequency: int, module: str) -> Instrument:
         """Get instrument by frequency and module."""
@@ -83,18 +90,24 @@ class PostgresInstrumentStorage(ProvidesInstrumentStorage, PostgresPoolUser):
             WHERE frequency = %(frequency)s AND module = %(module)s
         """
 
-        async with self.cursor(row_factory=class_row(Instrument)) as cur:
-            await cur.execute(query, {"frequency": frequency, "module": module})
-            row = await cur.fetchone()
+        with self.tracer.start_as_current_span("get_instrument") as span:
+            span.set_attribute("instrument.frequency", frequency)
+            span.set_attribute("instrument.module", module)
 
-            if not row:
-                from lightcurvedb.models.exceptions import InstrumentNotFoundException
+            async with self.cursor(row_factory=class_row(Instrument)) as cur:
+                await cur.execute(query, {"frequency": frequency, "module": module})
+                row = await cur.fetchone()
 
-                raise InstrumentNotFoundException(
-                    f"Instrument with frequency {frequency} and module {module} not found"
-                )
+                if not row:
+                    from lightcurvedb.models.exceptions import (
+                        InstrumentNotFoundException,
+                    )
 
-            return row
+                    raise InstrumentNotFoundException(
+                        f"Instrument with frequency {frequency} and module {module} not found"
+                    )
+
+                return row
 
     async def get_all(self) -> list[Instrument]:
         """Get all instruments."""
@@ -104,26 +117,30 @@ class PostgresInstrumentStorage(ProvidesInstrumentStorage, PostgresPoolUser):
             ORDER BY frequency, module
         """
 
-        async with self.cursor(row_factory=class_row(Instrument)) as cur:
-            await cur.execute(query)
-            rows = await cur.fetchall()
-            return rows
+        with self.tracer.start_as_current_span("get_all_instruments"):
+            async with self.cursor(row_factory=class_row(Instrument)) as cur:
+                await cur.execute(query)
+                rows = await cur.fetchall()
+                return rows
 
     async def delete(self, frequency: int, module: str) -> None:
         """
         Delete an instrument by frequency and module.
         """
+        with self.tracer.start_as_current_span("delete_instrument") as span:
+            span.set_attribute("instrument.frequency", frequency)
+            span.set_attribute("instrument.module", module)
 
-        try:
-            await self.get(frequency, module)
-        except Exception:
-            from lightcurvedb.models.exceptions import InstrumentNotFoundException
+            try:
+                await self.get(frequency, module)
+            except Exception:
+                from lightcurvedb.models.exceptions import InstrumentNotFoundException
 
-            raise InstrumentNotFoundException(
-                f"Instrument with frequency {frequency} and module {module} not found"
-            )
+                raise InstrumentNotFoundException(
+                    f"Instrument with frequency {frequency} and module {module} not found"
+                )
 
-        query = "DELETE FROM instruments WHERE frequency = %(frequency)s AND module = %(module)s"
+            query = "DELETE FROM instruments WHERE frequency = %(frequency)s AND module = %(module)s"
 
-        async with self.cursor() as cur:
-            await cur.execute(query, {"frequency": frequency, "module": module})
+            async with self.cursor() as cur:
+                await cur.execute(query, {"frequency": frequency, "module": module})

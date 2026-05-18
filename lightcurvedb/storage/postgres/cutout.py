@@ -48,14 +48,20 @@ class PostgresCutoutStorage(ProvidesCutoutStorage, PostgresPoolUser):
                 %(frequency)s
             )
         """
-        params = cutout.model_dump()
 
-        async with self.cursor() as cur:
-            await cur.execute(query, params)
+        with self.tracer.start_as_current_span("create_cutout") as span:
+            span.set_attribute("cutout.measurement_id", str(cutout.measurement_id))
 
-        if cutout.measurement_id is None:
-            raise ValueError("Cutout measurement_id must not be None after creation")
-        return cutout.measurement_id
+            params = cutout.model_dump()
+
+            async with self.cursor() as cur:
+                await cur.execute(query, params)
+
+            if cutout.measurement_id is None:
+                raise ValueError(
+                    "Cutout measurement_id must not be None after creation"
+                )
+            return cutout.measurement_id
 
     async def create_batch(self, cutouts: list[Cutout]) -> list[UUID]:
         """
@@ -85,19 +91,22 @@ class PostgresCutoutStorage(ProvidesCutoutStorage, PostgresPoolUser):
             )
         """
 
-        params_list = [c.model_dump() for c in cutouts]
+        with self.tracer.start_as_current_span("create_batch_cutouts") as span:
+            span.set_attribute("cutout.num_cutouts", len(cutouts))
 
-        async with self.cursor() as cur:
-            await cur.executemany(query, params_list)
+            params_list = [c.model_dump() for c in cutouts]
 
-        measurement_ids: list[UUID] = []
-        for c in cutouts:
-            if c.measurement_id is None:
-                raise ValueError(
-                    "Cutout measurement_id must not be None after creation"
-                )
-            measurement_ids.append(c.measurement_id)
-        return measurement_ids
+            async with self.cursor() as cur:
+                await cur.executemany(query, params_list)
+
+            measurement_ids: list[UUID] = []
+            for c in cutouts:
+                if c.measurement_id is None:
+                    raise ValueError(
+                        "Cutout measurement_id must not be None after creation"
+                    )
+                measurement_ids.append(c.measurement_id)
+            return measurement_ids
 
     async def retrieve_cutout(self, source_id: UUID, measurement_id: UUID) -> Cutout:
         """
@@ -109,24 +118,28 @@ class PostgresCutoutStorage(ProvidesCutoutStorage, PostgresPoolUser):
             WHERE source_id = %(source_id)s AND measurement_id = %(measurement_id)s
         """
 
-        async with self.cursor(row_factory=class_row(Cutout)) as cur:
-            await cur.execute(
-                query,
-                {
-                    "source_id": source_id,
-                    "measurement_id": measurement_id,
-                },
-            )
-            row = await cur.fetchone()
+        with self.tracer.start_as_current_span("retrieve_cutout") as span:
+            span.set_attribute("cutout.source_id", str(source_id))
+            span.set_attribute("cutout.measurement_id", str(measurement_id))
 
-            if not row:
-                from lightcurvedb.models.exceptions import CutoutNotFoundException
-
-                raise CutoutNotFoundException(
-                    f"Cutout {source_id}/{measurement_id} not found"
+            async with self.cursor(row_factory=class_row(Cutout)) as cur:
+                await cur.execute(
+                    query,
+                    {
+                        "source_id": source_id,
+                        "measurement_id": measurement_id,
+                    },
                 )
+                row = await cur.fetchone()
 
-            return row
+                if not row:
+                    from lightcurvedb.models.exceptions import CutoutNotFoundException
+
+                    raise CutoutNotFoundException(
+                        f"Cutout {source_id}/{measurement_id} not found"
+                    )
+
+                return row
 
     async def retrieve_cutouts_for_source(self, source_id: UUID) -> list[Cutout]:
         """
@@ -138,15 +151,18 @@ class PostgresCutoutStorage(ProvidesCutoutStorage, PostgresPoolUser):
             WHERE source_id = %(source_id)s
         """
 
-        async with self.cursor(row_factory=class_row(Cutout)) as cur:
-            await cur.execute(
-                query,
-                {
-                    "source_id": source_id,
-                },
-            )
-            rows = await cur.fetchall()
-            return rows
+        with self.tracer.start_as_current_span("retrieve_cutouts_for_source") as span:
+            span.set_attribute("cutout.source_id", str(source_id))
+
+            async with self.cursor(row_factory=class_row(Cutout)) as cur:
+                await cur.execute(
+                    query,
+                    {
+                        "source_id": source_id,
+                    },
+                )
+                rows = await cur.fetchall()
+                return rows
 
     async def delete(self, measurement_id: UUID) -> None:
         """
@@ -157,5 +173,8 @@ class PostgresCutoutStorage(ProvidesCutoutStorage, PostgresPoolUser):
             WHERE measurement_id = %(measurement_id)s
         """
 
-        async with self.cursor() as cur:
-            await cur.execute(query, {"measurement_id": measurement_id})
+        with self.tracer.start_as_current_span("delete_cutout") as span:
+            span.set_attribute("cutout.measurement_id", str(measurement_id))
+
+            async with self.cursor() as cur:
+                await cur.execute(query, {"measurement_id": measurement_id})

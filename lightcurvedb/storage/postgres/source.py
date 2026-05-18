@@ -44,18 +44,21 @@ class PostgresSourceStorage(ProvidesSourceStorage, PostgresPoolUser):
             RETURNING source_id
         """
 
-        params = source.model_dump()
+        with self.tracer.start_as_current_span("create_source") as span:
+            span.set_attribute("source.source_id", str(source.source_id))
 
-        if params["extra"] is not None:
-            params["extra"] = json.dumps(params["extra"])
+            params = source.model_dump()
 
-        async with self.cursor() as cur:
-            await cur.execute(query, params)
-            row = await cur.fetchone()
+            if params["extra"] is not None:
+                params["extra"] = json.dumps(params["extra"])
 
-        if row is None:
-            raise ValueError("INSERT RETURNING source_id returned no row")
-        return row[0]
+            async with self.cursor() as cur:
+                await cur.execute(query, params)
+                row = await cur.fetchone()
+
+            if row is None:
+                raise ValueError("INSERT RETURNING source_id returned no row")
+            return row[0]
 
     async def create_batch(self, sources: list[Source]) -> list[UUID]:
         """
@@ -75,21 +78,24 @@ class PostgresSourceStorage(ProvidesSourceStorage, PostgresPoolUser):
             RETURNING source_id
         """
 
-        data = defaultdict(list)
+        with self.tracer.start_as_current_span("create_batch_sources") as span:
+            span.set_attribute("source.num_sources", len(sources))
 
-        for source in sources:
-            source_dict = source.model_dump()
-            if source_dict["extra"] is not None:
-                source_dict["extra"] = json.dumps(source_dict["extra"])
-            for key, value in source_dict.items():
-                data[key].append(value)
+            data = defaultdict(list)
 
-        async with self.cursor() as cur:
-            await cur.execute(query, data)
-            response = await cur.fetchall()
-            source_ids = [row[0] for row in response]
+            for source in sources:
+                source_dict = source.model_dump()
+                if source_dict["extra"] is not None:
+                    source_dict["extra"] = json.dumps(source_dict["extra"])
+                for key, value in source_dict.items():
+                    data[key].append(value)
 
-        return source_ids
+            async with self.cursor() as cur:
+                await cur.execute(query, data)
+                response = await cur.fetchall()
+                source_ids = [row[0] for row in response]
+
+            return source_ids
 
     async def get(self, source_id: UUID) -> Source:
         """
@@ -101,16 +107,19 @@ class PostgresSourceStorage(ProvidesSourceStorage, PostgresPoolUser):
             WHERE source_id = %(source_id)s
         """
 
-        async with self.cursor(row_factory=class_row(Source)) as cur:
-            await cur.execute(query, {"source_id": source_id})
-            row = await cur.fetchone()
+        with self.tracer.start_as_current_span("get_source") as span:
+            span.set_attribute("source.source_id", str(source_id))
 
-            if not row:
-                from lightcurvedb.models.exceptions import SourceNotFoundException
+            async with self.cursor(row_factory=class_row(Source)) as cur:
+                await cur.execute(query, {"source_id": source_id})
+                row = await cur.fetchone()
 
-                raise SourceNotFoundException(f"Source {source_id} not found")
+                if not row:
+                    from lightcurvedb.models.exceptions import SourceNotFoundException
 
-            return row
+                    raise SourceNotFoundException(f"Source {source_id} not found")
+
+                return row
 
     async def get_by_socat_id(self, socat_id: int) -> Source:
         """
@@ -122,18 +131,21 @@ class PostgresSourceStorage(ProvidesSourceStorage, PostgresPoolUser):
             WHERE socat_id = %(socat_id)s
         """
 
-        async with self.cursor(row_factory=class_row(Source)) as cur:
-            await cur.execute(query, {"socat_id": socat_id})
-            row = await cur.fetchone()
+        with self.tracer.start_as_current_span("get_source_by_socat_id") as span:
+            span.set_attribute("source.socat_id", socat_id)
 
-            if not row:
-                from lightcurvedb.models.exceptions import SourceNotFoundException
+            async with self.cursor(row_factory=class_row(Source)) as cur:
+                await cur.execute(query, {"socat_id": socat_id})
+                row = await cur.fetchone()
 
-                raise SourceNotFoundException(
-                    f"Source with SOcat ID {socat_id} not found"
-                )
+                if not row:
+                    from lightcurvedb.models.exceptions import SourceNotFoundException
 
-            return row
+                    raise SourceNotFoundException(
+                        f"Source with SOcat ID {socat_id} not found"
+                    )
+
+                return row
 
     async def get_all(self) -> list[Source]:
         """Get all sources."""
@@ -143,27 +155,31 @@ class PostgresSourceStorage(ProvidesSourceStorage, PostgresPoolUser):
             ORDER BY source_id
         """
 
-        async with self.cursor(row_factory=class_row(Source)) as cur:
-            await cur.execute(query)
-            rows = await cur.fetchall()
-            return rows
+        with self.tracer.start_as_current_span("get_all_sources"):
+            async with self.cursor(row_factory=class_row(Source)) as cur:
+                await cur.execute(query)
+                rows = await cur.fetchall()
+                return rows
 
     async def delete(self, source_id: UUID) -> None:
         """
         Delete a source by ID.
         """
-        # Check if source exists first
-        try:
-            await self.get(source_id)
-        except Exception:
-            from lightcurvedb.models.exceptions import SourceNotFoundException
+        with self.tracer.start_as_current_span("delete_source") as span:
+            span.set_attribute("source.source_id", str(source_id))
 
-            raise SourceNotFoundException(f"Source {source_id} not found")
+            # Check if source exists first
+            try:
+                await self.get(source_id)
+            except Exception:
+                from lightcurvedb.models.exceptions import SourceNotFoundException
 
-        query = "DELETE FROM sources WHERE source_id = %(source_id)s"
+                raise SourceNotFoundException(f"Source {source_id} not found")
 
-        async with self.cursor() as cur:
-            await cur.execute(query, {"source_id": source_id})
+            query = "DELETE FROM sources WHERE source_id = %(source_id)s"
+
+            async with self.cursor() as cur:
+                await cur.execute(query, {"source_id": source_id})
 
     async def get_in_bounds(
         self, ra_min: float, ra_max: float, dec_min: float, dec_max: float
@@ -180,15 +196,21 @@ class PostgresSourceStorage(ProvidesSourceStorage, PostgresPoolUser):
               AND dec < %(dec_max)s
         """
 
-        params = {
-            "ra_min": ra_min,
-            "ra_max": ra_max,
-            "dec_min": dec_min,
-            "dec_max": dec_max,
-        }
+        with self.tracer.start_as_current_span("get_sources_in_bounds") as span:
+            span.set_attribute("source.ra_min", ra_min)
+            span.set_attribute("source.ra_max", ra_max)
+            span.set_attribute("source.dec_min", dec_min)
+            span.set_attribute("source.dec_max", dec_max)
 
-        async with self.cursor(row_factory=class_row(Source)) as cur:
-            await cur.execute(query, params)
-            rows = await cur.fetchall()
+            params = {
+                "ra_min": ra_min,
+                "ra_max": ra_max,
+                "dec_min": dec_min,
+                "dec_max": dec_max,
+            }
 
-            return rows
+            async with self.cursor(row_factory=class_row(Source)) as cur:
+                await cur.execute(query, params)
+                rows = await cur.fetchall()
+
+                return rows

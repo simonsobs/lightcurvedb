@@ -7,14 +7,22 @@ from collections.abc import AsyncIterator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from typing import Any, overload
 
+from opentelemetry import metrics, trace
 from psycopg import AsyncClientCursor
 from psycopg.rows import BaseRowFactory, Row
 from psycopg_pool import AsyncConnectionPool
 
 
 class PostgresPoolUser:
-    def __init__(self, pool: AsyncConnectionPool):
+    def __init__(
+        self,
+        pool: AsyncConnectionPool,
+        tracer: trace.Tracer | None = None,
+        meter: metrics.Meter | None = None,
+    ):
         self.pool = pool
+        self.tracer = tracer or trace.get_tracer("lightcurvedb-postgres-pool-user")
+        self.meter = meter or metrics.get_meter("lightcurvedb-postgres-pool-user")
 
     @overload
     def cursor(

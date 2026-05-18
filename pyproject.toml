@@ -21,6 +21,7 @@ dependencies = [
     "pandas[pyarrow]",
     "asyncer",
     "duckdb",
+    "opentelemetry-sdk",
 ]
 
 [project.optional-dependencies]
@@ -34,7 +35,6 @@ dev = [
 ]
 
 telemetry = [
-    "opentelemetry-sdk",
     "opentelemetry-instrumentation-psycopg",
 ]
 

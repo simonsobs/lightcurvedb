@@ -7,6 +7,7 @@ import datetime
 from typing import Literal, overload
 from uuid import UUID
 
+from opentelemetry import metrics, trace
 from psycopg.rows import class_row
 
 from lightcurvedb.models.lightcurves import (
@@ -28,8 +29,19 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
     Provides lightcurves from a PostgreSQL data store.
     """
 
-    def __init__(self, flux_storage: PostgresFluxMeasurementStorage):
+    def __init__(
+        self,
+        flux_storage: PostgresFluxMeasurementStorage,
+        tracer: trace.Tracer | None = None,
+        meter: metrics.Meter | None = None,
+    ):
         self.flux_storage = flux_storage
+        self.tracer = tracer or trace.get_tracer(
+            "lightcurvedb-postgres-lightcurve-provider"
+        )
+        self.meter = meter or metrics.get_meter(
+            "lightcurvedb-postgres-lightcurve-provider"
+        )
 
     async def get_instrument_lightcurve(
         self, source_id: UUID, module: str, frequency: int, limit: int = 1000000
@@ -60,25 +72,32 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             )
         """
 
-        async with self.flux_storage.cursor(
-            row_factory=class_row(InstrumentLightcurve)
-        ) as cur:
-            await cur.execute(
-                query,
-                {
-                    "source_id": source_id,
-                    "module": module,
-                    "frequency": frequency,
-                    "limit": limit,
-                },
-            )
-            row = await cur.fetchone()
-            if row is None:
-                raise ValueError(
-                    f"No instrument lightcurve found for source {source_id}, "
-                    f"module {module}, frequency {frequency}"
+        with self.tracer.start_as_current_span(
+            "get_instrument_lightcurve",
+            {"source_id": str(source_id), "module": module, "frequency": frequency},
+        ) as span:
+            async with self.flux_storage.cursor(
+                row_factory=class_row(InstrumentLightcurve)
+            ) as cur:
+                await cur.execute(
+                    query,
+                    {
+                        "source_id": source_id,
+                        "module": module,
+                        "frequency": frequency,
+                        "limit": limit,
+                    },
                 )
-            return row
+                row = await cur.fetchone()
+                if row is None:
+                    span.set_status(trace.Status(trace.StatusCode.ERROR))
+                    raise ValueError(
+                        f"No instrument lightcurve found for source {source_id}, "
+                        f"module {module}, frequency {frequency}"
+                    )
+                span.set_status(trace.Status(trace.StatusCode.OK))
+                span.set_attribute("lcs:num_points", len(row.time))
+                return row
 
     async def get_frequency_lightcurve(
         self, source_id: UUID, frequency: int, limit: int = 1000000
@@ -108,19 +127,27 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             )
         """
 
-        async with self.flux_storage.cursor(
-            row_factory=class_row(FrequencyLightcurve)
-        ) as cur:
-            await cur.execute(
-                query, {"source_id": source_id, "frequency": frequency, "limit": limit}
-            )
-            row = await cur.fetchone()
-            if row is None:
-                raise ValueError(
-                    f"No frequency lightcurve found for source {source_id}, "
-                    f"frequency {frequency}"
+        with self.tracer.start_as_current_span(
+            "get_frequency_lightcurve",
+            {"source_id": str(source_id), "frequency": frequency},
+        ) as span:
+            async with self.flux_storage.cursor(
+                row_factory=class_row(FrequencyLightcurve)
+            ) as cur:
+                await cur.execute(
+                    query,
+                    {"source_id": source_id, "frequency": frequency, "limit": limit},
                 )
-            return row
+                row = await cur.fetchone()
+                if row is None:
+                    span.set_status(trace.Status(trace.StatusCode.ERROR))
+                    raise ValueError(
+                        f"No frequency lightcurve found for source {source_id}, "
+                        f"frequency {frequency}"
+                    )
+                span.set_status(trace.Status(trace.StatusCode.OK))
+                span.set_attribute("lcs:num_points", len(row.time))
+                return row
 
     async def get_binned_instrument_lightcurve(
         self,
@@ -171,28 +198,42 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             ) AS binned
         """
 
-        async with self.flux_storage.cursor(
-            row_factory=class_row(BinnedInstrumentLightcurve)
-        ) as cur:
-            await cur.execute(
-                query,
-                {
-                    "source_id": source_id,
-                    "module": module,
-                    "frequency": frequency,
-                    "binning_strategy": binning_strategy,
-                    "start_time": start_time,
-                    "end_time": end_time,
-                    "limit": limit,
-                },
-            )
-            row = await cur.fetchone()
-            if row is None:
-                raise ValueError(
-                    f"No binned instrument lightcurve found for source {source_id}, "
-                    f"module {module}, frequency {frequency}"
+        with self.tracer.start_as_current_span(
+            "get_binned_instrument_lightcurve",
+            {
+                "source_id": str(source_id),
+                "module": module,
+                "frequency": frequency,
+                "binning_strategy": binning_strategy,
+                "start_time": start_time,
+                "end_time": end_time,
+            },
+        ) as span:
+            async with self.flux_storage.cursor(
+                row_factory=class_row(BinnedInstrumentLightcurve)
+            ) as cur:
+                await cur.execute(
+                    query,
+                    {
+                        "source_id": source_id,
+                        "module": module,
+                        "frequency": frequency,
+                        "binning_strategy": binning_strategy,
+                        "start_time": start_time,
+                        "end_time": end_time,
+                        "limit": limit,
+                    },
                 )
-            return row
+                row = await cur.fetchone()
+                if row is None:
+                    span.set_status(trace.Status(trace.StatusCode.ERROR))
+                    raise ValueError(
+                        f"No binned instrument lightcurve found for source {source_id}, "
+                        f"module {module}, frequency {frequency}"
+                    )
+                span.set_status(trace.Status(trace.StatusCode.OK))
+                span.set_attribute("lcs:num_points", len(row.time))
+                return row
 
     async def get_binned_frequency_lightcurve(
         self,
@@ -243,27 +284,40 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             ) AS binned
         """
 
-        async with self.flux_storage.cursor(
-            row_factory=class_row(BinnedFrequencyLightcurve)
-        ) as cur:
-            await cur.execute(
-                query,
-                {
-                    "source_id": source_id,
-                    "frequency": frequency,
-                    "binning_strategy": binning_strategy,
-                    "start_time": start_time,
-                    "end_time": end_time,
-                    "limit": limit,
-                },
-            )
-            row = await cur.fetchone()
-            if row is None:
-                raise ValueError(
-                    f"No binned frequency lightcurve found for source {source_id}, "
-                    f"frequency {frequency}"
+        with self.tracer.start_as_current_span(
+            "get_binned_frequency_lightcurve",
+            {
+                "source_id": str(source_id),
+                "frequency": frequency,
+                "binning_strategy": binning_strategy,
+                "start_time": start_time,
+                "end_time": end_time,
+            },
+        ) as span:
+            async with self.flux_storage.cursor(
+                row_factory=class_row(BinnedFrequencyLightcurve)
+            ) as cur:
+                await cur.execute(
+                    query,
+                    {
+                        "source_id": source_id,
+                        "frequency": frequency,
+                        "binning_strategy": binning_strategy,
+                        "start_time": start_time,
+                        "end_time": end_time,
+                        "limit": limit,
+                    },
                 )
-            return row
+                row = await cur.fetchone()
+                if row is None:
+                    span.set_status(trace.Status(trace.StatusCode.ERROR))
+                    raise ValueError(
+                        f"No binned frequency lightcurve found for source {source_id}, "
+                        f"frequency {frequency}"
+                    )
+                span.set_status(trace.Status(trace.StatusCode.OK))
+                span.set_attribute("lcs:num_points", len(row.time))
+                return row
 
     async def get_frequencies_for_source(self, source_id: UUID) -> list[int]:
         """
@@ -275,10 +329,13 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             WHERE source_id = %(source_id)s
         """
 
-        async with self.flux_storage.cursor() as cur:
-            await cur.execute(query, {"source_id": source_id})
-            rows = await cur.fetchall()
-            return [row[0] for row in rows]
+        with self.tracer.start_as_current_span(
+            "get_frequencies_for_source", {"source_id": str(source_id)}
+        ):
+            async with self.flux_storage.cursor() as cur:
+                await cur.execute(query, {"source_id": source_id})
+                rows = await cur.fetchall()
+                return [row[0] for row in rows]
 
     async def get_module_frequency_pairs_for_source(
         self, source_id: UUID
@@ -292,10 +349,13 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
             WHERE source_id = %(source_id)s
         """
 
-        async with self.flux_storage.cursor() as cur:
-            await cur.execute(query, {"source_id": source_id})
-            rows = await cur.fetchall()
-            return [(row[1], row[0]) for row in rows]
+        with self.tracer.start_as_current_span(
+            "get_module_frequency_pairs_for_source", {"source_id": str(source_id)}
+        ):
+            async with self.flux_storage.cursor() as cur:
+                await cur.execute(query, {"source_id": source_id})
+                rows = await cur.fetchall()
+                return [(row[1], row[0]) for row in rows]
 
     @overload
     async def get_source_lightcurve(
@@ -323,40 +383,46 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
         Get a lightcurve for a specific source, with the given strategy and binning.
         """
 
-        if selection_strategy == "frequency":
-            frequencies = await self.get_frequencies_for_source(source_id)
-            lightcurves = await asyncio.gather(
-                *[
-                    self.get_frequency_lightcurve(source_id, frequency, limit=limit)
-                    for frequency in frequencies
-                ]
-            )
-            return SourceLightcurveFrequency(
-                source_id=source_id,
-                selection_strategy="frequency",
-                binning_strategy="none",
-                lightcurves={x.frequency: x for x in lightcurves},
-            )
-        elif selection_strategy == "instrument":
-            module_frequency_pairs = await self.get_module_frequency_pairs_for_source(
-                source_id
-            )
-            lightcurves = await asyncio.gather(
-                *[
-                    self.get_instrument_lightcurve(
-                        source_id, module, frequency, limit=limit
-                    )
-                    for module, frequency in module_frequency_pairs
-                ]
-            )
-            return SourceLightcurveInstrument(
-                source_id=source_id,
-                selection_strategy="instrument",
-                binning_strategy="none",
-                lightcurves={f"{x.module} {x.frequency}": x for x in lightcurves},
-            )
-        else:
-            raise ValueError(f"Invalid strategy: {selection_strategy}")
+        with self.tracer.start_as_current_span(
+            "get_source_lightcurve",
+            {"source_id": str(source_id), "selection_strategy": selection_strategy},
+        ) as span:
+            if selection_strategy == "frequency":
+                frequencies = await self.get_frequencies_for_source(source_id)
+                lightcurves = await asyncio.gather(
+                    *[
+                        self.get_frequency_lightcurve(source_id, frequency, limit=limit)
+                        for frequency in frequencies
+                    ]
+                )
+                span.set_attribute("lcs:num_frequencies", len(frequencies))
+                return SourceLightcurveFrequency(
+                    source_id=source_id,
+                    selection_strategy="frequency",
+                    binning_strategy="none",
+                    lightcurves={x.frequency: x for x in lightcurves},
+                )
+            elif selection_strategy == "instrument":
+                module_frequency_pairs = (
+                    await self.get_module_frequency_pairs_for_source(source_id)
+                )
+                lightcurves = await asyncio.gather(
+                    *[
+                        self.get_instrument_lightcurve(
+                            source_id, module, frequency, limit=limit
+                        )
+                        for module, frequency in module_frequency_pairs
+                    ]
+                )
+                span.set_attribute("lcs:num_modules", len(module_frequency_pairs))
+                return SourceLightcurveInstrument(
+                    source_id=source_id,
+                    selection_strategy="instrument",
+                    binning_strategy="none",
+                    lightcurves={f"{x.module} {x.frequency}": x for x in lightcurves},
+                )
+            else:
+                raise ValueError(f"Invalid strategy: {selection_strategy}")
 
     @overload
     async def get_binned_source_lightcurve(
@@ -393,54 +459,66 @@ class PostgresLightcurveProvider(ProvidesLightcurves):
         Get a binned lightcurve for a specific source, with the given strategy and binning.
         """
 
-        if selection_strategy == "frequency":
-            frequencies = await self.get_frequencies_for_source(source_id)
-            lightcurves = await asyncio.gather(
-                *[
-                    self.get_binned_frequency_lightcurve(
-                        source_id,
-                        frequency,
-                        binning_strategy,
-                        start_time,
-                        end_time,
-                        limit=limit,
-                    )
-                    for frequency in frequencies
-                ]
-            )
-            return SourceLightcurveBinnedFrequency(
-                source_id=source_id,
-                selection_strategy="frequency",
-                binning_strategy=binning_strategy,
-                start_time=start_time,
-                end_time=end_time,
-                lightcurves={x.frequency: x for x in lightcurves},
-            )
-        elif selection_strategy == "instrument":
-            module_frequency_pairs = await self.get_module_frequency_pairs_for_source(
-                source_id
-            )
-            lightcurves = await asyncio.gather(
-                *[
-                    self.get_binned_instrument_lightcurve(
-                        source_id,
-                        module,
-                        frequency,
-                        binning_strategy,
-                        start_time,
-                        end_time,
-                        limit=limit,
-                    )
-                    for module, frequency in module_frequency_pairs
-                ]
-            )
-            return SourceLightcurveBinnedInstrument(
-                source_id=source_id,
-                selection_strategy="instrument",
-                binning_strategy=binning_strategy,
-                start_time=start_time,
-                end_time=end_time,
-                lightcurves={f"{x.module} {x.frequency}": x for x in lightcurves},
-            )
-        else:
-            raise ValueError(f"Invalid strategy: {selection_strategy}")
+        with self.tracer.start_as_current_span(
+            "get_binned_source_lightcurve",
+            {
+                "source_id": str(source_id),
+                "selection_strategy": selection_strategy,
+                "binning_strategy": binning_strategy,
+                "start_time": start_time.isoformat(),
+                "end_time": end_time.isoformat(),
+            },
+        ) as span:
+            if selection_strategy == "frequency":
+                frequencies = await self.get_frequencies_for_source(source_id)
+                lightcurves = await asyncio.gather(
+                    *[
+                        self.get_binned_frequency_lightcurve(
+                            source_id,
+                            frequency,
+                            binning_strategy,
+                            start_time,
+                            end_time,
+                            limit=limit,
+                        )
+                        for frequency in frequencies
+                    ]
+                )
+                span.set_attribute("lcs:num_frequencies", len(frequencies))
+                return SourceLightcurveBinnedFrequency(
+                    source_id=source_id,
+                    selection_strategy="frequency",
+                    binning_strategy=binning_strategy,
+                    start_time=start_time,
+                    end_time=end_time,
+                    lightcurves={x.frequency: x for x in lightcurves},
+                )
+            elif selection_strategy == "instrument":
+                module_frequency_pairs = (
+                    await self.get_module_frequency_pairs_for_source(source_id)
+                )
+                lightcurves = await asyncio.gather(
+                    *[
+                        self.get_binned_instrument_lightcurve(
+                            source_id,
+                            module,
+                            frequency,
+                            binning_strategy,
+                            start_time,
+                            end_time,
+                            limit=limit,
+                        )
+                        for module, frequency in module_frequency_pairs
+                    ]
+                )
+                span.set_attribute("lcs:num_modules", len(module_frequency_pairs))
+                return SourceLightcurveBinnedInstrument(
+                    source_id=source_id,
+                    selection_strategy="instrument",
+                    binning_strategy=binning_strategy,
+                    start_time=start_time,
+                    end_time=end_time,
+                    lightcurves={f"{x.module} {x.frequency}": x for x in lightcurves},
+                )
+            else:
+                raise ValueError(f"Invalid strategy: {selection_strategy}")

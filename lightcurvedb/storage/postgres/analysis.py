@@ -6,6 +6,7 @@ import asyncio
 from datetime import datetime
 from uuid import UUID
 
+from opentelemetry import metrics, trace
 from psycopg.rows import class_row
 
 from lightcurvedb.models.statistics import SourceStatistics
@@ -22,9 +23,17 @@ class PostgresAnalysisProvider(ProvidesAnalysis):
         self,
         flux_storage: PostgresFluxMeasurementStorage,
         lightcurve_provider: PostgresLightcurveProvider,
+        tracer: trace.Tracer | None = None,
+        meter: metrics.Meter | None = None,
     ):
         self.flux_storage = flux_storage
         self.lightcurve_provider = lightcurve_provider
+        self.tracer = tracer or trace.get_tracer(
+            "lightcurvedb-postgres-analysis-provider"
+        )
+        self.meter = meter or metrics.get_meter(
+            "lightcurvedb-postgres-analysis-provider"
+        )
 
     async def get_source_statistics_for_frequency_and_module(
         self,
@@ -81,13 +90,25 @@ class PostgresAnalysisProvider(ProvidesAnalysis):
             WHERE {" AND ".join(where_clauses)}
         """
 
-        async with self.flux_storage.cursor(
-            row_factory=class_row(SourceStatistics)
-        ) as cur:
-            await cur.execute(query, params)
-            row = await cur.fetchone()
-            if row is None:
-                raise ValueError(f"No statistics found for source {source_id}")
+        with self.tracer.start_as_current_span(
+            "get_source_statistics_for_frequency_and_module",
+            {
+                "source_id": str(source_id),
+                "module": module,
+                "frequency": frequency,
+                "start_time": start_time,
+                "end_time": end_time,
+            },
+        ) as span:
+            async with self.flux_storage.cursor(
+                row_factory=class_row(SourceStatistics)
+            ) as cur:
+                await cur.execute(query, params)
+                row = await cur.fetchone()
+                if row is None:
+                    span.set_status(trace.Status(trace.StatusCode.ERROR))
+                    raise ValueError(f"No statistics found for source {source_id}")
+                span.set_status(trace.Status(trace.StatusCode.OK))
             return row
 
     async def get_source_statistics_for_frequency(
@@ -120,31 +141,43 @@ class PostgresAnalysisProvider(ProvidesAnalysis):
         Get source statistics across all frequencies and modules.
         """
 
-        module_frequency_pairs = (
-            await self.lightcurve_provider.get_module_frequency_pairs_for_source(
-                source_id=source_id
-            )
-        )
-
-        if collate_modules:
-            unique_frequencies = set(pair[1] for pair in module_frequency_pairs)
-            module_frequency_pairs = [("all", freq) for freq in unique_frequencies]
-
-        statistics = await asyncio.gather(
-            *[
-                self.get_source_statistics_for_frequency_and_module(
-                    source_id=source_id,
-                    module=module,
-                    frequency=frequency,
-                    start_time=start_time,
-                    end_time=end_time,
+        with self.tracer.start_as_current_span(
+            "get_source_statistics",
+            {
+                "source_id": str(source_id),
+                "collate_modules": collate_modules,
+                "start_time": start_time,
+                "end_time": end_time,
+            },
+        ) as span:
+            module_frequency_pairs = (
+                await self.lightcurve_provider.get_module_frequency_pairs_for_source(
+                    source_id=source_id
                 )
-                for module, frequency in module_frequency_pairs
-            ]
-        )
+            )
 
-        if collate_modules:
-            return {str(stats.frequency): stats for stats in statistics}
+            if collate_modules:
+                unique_frequencies = set(pair[1] for pair in module_frequency_pairs)
+                module_frequency_pairs = [("all", freq) for freq in unique_frequencies]
 
-        else:
-            return {f"{stats.module}_{stats.frequency}": stats for stats in statistics}
+            statistics = await asyncio.gather(
+                *[
+                    self.get_source_statistics_for_frequency_and_module(
+                        source_id=source_id,
+                        module=module,
+                        frequency=frequency,
+                        start_time=start_time,
+                        end_time=end_time,
+                    )
+                    for module, frequency in module_frequency_pairs
+                ]
+            )
+            span.set_attribute("lcs:num_statistics", len(statistics))
+
+            if collate_modules:
+                return {str(stats.frequency): stats for stats in statistics}
+
+            else:
+                return {
+                    f"{stats.module}_{stats.frequency}": stats for stats in statistics
+                }

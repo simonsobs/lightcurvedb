@@ -10,6 +10,7 @@ import datetime
 from typing import Literal
 from uuid import UUID
 
+from opentelemetry import metrics, trace
 from psycopg.rows import class_row
 
 from lightcurvedb.models.lightcurves import (
@@ -39,8 +40,13 @@ class TimescaleLightcurveProvider(PostgresLightcurveProvider):
     computing aggregates on-the-fly.
     """
 
-    def __init__(self, flux_storage: TimescaleFluxMeasurementStorage):
-        super().__init__(flux_storage=flux_storage)
+    def __init__(
+        self,
+        flux_storage: TimescaleFluxMeasurementStorage,
+        tracer: trace.Tracer | None = None,
+        meter: metrics.Meter | None = None,
+    ):
+        super().__init__(flux_storage=flux_storage, tracer=tracer, meter=meter)
 
     async def setup(self) -> None:
         """
@@ -99,28 +105,42 @@ class TimescaleLightcurveProvider(PostgresLightcurveProvider):
             ) AS binned
         """.format(view=view)
 
-        async with self.flux_storage.cursor(
-            row_factory=class_row(BinnedInstrumentLightcurve)
-        ) as cur:
-            await cur.execute(
-                query,
-                {
-                    "source_id": source_id,
-                    "module": module,
-                    "frequency": frequency,
-                    "binning_strategy": binning_strategy,
-                    "start_time": start_time,
-                    "end_time": end_time,
-                    "limit": limit,
-                },
-            )
-            row = await cur.fetchone()
-            if row is None:
-                raise ValueError(
-                    f"No binned instrument lightcurve found for source {source_id}, "
-                    f"module {module}, frequency {frequency}"
+        with self.tracer.start_as_current_span(
+            "get_binned_instrument_lightcurve",
+            {
+                "source_id": str(source_id),
+                "module": module,
+                "frequency": frequency,
+                "binning_strategy": binning_strategy,
+                "start_time": start_time,
+                "end_time": end_time,
+            },
+        ) as span:
+            async with self.flux_storage.cursor(
+                row_factory=class_row(BinnedInstrumentLightcurve)
+            ) as cur:
+                await cur.execute(
+                    query,
+                    {
+                        "source_id": source_id,
+                        "module": module,
+                        "frequency": frequency,
+                        "binning_strategy": binning_strategy,
+                        "start_time": start_time,
+                        "end_time": end_time,
+                        "limit": limit,
+                    },
                 )
-            return row
+                row = await cur.fetchone()
+                if row is None:
+                    span.set_status(trace.Status(trace.StatusCode.ERROR))
+                    raise ValueError(
+                        f"No binned instrument lightcurve found for source {source_id}, "
+                        f"module {module}, frequency {frequency}"
+                    )
+                span.set_status(trace.Status(trace.StatusCode.OK))
+                span.set_attribute("lcs:num_points", len(row.time))
+                return row
 
     async def get_binned_frequency_lightcurve(
         self,
@@ -169,24 +189,37 @@ class TimescaleLightcurveProvider(PostgresLightcurveProvider):
             ) AS binned
         """.format(view=view)
 
-        async with self.flux_storage.cursor(
-            row_factory=class_row(BinnedFrequencyLightcurve)
-        ) as cur:
-            await cur.execute(
-                query,
-                {
-                    "source_id": source_id,
-                    "frequency": frequency,
-                    "binning_strategy": binning_strategy,
-                    "start_time": start_time,
-                    "end_time": end_time,
-                    "limit": limit,
-                },
-            )
-            row = await cur.fetchone()
-            if row is None:
-                raise ValueError(
-                    f"No binned frequency lightcurve found for source {source_id}, "
-                    f"frequency {frequency}"
+        with self.tracer.start_as_current_span(
+            "get_binned_frequency_lightcurve",
+            {
+                "source_id": str(source_id),
+                "frequency": frequency,
+                "binning_strategy": binning_strategy,
+                "start_time": start_time,
+                "end_time": end_time,
+            },
+        ) as span:
+            async with self.flux_storage.cursor(
+                row_factory=class_row(BinnedFrequencyLightcurve)
+            ) as cur:
+                await cur.execute(
+                    query,
+                    {
+                        "source_id": source_id,
+                        "frequency": frequency,
+                        "binning_strategy": binning_strategy,
+                        "start_time": start_time,
+                        "end_time": end_time,
+                        "limit": limit,
+                    },
                 )
-            return row
+                row = await cur.fetchone()
+                if row is None:
+                    span.set_status(trace.Status(trace.StatusCode.ERROR))
+                    raise ValueError(
+                        f"No binned frequency lightcurve found for source {source_id}, "
+                        f"frequency {frequency}"
+                    )
+                span.set_status(trace.Status(trace.StatusCode.OK))
+                span.set_attribute("lcs:num_points", len(row.time))
+                return row

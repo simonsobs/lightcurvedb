@@ -20,7 +20,10 @@ from lightcurvedb.storage.postgres.schema import FLUX_INDEXES, FLUX_MEASUREMENTS
 from lightcurvedb.storage.prototype.flux import ProvidesFluxMeasurementStorage
 
 
-class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoolUser):
+class PostgresFluxMeasurementStorage(
+    PostgresPoolUser,
+    ProvidesFluxMeasurementStorage,
+):
     """
     PostgreSQL flux measurement storage with array aggregations.
     """
@@ -34,6 +37,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
         """
         Insert single measurement.
         """
+
         query = """
             INSERT INTO flux_measurements (
                 measurement_id, frequency, module, source_id, time, ra, dec,
@@ -47,17 +51,20 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
             )
             RETURNING measurement_id 
         """
-        params = measurement.model_dump()
+        with self.tracer.start_as_current_span("create_flux_measurement") as span:
+            span.set_attribute("flux.num_measurements", 1)
 
-        if params["extra"] is not None:
-            params["extra"] = json.dumps(params["extra"])
+            params = measurement.model_dump()
 
-        async with self.cursor() as cur:
-            await cur.execute(query, params)
-            row = await cur.fetchone()
-            if row is None:
-                raise ValueError("INSERT RETURNING measurement_id returned no row")
-            return row[0]
+            if params["extra"] is not None:
+                params["extra"] = json.dumps(params["extra"])
+
+            async with self.cursor() as cur:
+                await cur.execute(query, params)
+                row = await cur.fetchone()
+                if row is None:
+                    raise ValueError("INSERT RETURNING measurement_id returned no row")
+                return row[0]
 
     async def create_batch(
         self,
@@ -70,23 +77,32 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
         """
         bulk_insert_mode = bulk_insert_mode or settings.bulk_insert_mode
 
-        if bulk_insert_mode == "json":
-            return await self._insert_batch_data_copy_json(measurements)
-        elif bulk_insert_mode == "csv":
-            return await self._insert_batch_data_copy_csv(measurements)
-        else:
-            data = defaultdict(list)
+        with self.tracer.start_as_current_span(
+            "create_batch_flux_measurements"
+        ) as span:
+            span.set_attribute("flux.num_measurements", len(measurements))
+            span.set_attribute("flux.bulk_insert_mode", bulk_insert_mode)
 
-            for measurement in measurements:
-                measurement_dict = measurement.model_dump()
-                if measurement_dict.get("measurement_id", None) is None:
-                    measurement_dict["measurement_id"] = uuid7()
-                if measurement_dict["extra"] is not None:
-                    measurement_dict["extra"] = json.dumps(measurement_dict["extra"])
-                for key, value in measurement_dict.items():
-                    data[key].append(value)
+            if bulk_insert_mode == "json":
+                return await self._insert_batch_data_copy_json(measurements)
+            elif bulk_insert_mode == "csv":
+                return await self._insert_batch_data_copy_csv(measurements)
+            else:
+                with self.tracer.start_as_current_span("prepare_batch_data_for_unnest"):
+                    data = defaultdict(list)
 
-            return await self._insert_batch_data(data)
+                    for measurement in measurements:
+                        measurement_dict = measurement.model_dump()
+                        if measurement_dict.get("measurement_id", None) is None:
+                            measurement_dict["measurement_id"] = uuid7()
+                        if measurement_dict["extra"] is not None:
+                            measurement_dict["extra"] = json.dumps(
+                                measurement_dict["extra"]
+                            )
+                        for key, value in measurement_dict.items():
+                            data[key].append(value)
+
+                return await self._insert_batch_data(data)
 
     async def _insert_batch_data_copy_json(self, data: list[FluxMeasurement]) -> None:
         """
@@ -129,7 +145,14 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
         """
 
         async with self.cursor() as cur:
-            await cur.execute(query, {"payload": ta.dump_json(data).decode("utf-8")})
+            with self.tracer.start_as_current_span(
+                "prepare_batch_data_for_jsonb"
+            ) as span:
+                span.set_attribute("flux.num_measurements", len(data))
+                payload = ta.dump_json(data).decode("utf-8")
+                span.set_attribute("flux.payload_size_bytes", len(payload))
+
+            await cur.execute(query, {"payload": payload})
 
         return []
 
@@ -144,11 +167,16 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
                 )
                 FROM STDIN WITH (FORMAT CSV)
                 """) as copy:
-                copy_buffer = StringIO()
-                writer = csv.writer(copy_buffer)
-                for row in data:
-                    writer.writerow(row.model_dump_sub_as_json().values())
-                copy_buffer.seek(0)
+                with self.tracer.start_as_current_span(
+                    "prepare_batch_data_for_csv_copy"
+                ) as span:
+                    span.set_attribute("flux.num_measurements", len(data))
+                    copy_buffer = StringIO()
+                    writer = csv.writer(copy_buffer)
+                    for row in data:
+                        writer.writerow(row.model_dump_sub_as_json().values())
+                    span.set_attribute("flux.payload_size_bytes", copy_buffer.tell())
+                    copy_buffer.seek(0)
 
                 await copy.write(copy_buffer.read())
 
@@ -187,12 +215,21 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
 
         parquet_ingest_mode = parquet_ingest_mode or settings.parquet_ingest_mode
 
-        if parquet_ingest_mode == "duckdb":
-            return await self._ingest_dataframe_duckdb(parquet_bytes=parquet_bytes)
-        else:
-            return await self._ingest_dataframe_csv(parquet_bytes=parquet_bytes)
+        with self.tracer.start_as_current_span(
+            "ingest_flux_measurements_from_dataframe"
+        ) as span:
+            span.set_attribute("flux.parquet_ingest_mode", parquet_ingest_mode)
 
-    async def _ingest_dataframe_csv(self, parquet_bytes: BytesIO) -> None:
+            if parquet_ingest_mode == "duckdb":
+                res = await self._ingest_dataframe_duckdb(parquet_bytes=parquet_bytes)
+                span.set_attribute("flux.num_measurements", res)
+                return
+            else:
+                res = await self._ingest_dataframe_csv(parquet_bytes=parquet_bytes)
+                span.set_attribute("flux.num_measurements", res)
+                return
+
+    async def _ingest_dataframe_csv(self, parquet_bytes: BytesIO) -> int:
         """
         Bulk insert from a DataFrame, usually a transferred Parquet file.
         """
@@ -227,7 +264,9 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
                     # async write into COPY stream
                     await copy.write(sink.read())
 
-    async def _ingest_dataframe_duckdb(self, parquet_bytes: BytesIO) -> None:
+        return len(table)
+
+    async def _ingest_dataframe_duckdb(self, parquet_bytes: BytesIO) -> int:
         import duckdb
         import pyarrow.parquet as pq
 
@@ -255,6 +294,8 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
             SELECT * FROM temp_flux_measurements_source
         """)
 
+        return len(table)
+
     async def get(self, measurement_id: UUID) -> FluxMeasurement:
         """
         Get a flux measurement by ID.
@@ -265,18 +306,20 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
             WHERE measurement_id = %(measurement_id)s
         """
 
-        async with self.cursor(row_factory=class_row(FluxMeasurement)) as cur:
-            await cur.execute(query, {"measurement_id": measurement_id})
-            row = await cur.fetchone()
-            if row is None:
-                from lightcurvedb.models.exceptions import (
-                    FluxMeasurementNotFoundException,
-                )
+        with self.tracer.start_as_current_span("get_flux_measurement") as span:
+            span.set_attribute("flux.measurement_id", str(measurement_id))
+            async with self.cursor(row_factory=class_row(FluxMeasurement)) as cur:
+                await cur.execute(query, {"measurement_id": measurement_id})
+                row = await cur.fetchone()
+                if row is None:
+                    from lightcurvedb.models.exceptions import (
+                        FluxMeasurementNotFoundException,
+                    )
 
-                raise FluxMeasurementNotFoundException(
-                    f"FluxMeasurement {measurement_id} not found"
-                )
-            return row
+                    raise FluxMeasurementNotFoundException(
+                        f"FluxMeasurement {measurement_id} not found"
+                    )
+                return row
 
     async def delete(self, measurement_id: UUID) -> None:
         """
@@ -286,5 +329,7 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
             "DELETE FROM flux_measurements WHERE measurement_id = %(measurement_id)s"
         )
 
-        async with self.cursor() as cur:
-            await cur.execute(query, {"measurement_id": measurement_id})
+        with self.tracer.start_as_current_span("delete_flux_measurement") as span:
+            span.set_attribute("flux.measurement_id", str(measurement_id))
+            async with self.cursor() as cur:
+                await cur.execute(query, {"measurement_id": measurement_id})

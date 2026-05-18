@@ -39,14 +39,17 @@ class TimescaleFluxMeasurementStorage(PostgresFluxMeasurementStorage):
             RETURNING measurement_id 
         """
 
-        params = measurement.model_dump()
+        with self.tracer.start_as_current_span("create_flux_measurement") as span:
+            span.set_attribute("flux.num_measurements", 1)
 
-        if params["extra"] is not None:
-            params["extra"] = json.dumps(params["extra"])
+            params = measurement.model_dump()
 
-        async with self.cursor() as cur:
-            await cur.execute(query, params)
-            row = await cur.fetchone()
-            if row is None:
-                raise ValueError("INSERT RETURNING measurement_id returned no row")
-            return row[0]
+            if params["extra"] is not None:
+                params["extra"] = json.dumps(params["extra"])
+
+            async with self.cursor() as cur:
+                await cur.execute(query, params)
+                row = await cur.fetchone()
+                if row is None:
+                    raise ValueError("INSERT RETURNING measurement_id returned no row")
+                return row[0]

@@ -5,6 +5,7 @@ PostgreSQL storage backend.
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
+from opentelemetry import metrics, trace
 from psycopg_pool import AsyncConnectionPool
 
 from lightcurvedb.config import Settings
@@ -18,18 +19,25 @@ from lightcurvedb.storage.prototype.backend import Backend
 
 
 async def generate_postgres_backend(pool: AsyncConnectionPool) -> Backend:
-    fluxes = PostgresFluxMeasurementStorage(pool)
-    lightcurves = PostgresLightcurveProvider(flux_storage=fluxes)
+    tracer = trace.get_tracer("lightcurvedb-postgres-backend")
+    meter = metrics.get_meter("lightcurvedb-postgres-backend")
+
+    fluxes = PostgresFluxMeasurementStorage(pool, tracer=tracer, meter=meter)
+    lightcurves = PostgresLightcurveProvider(
+        flux_storage=fluxes, tracer=tracer, meter=meter
+    )
     analysis = PostgresAnalysisProvider(
         flux_storage=fluxes,
         lightcurve_provider=lightcurves,
+        tracer=tracer,
+        meter=meter,
     )
 
     backend = Backend(
-        sources=PostgresSourceStorage(pool),
-        instruments=PostgresInstrumentStorage(pool),
+        sources=PostgresSourceStorage(pool, tracer=tracer, meter=meter),
+        instruments=PostgresInstrumentStorage(pool, tracer=tracer, meter=meter),
         fluxes=fluxes,
-        cutouts=PostgresCutoutStorage(pool),
+        cutouts=PostgresCutoutStorage(pool, tracer=tracer, meter=meter),
         lightcurves=lightcurves,
         analysis=analysis,
     )
