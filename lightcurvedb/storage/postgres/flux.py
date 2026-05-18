@@ -74,21 +74,18 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
             return await self._insert_batch_data_copy_json(measurements)
         elif bulk_insert_mode == "csv":
             return await self._insert_batch_data_copy_csv(measurements)
-
-        data = defaultdict(list)
-
-        for measurement in measurements:
-            measurement_dict = measurement.model_dump()
-            if measurement_dict.get("measurement_id", None) is None:
-                measurement_dict["measurement_id"] = uuid7()
-            if measurement_dict["extra"] is not None:
-                measurement_dict["extra"] = json.dumps(measurement_dict["extra"])
-            for key, value in measurement_dict.items():
-                data[key].append(value)
-
-        if bulk_insert_mode == "csv":
-            return await self._insert_batch_data_copy_csv(data)
         else:
+            data = defaultdict(list)
+
+            for measurement in measurements:
+                measurement_dict = measurement.model_dump()
+                if measurement_dict.get("measurement_id", None) is None:
+                    measurement_dict["measurement_id"] = uuid7()
+                if measurement_dict["extra"] is not None:
+                    measurement_dict["extra"] = json.dumps(measurement_dict["extra"])
+                for key, value in measurement_dict.items():
+                    data[key].append(value)
+
             return await self._insert_batch_data(data)
 
     async def _insert_batch_data_copy_json(self, data: list[FluxMeasurement]) -> None:
@@ -129,7 +126,6 @@ class PostgresFluxMeasurementStorage(ProvidesFluxMeasurementStorage, PostgresPoo
                 flux_err real,
                 extra jsonb
             )
-            RETURNING measurement_id
         """
 
         async with self.cursor() as cur:
