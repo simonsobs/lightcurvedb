@@ -44,6 +44,14 @@ async def timescale_backend(settings: Settings) -> AsyncIterator[Backend]:
     """
     Get a TimescaleDB storage backend.
     """
+    try:
+        from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
+
+        PsycopgInstrumentor().instrument()
+    except ImportError:
+        pass
+
     async with AsyncConnectionPool(conninfo=settings.database_url) as pool:
         backend = await generate_timescale_backend(pool)
+
         yield backend

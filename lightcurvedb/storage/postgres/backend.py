@@ -44,6 +44,13 @@ async def postgres_backend(settings: Settings) -> AsyncIterator[Backend]:
     """
     Get a PostgreSQL storage backend.
     """
+    try:
+        from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
+
+        PsycopgInstrumentor().instrument()
+    except ImportError:
+        pass
+
     async with AsyncConnectionPool(conninfo=settings.database_url) as conn:
         backend = await generate_postgres_backend(conn)
         yield backend
