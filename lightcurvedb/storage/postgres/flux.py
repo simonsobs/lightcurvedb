@@ -84,7 +84,7 @@ class PostgresFluxMeasurementStorage(
             span.set_attribute("flux.bulk_insert_mode", bulk_insert_mode)
 
             if bulk_insert_mode == "json":
-                return await self._insert_batch_data_copy_json(measurements)
+                return await self._insert_batch_data_json(measurements)
             elif bulk_insert_mode == "csv":
                 return await self._insert_batch_data_copy_csv(measurements)
             else:
@@ -104,7 +104,7 @@ class PostgresFluxMeasurementStorage(
 
                 return await self._insert_batch_data(data)
 
-    async def _insert_batch_data_copy_json(self, data: list[FluxMeasurement]) -> None:
+    async def _insert_batch_data_json(self, data: list[FluxMeasurement]) -> None:
         """
         Bulk insert using JSONB payload + jsonb_to_recordset.
         """

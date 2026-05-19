@@ -39,6 +39,7 @@ class Settings(BaseSettings):
 
     backend_type: Literal["postgres", "timescale", "parquet"] = "postgres"
     bulk_insert_mode: Literal["unnest", "json", "csv"] = "csv"
+    bulk_insert_mode_cutouts: Literal["text", "json", "csv", "rowwise"] | None = "csv"
     parquet_ingest_mode: Literal["csv", "duckdb"] = "csv"
 
     model_config = SettingsConfigDict(env_prefix="LIGHTCURVEDB_")

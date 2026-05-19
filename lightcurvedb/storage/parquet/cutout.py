@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Literal
 from uuid import UUID
 
 import pandas as pd
@@ -74,7 +74,11 @@ class PandasCutoutStorage(ProvidesCutoutStorage):
 
         return cutout.measurement_id
 
-    async def create_batch(self, cutouts: list[Cutout]) -> list[int]:
+    async def create_batch(
+        self,
+        cutouts: list[Cutout],
+        bulk_insert_mode: Literal["text", "json", "csv", "rowwise"] | None = None,
+    ) -> None:
         """
         Store a cutout for a given source and band.
         """
@@ -91,7 +95,7 @@ class PandasCutoutStorage(ProvidesCutoutStorage):
                 new_table = pd.concat([table, new_table])
             await self._write_file(source_id, new_table)
 
-        return [cutout.measurement_id for cutout in cutouts if cutout.measurement_id]
+        return
 
     async def retrieve_cutouts_for_source(self, source_id: int) -> list[Cutout]:
         """
@@ -131,11 +135,11 @@ class PandasCutoutStorage(ProvidesCutoutStorage):
         row["measurement_id"] = measurement_id_str
         return Cutout.model_validate(row)
 
-    async def delete(self, cutout_id: int) -> None:
+    async def delete(self, measurement_id: int) -> None:
         """
         Delete a cutout by ID.
         """
-        cutout_id_str = str(cutout_id)
+        cutout_id_str = str(measurement_id)
         if not self.base_path.exists():
             return
 

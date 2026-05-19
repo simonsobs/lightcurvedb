@@ -63,3 +63,57 @@ async def test_cutout_write_and_delete(backend: Backend, setup_test_data):
         cutout.measurement_id != measurement_id
         for cutout in retrieved_cutouts_after_deletion
     )
+
+
+@pytest.mark.parametrize("bulk_insert_mode", ["text", "json", "csv", None])
+@pytest.mark.asyncio(loop_scope="session")
+async def test_cutout_bulk_write_and_delete(
+    backend: Backend, setup_test_data, bulk_insert_mode
+):
+    source_id = setup_test_data[1]
+
+    lightcurve = await backend.lightcurves.get_source_lightcurve(
+        source_id=source_id, selection_strategy="instrument"
+    )
+    fluxes = lightcurve.lightcurves.values()
+
+    lightcurve = next(iter(fluxes))
+
+    # Create 5 cutouts:
+    cutouts = [
+        Cutout(
+            source_id=source_id,
+            measurement_id=lightcurve[i].measurement_id,
+            time=lightcurve[i].time,
+            frequency=lightcurve[i].frequency,
+            module=lightcurve[i].module,
+            data=[[0.1, 0.2] * 16, [0.3, 0.4] * 16] * 16,
+            units="mJy",
+        )
+        for i in range(5)
+    ]
+
+    await backend.cutouts.create_batch(
+        cutouts=cutouts, bulk_insert_mode=bulk_insert_mode
+    )
+
+    # Retrieve the cutouts
+    retrieved_cutouts = await backend.cutouts.retrieve_cutouts_for_source(source_id)
+    retrieved_measurement_ids = set(
+        cutout.measurement_id for cutout in retrieved_cutouts
+    )
+    for cutout in cutouts:
+        assert cutout.measurement_id in retrieved_measurement_ids
+
+    # Delete the cutouts
+    for cutout in cutouts:
+        await backend.cutouts.delete(cutout.measurement_id)
+
+    # Verify deletion
+    retrieved_cutouts_after_deletion = (
+        await backend.cutouts.retrieve_cutouts_for_source(source_id)
+    )
+    assert all(
+        cutout.measurement_id not in retrieved_measurement_ids
+        for cutout in retrieved_cutouts_after_deletion
+    )

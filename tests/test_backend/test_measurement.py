@@ -9,6 +9,7 @@ import uuid
 import pytest
 from uuid_extensions import uuid7
 
+from lightcurvedb.models.cutout import Cutout
 from lightcurvedb.models.flux import FluxMeasurement
 from lightcurvedb.storage.prototype.backend import Backend
 
@@ -96,10 +97,27 @@ async def test_measurement_multi_add_and_delete(
         for _ in range(5)
     ]
 
+    cutouts = [
+        Cutout(
+            measurement_id=measurement.measurement_id,
+            source_id=measurement.source_id,
+            time=measurement.time,
+            frequency=measurement.frequency,
+            module=measurement.module,
+            data=[[0.1, 0.2], [0.3, 0.4]],
+            units="mJy",
+        )
+        for measurement in measurements
+    ]
+
     measurement_ids = set(x.measurement_id for x in measurements)
 
     await backend.fluxes.create_batch(
         measurements=measurements, bulk_insert_mode=bulk_insert_mode
+    )
+
+    await backend.cutouts.create_batch(
+        cutouts=cutouts, bulk_insert_mode=bulk_insert_mode
     )
 
     # Grab the lightcurve for this source and ensure that the measurement is there.
@@ -128,6 +146,7 @@ async def test_measurement_multi_add_and_delete(
         assert x == y, f"Expected {x} but got {y}"
 
     for measurement_id in measurement_ids:
+        await backend.cutouts.delete(measurement_id=measurement_id)
         await backend.fluxes.delete(measurement_id=measurement_id)
 
 

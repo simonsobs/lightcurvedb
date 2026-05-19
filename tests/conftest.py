@@ -129,6 +129,6 @@ async def setup_test_data(backend: Backend):
             continue
 
         cutouts = [sim_cutouts.create_cutout(nside=32, flux=flux) for flux in fluxes]
-        _ = await backend.cutouts.create_batch(cutouts)
+        _ = await backend.cutouts.create_batch(cutouts, bulk_insert_mode="json")
 
     yield source_ids

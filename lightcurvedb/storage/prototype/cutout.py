@@ -2,7 +2,7 @@
 Prototype for cutout storage interactions
 """
 
-from typing import Protocol
+from typing import Literal, Protocol
 from uuid import UUID
 
 from lightcurvedb.models import Cutout
@@ -21,7 +21,11 @@ class ProvidesCutoutStorage(Protocol):
         """
         ...
 
-    async def create_batch(self, cutouts: list[Cutout]) -> list[UUID]:
+    async def create_batch(
+        self,
+        cutouts: list[Cutout],
+        bulk_insert_mode: Literal["text", "json", "csv", "rowwise"] | None = None,
+    ) -> None:
         """
         Store a cutout for a given source and band.
         """
