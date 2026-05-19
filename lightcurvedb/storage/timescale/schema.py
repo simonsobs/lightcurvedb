@@ -38,7 +38,7 @@ CREATE INDEX IF NOT EXISTS idx_flux_measurements_measurement_id
 
 CUTOUT_SCHEMA = """
 CREATE TABLE IF NOT EXISTS cutouts (
-    measurement_id UUID,
+    measurement_id UUID PRIMARY KEY,
 
     source_id UUID REFERENCES sources(source_id),
 
@@ -49,8 +49,7 @@ CREATE TABLE IF NOT EXISTS cutouts (
     time TIMESTAMPTZ NOT NULL,
     units TEXT NOT NULL,
 
-    FOREIGN KEY (frequency, module) REFERENCES instruments(frequency, module),
-    PRIMARY KEY (source_id, frequency, module, time)
+    FOREIGN KEY (frequency, module) REFERENCES instruments(frequency, module)
 )
 """
 
@@ -58,7 +57,6 @@ CUTOUT_INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_cutouts_measurement_id
     ON cutouts (measurement_id);
 """
-
 
 # ---------------------------------------------------------------------------
 # Continuous aggregates for pre-computed binned lightcurves.
