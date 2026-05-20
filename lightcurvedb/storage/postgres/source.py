@@ -79,7 +79,7 @@ class PostgresSourceStorage(ProvidesSourceStorage, PostgresPoolUser):
         """
 
         with self.tracer.start_as_current_span("create_batch_sources") as span:
-            span.set_attribute("source.num_sources", sources)
+            span.set_attribute("source.num_sources", len(sources))
 
             data = defaultdict(list)
 
