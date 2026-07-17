@@ -24,7 +24,7 @@ class SourceMetadata(BaseModel):
     """
 
     cross_matches: list[CrossMatch] = PydanticField(default=[])
-    socat_id: int | None = None
+    socat_id: UUID | None = None
 
 
 class Source(BaseModel):
@@ -33,7 +33,7 @@ class Source(BaseModel):
     """
 
     source_id: UUID = Field(default_factory=uuid7)
-    socat_id: int | None = None
+    socat_id: UUID | None = None
     name: str | None = "No Name"
     ra: float | None
     dec: float | None
