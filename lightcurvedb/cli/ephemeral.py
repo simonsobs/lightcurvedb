@@ -5,7 +5,7 @@ For generating an ephemeral light curve server using testcontainers.
 import asyncio
 import os
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from time import sleep
 
 import tqdm
@@ -58,11 +58,15 @@ def core(
     number: int = 128,
     probability_of_flare: float = 0.8,
     generate_cutouts: bool = True,
+    unassigned_number: int = 8,
+    unassigned_measurements: int = 30,
+    unassigned_seed: int = 20260722,
 ):
     from lightcurvedb.config import Settings
     from lightcurvedb.models.instrument import Instrument
     from lightcurvedb.simulation.fluxes import generate_fluxes_fixed_source
     from lightcurvedb.simulation.sources import create_fixed_sources
+    from lightcurvedb.simulation.unassigned import create_unassigned_source_fixtures
 
     async def setup_and_simulate():
         async with Settings().backend as backend:
@@ -109,6 +113,21 @@ def core(
                 )
 
             logger.info(f"Generated flux measurements for {len(source_ids)} sources")
+
+            unassigned_source_ids = await create_unassigned_source_fixtures(
+                backend=backend,
+                instruments=bands,
+                start_time=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                cadence=timedelta(days=7),
+                measurements_per_source=unassigned_measurements,
+                source_count=unassigned_number,
+                seed=unassigned_seed,
+            )
+            logger.info(
+                "Created {} unassigned-source fixtures with {} measurements each",
+                len(unassigned_source_ids),
+                unassigned_measurements,
+            )
 
             # Generate cutouts for only the first source.
             if generate_cutouts and source_ids:
@@ -169,7 +188,25 @@ def main():
         "--number",
         type=int,
         default=128,
-        help="The number of sources to generate",
+        help="The number of canonical sources to generate",
+    )
+    parser.add_argument(
+        "--unassigned-number",
+        type=int,
+        default=8,
+        help="The number of unassigned-source fixtures to generate (minimum: 6)",
+    )
+    parser.add_argument(
+        "--unassigned-measurements",
+        type=int,
+        default=30,
+        help="The number of observation times to generate per unassigned source",
+    )
+    parser.add_argument(
+        "--unassigned-seed",
+        type=int,
+        default=20260722,
+        help="Seed used for deterministic unassigned-source fixtures",
     )
     parser.add_argument(
         "--keepalive",
@@ -179,6 +216,12 @@ def main():
 
     args = parser.parse_args()
 
-    with core(backend_type=args.backend, number=args.number) as _:
+    with core(
+        backend_type=args.backend,
+        number=args.number,
+        unassigned_number=args.unassigned_number,
+        unassigned_measurements=args.unassigned_measurements,
+        unassigned_seed=args.unassigned_seed,
+    ) as _:
         while args.keepalive:
             sleep(10)

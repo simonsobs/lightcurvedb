@@ -16,6 +16,9 @@ class UnassignedSourceMetadata(BaseModel):
     """
 
     flags: list[str] = PydanticField(default=[])
+    simulation_scenario: str | None = None
+    reference_name: str | None = None
+    simulation_seed: int | None = None
 
 
 class UnassignedSource(BaseModel):

@@ -15,6 +15,7 @@ class UnassignedMeasurementMetadata(MeasurementMetadata):
     """
 
     map_id: str | None = None
+    simulation_scenario: str | None = None
 
 
 class UnassignedFluxMeasurement(FluxMeasurement):
