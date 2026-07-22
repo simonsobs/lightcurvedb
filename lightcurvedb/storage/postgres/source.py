@@ -121,7 +121,7 @@ class PostgresSourceStorage(ProvidesSourceStorage, PostgresPoolUser):
 
                 return row
 
-    async def get_by_socat_id(self, socat_id: int) -> Source:
+    async def get_by_socat_id(self, socat_id: UUID) -> Source:
         """
         Get source by SOcat ID.
         """

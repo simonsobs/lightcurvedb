@@ -5,7 +5,7 @@ PostgreSQL schema for Flux Measurement Table
 SOURCES_TABLE = """
 CREATE TABLE IF NOT EXISTS sources (
     source_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    socat_id INTEGER UNIQUE,
+    socat_id UUID UNIQUE,
     name TEXT,
     ra DOUBLE PRECISION CHECK (ra IS NULL OR (ra >= -180 AND ra <= 180)),
     dec DOUBLE PRECISION CHECK (dec IS NULL OR (dec >= -90 AND dec <= 90)),

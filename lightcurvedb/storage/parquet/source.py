@@ -9,6 +9,21 @@ from lightcurvedb.models.exceptions import SourceNotFoundException
 from lightcurvedb.storage.prototype.source import ProvidesSourceStorage
 
 
+def _socat_id_to_str(socat_id: UUID | None) -> str | None:
+    """Parquet writers don't natively support UUIDs; store as strings,
+    same as source_id, but preserve None (socat_id is optional)."""
+    return str(socat_id) if socat_id is not None else None
+
+
+def _socat_id_from_value(value) -> UUID | None:
+    """Inverse of _socat_id_to_str -- pandas represents a missing value in
+    an otherwise-string column as NaN (float), not None, so check for that
+    explicitly rather than relying on `value is None`."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    return UUID(value)
+
+
 class PandasSourceStorage(ProvidesSourceStorage):
     def __init__(self, path: Path):
         self.path = path
@@ -38,6 +53,7 @@ class PandasSourceStorage(ProvidesSourceStorage):
         # Parquet writers don't natively support UUIDs.
         # Use strings, they're friendlier (though less compact) than bytes.
         new_table["source_id"] = new_table["source_id"].astype(str)
+        new_table["socat_id"] = new_table["socat_id"].map(_socat_id_to_str)
         new_table.set_index("source_id", inplace=True)
 
         if (table := await self._read_file()) is not None:
@@ -53,6 +69,7 @@ class PandasSourceStorage(ProvidesSourceStorage):
         """
         new_table = pd.DataFrame([s.model_dump() for s in sources])
         new_table["source_id"] = new_table["source_id"].astype(str)
+        new_table["socat_id"] = new_table["socat_id"].map(_socat_id_to_str)
         new_table.set_index("source_id", inplace=True)
 
         if (table := await self._read_file()) is not None:
@@ -76,22 +93,24 @@ class PandasSourceStorage(ProvidesSourceStorage):
 
         data = row.to_dict()
         data["source_id"] = str(source_id)
+        data["socat_id"] = _socat_id_from_value(data.get("socat_id"))
         return Source.model_validate(data)
 
-    async def get_by_socat_id(self, socat_id: int) -> Source:
+    async def get_by_socat_id(self, socat_id: UUID) -> Source:
         """
         Retrieve source details by SoCat ID.
         """
         if (table := await self._read_file()) is None:
             raise SourceNotFoundException("Table not found")
 
-        row = table.loc[table["socat_id"] == socat_id]
+        row = table.loc[table["socat_id"] == _socat_id_to_str(socat_id)]
 
         if row.empty:
             raise SourceNotFoundException(f"Source with SoCat ID {socat_id} not found")
 
         data = row.iloc[0].to_dict()
         data["source_id"] = str(row.index[0])
+        data["socat_id"] = _socat_id_from_value(data.get("socat_id"))
         return Source.model_validate(data)
 
     async def get_all(self) -> list[Source]:
@@ -105,6 +124,7 @@ class PandasSourceStorage(ProvidesSourceStorage):
         for source_id, row in table.iterrows():
             data = row.to_dict()
             data["source_id"] = str(source_id)
+            data["socat_id"] = _socat_id_from_value(data.get("socat_id"))
             sources.append(Source.model_validate(data))
         return sources
 
@@ -142,5 +162,6 @@ class PandasSourceStorage(ProvidesSourceStorage):
         for source_id, row in in_bounds.iterrows():
             data = row.to_dict()
             data["source_id"] = str(source_id)
+            data["socat_id"] = _socat_id_from_value(data.get("socat_id"))
             sources.append(Source.model_validate(data))
         return sources
