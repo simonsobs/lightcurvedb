@@ -15,6 +15,12 @@ from lightcurvedb.storage.postgres.flux import PostgresFluxMeasurementStorage
 from lightcurvedb.storage.postgres.instrument import PostgresInstrumentStorage
 from lightcurvedb.storage.postgres.lightcurves import PostgresLightcurveProvider
 from lightcurvedb.storage.postgres.source import PostgresSourceStorage
+from lightcurvedb.storage.postgres.unassigned_flux import (
+    PostgresUnassignedFluxMeasurementStorage,
+)
+from lightcurvedb.storage.postgres.unassigned_source import (
+    PostgresUnassignedSourceStorage,
+)
 from lightcurvedb.storage.prototype.backend import Backend
 
 
@@ -40,6 +46,12 @@ async def generate_postgres_backend(pool: AsyncConnectionPool) -> Backend:
         cutouts=PostgresCutoutStorage(pool, tracer=tracer, meter=meter),
         lightcurves=lightcurves,
         analysis=analysis,
+        unassigned_sources=PostgresUnassignedSourceStorage(
+            pool, tracer=tracer, meter=meter
+        ),
+        unassigned_fluxes=PostgresUnassignedFluxMeasurementStorage(
+            pool, tracer=tracer, meter=meter
+        ),
     )
 
     await backend.setup()

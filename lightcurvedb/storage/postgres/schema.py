@@ -62,6 +62,56 @@ CREATE INDEX IF NOT EXISTS idx_flux_time
     ON flux_measurements (time DESC);
 """
 
+UNASSIGNED_SOURCES_TABLE = """
+CREATE TABLE IF NOT EXISTS unassigned_sources (
+    source_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ra DOUBLE PRECISION NOT NULL CHECK (ra >= -180 AND ra <= 180),
+    dec DOUBLE PRECISION NOT NULL CHECK (dec >= -90 AND dec <= 90),
+    first_seen TIMESTAMPTZ NOT NULL,
+    last_seen TIMESTAMPTZ NOT NULL,
+    status TEXT NOT NULL DEFAULT 'unmatched' CHECK (
+        status IN ('unmatched', 'merged', 'external_match', 'novel', 'noise')
+    ),
+    version INTEGER NOT NULL DEFAULT 1 CHECK (version > 0),
+    extra JSONB
+);
+
+CREATE INDEX IF NOT EXISTS idx_unassigned_sources_status
+    ON unassigned_sources (status, last_seen DESC);
+
+CREATE INDEX IF NOT EXISTS idx_unassigned_sources_position
+    ON unassigned_sources (ra, dec);
+"""
+
+UNASSIGNED_FLUX_MEASUREMENTS_TABLE = """
+CREATE TABLE IF NOT EXISTS unassigned_flux_measurements (
+    measurement_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    frequency INTEGER NOT NULL,
+    module TEXT NOT NULL,
+
+    source_id UUID NOT NULL REFERENCES unassigned_sources(source_id),
+    time TIMESTAMPTZ NOT NULL,
+
+    ra REAL NOT NULL CHECK (ra >= -180 AND ra <= 180),
+    dec REAL NOT NULL CHECK (dec >= -90 AND dec <= 90),
+    ra_uncertainty REAL,
+    dec_uncertainty REAL,
+
+    flux REAL NOT NULL,
+    flux_err REAL,
+    extra JSONB,
+
+    FOREIGN KEY (frequency, module) REFERENCES instruments(frequency, module)
+);
+
+CREATE INDEX IF NOT EXISTS idx_unassigned_flux_source_id
+    ON unassigned_flux_measurements (source_id);
+
+CREATE INDEX IF NOT EXISTS idx_unassigned_flux_time
+    ON unassigned_flux_measurements (time DESC);
+"""
+
 CUTOUT_SCHEMA = """
 CREATE TABLE IF NOT EXISTS cutouts (
     measurement_id UUID PRIMARY KEY REFERENCES flux_measurements(measurement_id),

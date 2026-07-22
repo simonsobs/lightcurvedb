@@ -21,3 +21,11 @@ class CutoutNotFoundException(StorageException):
 
 class FluxMeasurementNotFoundException(StorageException):
     pass
+
+
+class UnassignedSourceNotFoundException(StorageException):
+    pass
+
+
+class UnassignedFluxMeasurementNotFoundException(StorageException):
+    pass

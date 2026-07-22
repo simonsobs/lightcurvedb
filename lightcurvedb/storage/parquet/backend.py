@@ -9,6 +9,12 @@ from lightcurvedb.storage.parquet.flux import PandasFluxMeasurementStorage
 from lightcurvedb.storage.parquet.instrument import PandasInstrumentStorage
 from lightcurvedb.storage.parquet.lightcurves import PandasLightcurves
 from lightcurvedb.storage.parquet.source import PandasSourceStorage
+from lightcurvedb.storage.parquet.unassigned_flux import (
+    PandasUnassignedFluxMeasurementStorage,
+)
+from lightcurvedb.storage.parquet.unassigned_source import (
+    PandasUnassignedSourceStorage,
+)
 from lightcurvedb.storage.prototype.backend import Backend
 
 
@@ -19,6 +25,12 @@ async def generate_pandas_backend(directory: Path) -> Backend:
     cutouts = PandasCutoutStorage(directory / "cutouts.parquet")
     lightcurves = PandasLightcurves(flux_storage=fluxes)
     analysis = PandasAnalysis(flux_storage=fluxes)
+    unassigned_sources = PandasUnassignedSourceStorage(
+        directory / "unassigned_sources.parquet"
+    )
+    unassigned_fluxes = PandasUnassignedFluxMeasurementStorage(
+        directory / "unassigned_fluxes.parquet"
+    )
 
     backend = Backend(
         sources=sources,
@@ -27,6 +39,8 @@ async def generate_pandas_backend(directory: Path) -> Backend:
         cutouts=cutouts,
         lightcurves=lightcurves,
         analysis=analysis,
+        unassigned_sources=unassigned_sources,
+        unassigned_fluxes=unassigned_fluxes,
     )
 
     await backend.setup()

@@ -36,6 +36,43 @@ CREATE INDEX IF NOT EXISTS idx_flux_measurements_measurement_id
     ON flux_measurements (measurement_id);
 """
 
+UNASSIGNED_FLUX_MEASUREMENTS_TABLE = """
+CREATE TABLE IF NOT EXISTS unassigned_flux_measurements (
+    measurement_id UUID NOT NULL DEFAULT gen_random_uuid(),
+
+    frequency INTEGER NOT NULL,
+    module TEXT NOT NULL,
+
+    source_id UUID NOT NULL REFERENCES unassigned_sources(source_id),
+    time TIMESTAMPTZ NOT NULL,
+
+    ra REAL NOT NULL CHECK (ra >= -180 AND ra <= 180),
+    dec REAL NOT NULL CHECK (dec >= -90 AND dec <= 90),
+    ra_uncertainty REAL,
+    dec_uncertainty REAL,
+
+    flux REAL NOT NULL,
+    flux_err REAL,
+    extra JSONB,
+
+    FOREIGN KEY (frequency, module) REFERENCES instruments(frequency, module),
+    PRIMARY KEY (time, source_id, frequency, module)
+) with (
+  timescaledb.hypertable,
+  timescaledb.compress = 'true',
+  timescaledb.compress_segmentby = 'source_id',
+  timescaledb.compress_orderby = 'time DESC'
+);
+"""
+
+UNASSIGNED_FLUX_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_unassigned_flux_measurements_time_source_id
+    ON unassigned_flux_measurements (time DESC, source_id);
+
+CREATE INDEX IF NOT EXISTS idx_unassigned_flux_measurements_measurement_id
+    ON unassigned_flux_measurements (measurement_id);
+"""
+
 CUTOUT_SCHEMA = """
 CREATE TABLE IF NOT EXISTS cutouts (
     measurement_id UUID PRIMARY KEY,
