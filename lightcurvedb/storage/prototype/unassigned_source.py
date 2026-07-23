@@ -32,6 +32,18 @@ class ProvidesUnassignedSourceStorage(Protocol):
         """
         ...
 
+    async def get_in_radius(
+        self,
+        *,
+        ra: float,
+        dec: float,
+        radius_arcmin: float,
+        status: Literal["unmatched", "merged", "external_match", "novel", "noise"]
+        | None = None,
+    ) -> list[UnassignedSource]:
+        """Retrieve sources within an ICRS great-circle radius."""
+        ...
+
     async def delete(self, source_id: UUID) -> None:
         """
         Delete an unassigned source by ID.

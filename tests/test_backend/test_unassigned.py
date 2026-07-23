@@ -60,3 +60,37 @@ async def test_unassigned_source_and_measurements(backend):
 
     await backend.unassigned_fluxes.delete(measurement_id)
     await backend.unassigned_sources.delete(source_id)
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_unassigned_sources_in_radius_are_status_filtered_and_ordered(backend):
+    now = datetime.now(timezone.utc)
+    centre = UnassignedSource(
+        source_id=uuid4(),
+        ra=179.9,
+        dec=0.0,
+        first_seen=now,
+        last_seen=now,
+    )
+    nearby = centre.model_copy(update={"source_id": uuid4(), "ra": -180.0})
+    far = centre.model_copy(update={"source_id": uuid4(), "ra": -179.7})
+    inactive = centre.model_copy(
+        update={"source_id": uuid4(), "ra": 179.95, "status": "noise"}
+    )
+    for source in (centre, nearby, far, inactive):
+        await backend.unassigned_sources.create(source)
+
+    matches = await backend.unassigned_sources.get_in_radius(
+        ra=centre.ra,
+        dec=centre.dec,
+        radius_arcmin=10.0,
+        status="unmatched",
+    )
+
+    assert [source.source_id for source in matches] == [
+        centre.source_id,
+        nearby.source_id,
+    ]
+
+    for source in (centre, nearby, far, inactive):
+        await backend.unassigned_sources.delete(source.source_id)

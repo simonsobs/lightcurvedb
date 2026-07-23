@@ -6,7 +6,9 @@ from pathlib import Path
 from typing import Literal
 from uuid import UUID
 
+import astropy.units as u
 import pandas as pd
+from astropy.coordinates import SkyCoord
 from asyncer import asyncify
 
 from lightcurvedb.models import UnassignedSource
@@ -95,6 +97,27 @@ class PandasUnassignedSourceStorage(ProvidesUnassignedSourceStorage):
             data["source_id"] = str(source_id)
             sources.append(UnassignedSource.model_validate(data))
         return sources
+
+    async def get_in_radius(
+        self,
+        *,
+        ra: float,
+        dec: float,
+        radius_arcmin: float,
+        status: Literal["unmatched", "merged", "external_match", "novel", "noise"]
+        | None = None,
+    ) -> list[UnassignedSource]:
+        """Filter the Parquet source table with great-circle separations."""
+        centre = SkyCoord(ra=ra % 360.0 * u.deg, dec=dec * u.deg, frame="icrs")
+        matches = []
+        for source in await self.get_all(status=status):
+            coordinate = SkyCoord(
+                ra=source.ra % 360.0 * u.deg, dec=source.dec * u.deg, frame="icrs"
+            )
+            separation = float(centre.separation(coordinate).to_value(u.arcmin))
+            if separation <= radius_arcmin:
+                matches.append((separation, source))
+        return [source for _, source in sorted(matches, key=lambda match: match[0])]
 
     async def delete(self, source_id: UUID) -> None:
         """

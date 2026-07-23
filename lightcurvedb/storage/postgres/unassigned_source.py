@@ -104,6 +104,46 @@ class PostgresUnassignedSourceStorage(
                 await cur.execute(query, params)
                 return await cur.fetchall()
 
+    async def get_in_radius(
+        self,
+        *,
+        ra: float,
+        dec: float,
+        radius_arcmin: float,
+        status: Literal["unmatched", "merged", "external_match", "novel", "noise"]
+        | None = None,
+    ) -> list[UnassignedSource]:
+        """Retrieve sources in an ICRS great-circle cone ordered by separation."""
+        query = """
+            WITH positioned_sources AS (
+                SELECT
+                    source_id, ra, dec, first_seen, last_seen, status, version, extra,
+                    degrees(2 * asin(least(1.0, sqrt(
+                        power(sin(radians((dec - %(dec)s) / 2)), 2)
+                        + cos(radians(%(dec)s)) * cos(radians(dec))
+                        * power(sin(radians((ra - %(ra)s) / 2)), 2)
+                    )))) * 60.0 AS separation_arcmin
+                FROM unassigned_sources
+            )
+            SELECT source_id, ra, dec, first_seen, last_seen, status, version, extra
+            FROM positioned_sources
+            WHERE separation_arcmin <= %(radius_arcmin)s
+        """
+        params = {
+            "ra": ra % 360.0,
+            "dec": dec,
+            "radius_arcmin": radius_arcmin,
+        }
+        if status is not None:
+            query += " AND status = %(status)s"
+            params["status"] = status
+        query += " ORDER BY separation_arcmin, source_id"
+
+        with self.tracer.start_as_current_span("get_unassigned_sources_in_radius"):
+            async with self.cursor(row_factory=class_row(UnassignedSource)) as cur:
+                await cur.execute(query, params)
+                return await cur.fetchall()
+
     async def delete(self, source_id: UUID) -> None:
         """
         Delete an unassigned source by ID.
