@@ -98,7 +98,7 @@ async def setup_test_data(backend: Backend):
                 "comissioning_date": "2023-05-14",
             },
         )
-        for band_frequency in [27, 39, 93, 145, 225, 280]
+        for band_frequency in [30, 40, 90, 150, 220, 280]
     ]
     await backend.instruments.create_batch(test_instruments)
 
@@ -120,7 +120,7 @@ async def setup_test_data(backend: Backend):
         )
 
     # Generate cutouts for only the first source.
-    for frequency in [27, 39, 93, 145, 225, 280]:
+    for frequency in [30, 40, 90, 150, 220, 280]:
         fluxes = await backend.lightcurves.get_frequency_lightcurve(
             source_id=source_ids[0], frequency=frequency, limit=1024
         )
