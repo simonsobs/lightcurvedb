@@ -15,6 +15,7 @@ from asyncer import asyncify
 from lightcurvedb.models import (
     CandidateReviewConflictError,
     FluxMeasurement,
+    Source,
     UnassignedSource,
 )
 from lightcurvedb.models.exceptions import UnassignedSourceNotFoundException
@@ -209,8 +210,21 @@ class PandasUnassignedSourceStorage(ProvidesUnassignedSourceStorage):
             command.expected_version,
         )
 
-        if command.canonical_source_id is not None:
-            await self.sources.get(command.canonical_source_id)
+        canonical_source_id = None
+
+        if command.outcome != "noise":
+            source_name = command.novel_name or (
+                command.external_evidence.identifier
+                if command.external_evidence is not None
+                else None
+            )
+            canonical_source = Source(
+                name=source_name,
+                ra=source.ra,
+                dec=source.dec,
+            )
+            await self.sources.create(canonical_source)
+            canonical_source_id = canonical_source.source_id
 
             measurements = await self.unassigned_fluxes.get_for_source(source.source_id)
 
@@ -220,7 +234,7 @@ class PandasUnassignedSourceStorage(ProvidesUnassignedSourceStorage):
                         FluxMeasurement.model_validate(
                             {
                                 **measurement.model_dump(),
-                                "source_id": command.canonical_source_id,
+                                "source_id": canonical_source_id,
                             }
                         )
                         for measurement in measurements
@@ -234,7 +248,10 @@ class PandasUnassignedSourceStorage(ProvidesUnassignedSourceStorage):
                     "version": source.version + 1,
                     "reviewed_by": command.reviewer,
                     "reviewed_at": datetime.now(UTC),
-                    "review_metadata": decision_metadata(command),
+                    "review_metadata": decision_metadata(
+                        command,
+                        canonical_source_id=canonical_source_id,
+                    ),
                 }
             )
         )
@@ -242,7 +259,7 @@ class PandasUnassignedSourceStorage(ProvidesUnassignedSourceStorage):
         return CandidateReviewDecision(
             source_id=source.source_id,
             outcome=command.outcome,
-            canonical_source_id=command.canonical_source_id,
+            canonical_source_id=canonical_source_id,
         )
 
     @staticmethod

@@ -28,6 +28,17 @@ class PostgresSourceStorage(ProvidesSourceStorage, PostgresPoolUser):
         Create a source.
         """
 
+        with self.tracer.start_as_current_span("create_source") as span:
+            span.set_attribute("source.source_id", source.source_id)
+
+            async with self.cursor() as cur:
+                return await self.create_with_cursor(cur, source)
+
+    async def create_with_cursor(self, cursor, source: Source) -> UUID:
+        """
+        Create a source using an existing transaction cursor.
+        """
+
         query = """
             INSERT INTO sources (
                 source_id, socat_id, name, ra, dec, variable, extra
@@ -44,21 +55,19 @@ class PostgresSourceStorage(ProvidesSourceStorage, PostgresPoolUser):
             RETURNING source_id
         """
 
-        with self.tracer.start_as_current_span("create_source") as span:
-            span.set_attribute("source.source_id", source.source_id)
+        params = source.model_dump()
 
-            params = source.model_dump()
+        if params["extra"] is not None:
+            params["extra"] = json.dumps(params["extra"])
 
-            if params["extra"] is not None:
-                params["extra"] = json.dumps(params["extra"])
+        await cursor.execute(query, params)
+        row = await cursor.fetchone()
 
-            async with self.cursor() as cur:
-                await cur.execute(query, params)
-                row = await cur.fetchone()
-
-            if row is None:
-                raise ValueError("INSERT RETURNING source_id returned no row")
-            return row[0]
+        if row is None:
+            raise ValueError("INSERT RETURNING source_id returned no row")
+        if isinstance(row, dict):
+            return row["source_id"]
+        return row[0]
 
     async def create_batch(self, sources: list[Source]) -> list[UUID]:
         """

@@ -6,9 +6,11 @@ import json
 from typing import Literal
 from uuid import UUID
 
+from opentelemetry import metrics, trace
 from psycopg.rows import class_row, dict_row
+from psycopg_pool import AsyncConnectionPool
 
-from lightcurvedb.models import CandidateReviewConflictError, UnassignedSource
+from lightcurvedb.models import CandidateReviewConflictError, Source, UnassignedSource
 from lightcurvedb.models.exceptions import UnassignedSourceNotFoundException
 from lightcurvedb.models.review import (
     CandidateDecisionCommand,
@@ -21,6 +23,7 @@ from lightcurvedb.storage.postgres.pooler import PostgresPoolUser
 from lightcurvedb.storage.postgres.schema import (
     UNASSIGNED_SOURCES_TABLE,
 )
+from lightcurvedb.storage.postgres.source import PostgresSourceStorage
 from lightcurvedb.storage.prototype.unassigned_source import (
     ProvidesUnassignedSourceStorage,
 )
@@ -32,6 +35,17 @@ class PostgresUnassignedSourceStorage(
     """
     PostgreSQL storage for sources awaiting cross-match review.
     """
+
+    def __init__(
+        self,
+        pool: AsyncConnectionPool,
+        *,
+        sources: PostgresSourceStorage,
+        tracer: trace.Tracer | None = None,
+        meter: metrics.Meter | None = None,
+    ) -> None:
+        PostgresPoolUser.__init__(self, pool, tracer=tracer, meter=meter)
+        self.sources = sources
 
     async def setup(self) -> None:
         async with self.cursor() as cur:
@@ -244,16 +258,10 @@ class PostgresUnassignedSourceStorage(
         Record one terminal source decision in a single transaction.
         """
         locked_source_query = """
-            SELECT source_id, status, version
+            SELECT source_id, ra, dec, status, version
             FROM unassigned_sources
             WHERE source_id = %(source_id)s
             FOR UPDATE
-        """
-        canonical_source_query = """
-            SELECT source_id
-            FROM sources
-            WHERE source_id = %(source_id)s
-            FOR KEY SHARE
         """
         materialize_measurements_query = """
             INSERT INTO flux_measurements (
@@ -278,6 +286,8 @@ class PostgresUnassignedSourceStorage(
             span.set_attribute("unassigned_source.source_id", str(command.source_id))
             span.set_attribute("unassigned_source.outcome", command.outcome)
 
+            canonical_source_id = None
+
             async with self.pool.connection() as connection:
                 async with connection.transaction():
                     async with connection.cursor(row_factory=dict_row) as cursor:
@@ -298,22 +308,26 @@ class PostgresUnassignedSourceStorage(
                             command.expected_version,
                         )
 
-                        if command.canonical_source_id is not None:
-                            await cursor.execute(
-                                canonical_source_query,
-                                {"source_id": command.canonical_source_id},
+                        if command.outcome != "noise":
+                            source_name = command.novel_name or (
+                                command.external_evidence.identifier
+                                if command.external_evidence is not None
+                                else None
                             )
-
-                            if await cursor.fetchone() is None:
-                                raise CandidateReviewConflictError(
-                                    "Canonical source no longer exists"
-                                )
+                            canonical_source_id = await self.sources.create_with_cursor(
+                                cursor,
+                                Source(
+                                    name=source_name,
+                                    ra=source["ra"],
+                                    dec=source["dec"],
+                                ),
+                            )
 
                             await cursor.execute(
                                 materialize_measurements_query,
                                 {
                                     "source_id": command.source_id,
-                                    "canonical_source_id": command.canonical_source_id,
+                                    "canonical_source_id": canonical_source_id,
                                 },
                             )
 
@@ -323,14 +337,19 @@ class PostgresUnassignedSourceStorage(
                                 "source_id": command.source_id,
                                 "outcome": command.outcome,
                                 "reviewer": command.reviewer,
-                                "review_metadata": json.dumps(decision_metadata(command)),
+                                "review_metadata": json.dumps(
+                                    decision_metadata(
+                                        command,
+                                        canonical_source_id=canonical_source_id,
+                                    )
+                                ),
                             },
                         )
 
         return CandidateReviewDecision(
             source_id=command.source_id,
             outcome=command.outcome,
-            canonical_source_id=command.canonical_source_id,
+            canonical_source_id=canonical_source_id,
         )
 
     @staticmethod

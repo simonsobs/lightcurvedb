@@ -34,7 +34,7 @@ class CandidateDecisionCommand(BaseModel):
     outcome: ReviewOutcome
     reviewer: str = Field(min_length=1, max_length=256)
     external_evidence: ExternalMatchEvidence | None = None
-    canonical_source_id: UUID | None = None
+    novel_name: str | None = Field(default=None, min_length=1, max_length=256)
 
     @model_validator(mode="after")
     def validate_outcome(self) -> "CandidateDecisionCommand":
@@ -42,18 +42,18 @@ class CandidateDecisionCommand(BaseModel):
             if self.external_evidence is None:
                 raise ValueError("External matches require catalogue evidence")
 
-            if self.canonical_source_id is None:
-                raise ValueError("Accepted decisions require a canonical source")
+            if self.novel_name is not None:
+                raise ValueError("External matches cannot include a novel source name")
 
         elif self.outcome == "novel":
             if self.external_evidence is not None:
                 raise ValueError("Novel decisions cannot include catalogue evidence")
 
-            if self.canonical_source_id is None:
-                raise ValueError("Accepted decisions require a canonical source")
+            if self.novel_name is None:
+                raise ValueError("Novel decisions require a source name")
 
-        elif self.external_evidence is not None or self.canonical_source_id is not None:
-            raise ValueError("Noise decisions cannot include canonical-source data")
+        elif self.external_evidence is not None or self.novel_name is not None:
+            raise ValueError("Noise decisions cannot include source data")
 
         return self
 
@@ -89,14 +89,16 @@ class CandidateMerge(BaseModel):
     target_source_id: UUID
 
 
-def decision_metadata(command: CandidateDecisionCommand) -> dict[str, Any]:
+def decision_metadata(
+    command: CandidateDecisionCommand, *, canonical_source_id: UUID | None
+) -> dict[str, Any]:
     """
     Serialize the accepted-decision context stored with an unassigned source.
     """
     metadata: dict[str, Any] = {}
 
-    if command.canonical_source_id is not None:
-        metadata["canonical_source_id"] = str(command.canonical_source_id)
+    if canonical_source_id is not None:
+        metadata["canonical_source_id"] = str(canonical_source_id)
 
     if command.external_evidence is not None:
         metadata["external_evidence"] = command.external_evidence.model_dump(

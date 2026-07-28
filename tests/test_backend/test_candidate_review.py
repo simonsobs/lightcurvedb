@@ -7,7 +7,6 @@ import pytest
 
 from lightcurvedb.models import (
     CandidateReviewConflictError,
-    Source,
     UnassignedFluxMeasurement,
     UnassignedSource,
 )
@@ -111,20 +110,13 @@ async def test_terminal_decisions_materialize_directly_and_retain_metadata(backe
         now=now + timedelta(days=1),
         instrument=instrument,
     )
-    canonical_source = Source(
-        socat_id=uuid4(),
-        name="CrossMatcher test source",
-        ra=source.ra,
-        dec=source.dec,
-    )
-    await backend.sources.create(canonical_source)
     accepted = await backend.unassigned_sources.decide(
         CandidateDecisionCommand(
             source_id=source.source_id,
             expected_version=1,
             outcome="novel",
             reviewer="test-reviewer",
-            canonical_source_id=canonical_source.source_id,
+            novel_name="CrossMatcher test source",
         )
     )
 
@@ -136,9 +128,10 @@ async def test_terminal_decisions_materialize_directly_and_retain_metadata(backe
     assert reviewed_source.status == "novel"
     assert reviewed_source.reviewed_by == "test-reviewer"
     assert reviewed_source.review_metadata["canonical_source_id"] == str(
-        canonical_source.source_id
+        accepted.canonical_source_id
     )
-    assert accepted.canonical_source_id == canonical_source.source_id
+    canonical_source = await backend.sources.get(accepted.canonical_source_id)
+    assert canonical_source.name == "CrossMatcher test source"
     canonical_measurement = await backend.fluxes.get(measurement.measurement_id)
     assert canonical_measurement.source_id == canonical_source.source_id
 
@@ -153,13 +146,7 @@ async def test_terminal_decision_allows_an_empty_candidate(backend):
         first_seen=now,
         last_seen=now,
     )
-    canonical_source = Source(
-        name="Empty candidate target",
-        ra=source.ra,
-        dec=source.dec,
-    )
     await backend.unassigned_sources.create(source)
-    await backend.sources.create(canonical_source)
 
     decision = await backend.unassigned_sources.decide(
         CandidateDecisionCommand(
@@ -167,9 +154,9 @@ async def test_terminal_decision_allows_an_empty_candidate(backend):
             expected_version=1,
             outcome="novel",
             reviewer="test-reviewer",
-            canonical_source_id=canonical_source.source_id,
+            novel_name="Empty candidate target",
         )
     )
 
-    assert decision.canonical_source_id == canonical_source.source_id
+    assert decision.canonical_source_id is not None
     assert (await backend.unassigned_sources.get(source.source_id)).status == "novel"

@@ -51,7 +51,10 @@ async def generate_timescale_backend(pool: AsyncConnectionPool) -> Backend:
         lightcurves=lightcurves,
         analysis=analysis,
         unassigned_sources=PostgresUnassignedSourceStorage(
-            pool, tracer=tracer, meter=meter
+            pool,
+            sources=sources,
+            tracer=tracer,
+            meter=meter,
         ),
         unassigned_fluxes=unassigned_fluxes,
     )
