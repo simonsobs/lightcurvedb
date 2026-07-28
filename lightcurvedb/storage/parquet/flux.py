@@ -11,6 +11,7 @@ from asyncer import asyncify
 from typing_extensions import Literal
 from uuid_extensions import uuid7
 
+from lightcurvedb.models.exceptions import FluxMeasurementNotFoundException
 from lightcurvedb.models.flux import FluxMeasurement
 from lightcurvedb.storage.prototype.flux import ProvidesFluxMeasurementStorage
 
@@ -88,6 +89,31 @@ class PandasFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
         await self._write_file(measurement.source_id, new_table)
 
         return UUID(new_id)
+
+    async def get(self, measurement_id: UUID) -> FluxMeasurement:
+        """
+        Retrieve one measurement by scanning the per-source local files.
+        """
+        measurement_id = str(measurement_id)
+
+        if not self.base_path.exists():
+            raise FluxMeasurementNotFoundException("Measurement table not found")
+
+        for path in self.base_path.glob("*.parquet"):
+            source_id = UUID(path.stem)
+            table = await self._read_file(source_id)
+
+            if table is None or measurement_id not in table.index:
+                continue
+
+            data = table.loc[measurement_id].to_dict()
+            data["measurement_id"] = measurement_id
+
+            return FluxMeasurement.model_validate(data)
+
+        raise FluxMeasurementNotFoundException(
+            f"FluxMeasurement {measurement_id} not found"
+        )
 
     async def create_batch(
         self,

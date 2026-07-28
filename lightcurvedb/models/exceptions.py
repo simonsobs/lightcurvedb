@@ -29,3 +29,11 @@ class UnassignedSourceNotFoundException(StorageException):
 
 class UnassignedFluxMeasurementNotFoundException(StorageException):
     pass
+
+
+class CandidateReviewConflictError(StorageException):
+    """
+    An incompatible or stale unassigned-source review transition was requested.
+    """
+
+    pass

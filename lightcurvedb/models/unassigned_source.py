@@ -3,7 +3,7 @@ Unassigned source information.
 """
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -35,4 +35,7 @@ class UnassignedSource(BaseModel):
         "unmatched"
     )
     version: int = 1
+    reviewed_by: str | None = None
+    reviewed_at: datetime | None = None
+    review_metadata: dict[str, Any] | None = None
     extra: UnassignedSourceMetadata | None = None

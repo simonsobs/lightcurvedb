@@ -25,11 +25,14 @@ async def generate_pandas_backend(directory: Path) -> Backend:
     cutouts = PandasCutoutStorage(directory / "cutouts.parquet")
     lightcurves = PandasLightcurves(flux_storage=fluxes)
     analysis = PandasAnalysis(flux_storage=fluxes)
-    unassigned_sources = PandasUnassignedSourceStorage(
-        directory / "unassigned_sources.parquet"
-    )
     unassigned_fluxes = PandasUnassignedFluxMeasurementStorage(
         directory / "unassigned_fluxes.parquet"
+    )
+    unassigned_sources = PandasUnassignedSourceStorage(
+        directory / "unassigned_sources.parquet",
+        sources=sources,
+        fluxes=fluxes,
+        unassigned_fluxes=unassigned_fluxes,
     )
 
     backend = Backend(

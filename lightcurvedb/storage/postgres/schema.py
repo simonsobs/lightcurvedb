@@ -73,6 +73,9 @@ CREATE TABLE IF NOT EXISTS unassigned_sources (
         status IN ('unmatched', 'merged', 'external_match', 'novel', 'noise')
     ),
     version INTEGER NOT NULL DEFAULT 1 CHECK (version > 0),
+    reviewed_by TEXT,
+    reviewed_at TIMESTAMPTZ,
+    review_metadata JSONB,
     extra JSONB
 );
 

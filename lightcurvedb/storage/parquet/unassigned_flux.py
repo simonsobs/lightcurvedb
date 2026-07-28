@@ -75,3 +75,24 @@ class PandasUnassignedFluxMeasurementStorage(
             data["measurement_id"] = str(measurement_id)
             measurements.append(UnassignedFluxMeasurement.model_validate(data))
         return measurements
+
+    async def move_to_source(self, *, source_id: UUID, target_source_id: UUID) -> None:
+        """
+        Move one local source file's measurements into another source file.
+        """
+        measurements = await self.get_for_source(source_id)
+
+        if not measurements:
+            return
+
+        await self.create_batch(
+            [
+                measurement.model_copy(update={"source_id": target_source_id})
+                for measurement in measurements
+            ]
+        )
+
+        table = await self._read_file(source_id)
+
+        if table is not None:
+            await self._write_file(source_id, table.iloc[0:0])

@@ -2,6 +2,12 @@ from typing import Literal, Protocol
 from uuid import UUID
 
 from lightcurvedb.models import UnassignedSource
+from lightcurvedb.models.review import (
+    CandidateDecisionCommand,
+    CandidateMerge,
+    CandidateMergeCommand,
+    CandidateReviewDecision,
+)
 
 
 class ProvidesUnassignedSourceStorage(Protocol):
@@ -19,6 +25,26 @@ class ProvidesUnassignedSourceStorage(Protocol):
     async def get(self, source_id: UUID) -> UnassignedSource:
         """
         Retrieve an unassigned source by ID.
+        """
+        ...
+
+    async def replace(self, source: UnassignedSource) -> None:
+        """
+        Replace one unassigned source record.
+        """
+        ...
+
+    async def merge(self, command: CandidateMergeCommand) -> CandidateMerge:
+        """
+        Merge one unmatched source into another unmatched source.
+        """
+        ...
+
+    async def decide(
+        self, command: CandidateDecisionCommand
+    ) -> CandidateReviewDecision:
+        """
+        Record one terminal decision for an unmatched source.
         """
         ...
 

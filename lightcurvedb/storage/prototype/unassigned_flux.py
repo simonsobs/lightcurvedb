@@ -28,6 +28,12 @@ class ProvidesUnassignedFluxMeasurementStorage(Protocol):
         """
         ...
 
+    async def move_to_source(self, *, source_id: UUID, target_source_id: UUID) -> None:
+        """
+        Move every measurement from one unassigned source to another.
+        """
+        ...
+
     async def delete(self, measurement_id: UUID) -> None:
         """
         Delete an unassigned flux measurement by ID.

@@ -29,6 +29,10 @@ async def generate_postgres_backend(pool: AsyncConnectionPool) -> Backend:
     meter = metrics.get_meter("lightcurvedb-postgres-backend")
 
     fluxes = PostgresFluxMeasurementStorage(pool, tracer=tracer, meter=meter)
+    sources = PostgresSourceStorage(pool, tracer=tracer, meter=meter)
+    unassigned_fluxes = PostgresUnassignedFluxMeasurementStorage(
+        pool, tracer=tracer, meter=meter
+    )
     lightcurves = PostgresLightcurveProvider(
         flux_storage=fluxes, tracer=tracer, meter=meter
     )
@@ -40,7 +44,7 @@ async def generate_postgres_backend(pool: AsyncConnectionPool) -> Backend:
     )
 
     backend = Backend(
-        sources=PostgresSourceStorage(pool, tracer=tracer, meter=meter),
+        sources=sources,
         instruments=PostgresInstrumentStorage(pool, tracer=tracer, meter=meter),
         fluxes=fluxes,
         cutouts=PostgresCutoutStorage(pool, tracer=tracer, meter=meter),
@@ -49,9 +53,7 @@ async def generate_postgres_backend(pool: AsyncConnectionPool) -> Backend:
         unassigned_sources=PostgresUnassignedSourceStorage(
             pool, tracer=tracer, meter=meter
         ),
-        unassigned_fluxes=PostgresUnassignedFluxMeasurementStorage(
-            pool, tracer=tracer, meter=meter
-        ),
+        unassigned_fluxes=unassigned_fluxes,
     )
 
     await backend.setup()

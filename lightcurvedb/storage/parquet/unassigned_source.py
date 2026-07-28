@@ -2,6 +2,7 @@
 Parquet implementation of unassigned source storage.
 """
 
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 from uuid import UUID
@@ -11,8 +12,24 @@ import pandas as pd
 from astropy.coordinates import SkyCoord
 from asyncer import asyncify
 
-from lightcurvedb.models import UnassignedSource
+from lightcurvedb.models import (
+    CandidateReviewConflictError,
+    FluxMeasurement,
+    UnassignedSource,
+)
 from lightcurvedb.models.exceptions import UnassignedSourceNotFoundException
+from lightcurvedb.models.review import (
+    CandidateDecisionCommand,
+    CandidateMerge,
+    CandidateMergeCommand,
+    CandidateReviewDecision,
+    decision_metadata,
+)
+from lightcurvedb.storage.prototype.flux import ProvidesFluxMeasurementStorage
+from lightcurvedb.storage.prototype.source import ProvidesSourceStorage
+from lightcurvedb.storage.prototype.unassigned_flux import (
+    ProvidesUnassignedFluxMeasurementStorage,
+)
 from lightcurvedb.storage.prototype.unassigned_source import (
     ProvidesUnassignedSourceStorage,
 )
@@ -23,8 +40,18 @@ class PandasUnassignedSourceStorage(ProvidesUnassignedSourceStorage):
     Parquet storage for sources awaiting cross-match review.
     """
 
-    def __init__(self, path: Path):
+    def __init__(
+        self,
+        path: Path,
+        *,
+        sources: ProvidesSourceStorage,
+        fluxes: ProvidesFluxMeasurementStorage,
+        unassigned_fluxes: ProvidesUnassignedFluxMeasurementStorage,
+    ):
         self.path = path
+        self.sources = sources
+        self.fluxes = fluxes
+        self.unassigned_fluxes = unassigned_fluxes
 
         self._read_file = asyncify(self._read_file_sync)
         self._write_file = asyncify(self._write_file_sync)
@@ -42,6 +69,22 @@ class PandasUnassignedSourceStorage(ProvidesUnassignedSourceStorage):
 
     def _write_file_sync(self, table: pd.DataFrame) -> None:
         table.to_parquet(self.path)
+
+    @staticmethod
+    def _source_data(row, source_id: UUID) -> dict:
+        data = row.to_dict()
+
+        for field in ("reviewed_by", "reviewed_at", "review_metadata"):
+            value = data.get(field)
+
+            if value is None or (
+                not isinstance(value, (dict, list)) and pd.isna(value)
+            ):
+                data[field] = None
+
+        data["source_id"] = str(source_id)
+
+        return data
 
     async def create(self, source: UnassignedSource) -> UUID:
         """
@@ -72,9 +115,145 @@ class PandasUnassignedSourceStorage(ProvidesUnassignedSourceStorage):
                 f"Unassigned source {source_id} not found"
             )
 
-        data = row.to_dict()
-        data["source_id"] = str(source_id)
-        return UnassignedSource.model_validate(data)
+        return UnassignedSource.model_validate(self._source_data(row, source_id))
+
+    async def replace(self, source: UnassignedSource) -> None:
+        """
+        Replace one source row for the non-transactional local backend.
+        """
+        if (table := await self._read_file()) is None:
+            raise UnassignedSourceNotFoundException("Table not found")
+
+        source_id = str(source.source_id)
+
+        if source_id not in table.index:
+            raise UnassignedSourceNotFoundException(
+                f"Unassigned source {source.source_id} not found"
+            )
+
+        for field, value in source.model_dump().items():
+            if field != "source_id":
+                table.at[source_id, field] = value
+
+        await self._write_file(table)
+
+    async def merge(self, command: CandidateMergeCommand) -> CandidateMerge:
+        """
+        Merge one unmatched source into another with best-effort local writes.
+        """
+        if command.source_id == command.target_source_id:
+            raise CandidateReviewConflictError(
+                "An unassigned source cannot be merged into itself"
+            )
+
+        source = await self.get(command.source_id)
+        target = await self.get(command.target_source_id)
+
+        self._validate_unmatched(
+            source.status,
+            source.version,
+            command.expected_version,
+        )
+
+        if target.status != "unmatched":
+            raise CandidateReviewConflictError(
+                "Only unmatched sources may be merge targets"
+            )
+
+        await self.unassigned_fluxes.move_to_source(
+            source_id=source.source_id,
+            target_source_id=target.source_id,
+        )
+
+        await self.replace(
+            source.model_copy(
+                update={
+                    "status": "merged",
+                    "version": source.version + 1,
+                    "reviewed_by": command.reviewer,
+                    "reviewed_at": datetime.now(UTC),
+                    "review_metadata": {
+                        "target_source_id": str(target.source_id),
+                        "reason": command.reason,
+                    },
+                }
+            )
+        )
+
+        await self.replace(
+            target.model_copy(
+                update={
+                    "first_seen": min(source.first_seen, target.first_seen),
+                    "last_seen": max(source.last_seen, target.last_seen),
+                    "version": target.version + 1,
+                }
+            )
+        )
+
+        return CandidateMerge(
+            source_id=source.source_id,
+            target_source_id=target.source_id,
+        )
+
+    async def decide(
+        self, command: CandidateDecisionCommand
+    ) -> CandidateReviewDecision:
+        """
+        Record one terminal decision with best-effort local writes.
+        """
+        source = await self.get(command.source_id)
+
+        self._validate_unmatched(
+            source.status,
+            source.version,
+            command.expected_version,
+        )
+
+        if command.canonical_source_id is not None:
+            await self.sources.get(command.canonical_source_id)
+
+            measurements = await self.unassigned_fluxes.get_for_source(source.source_id)
+
+            if measurements:
+                await self.fluxes.create_batch(
+                    [
+                        FluxMeasurement.model_validate(
+                            {
+                                **measurement.model_dump(),
+                                "source_id": command.canonical_source_id,
+                            }
+                        )
+                        for measurement in measurements
+                    ]
+                )
+
+        await self.replace(
+            source.model_copy(
+                update={
+                    "status": command.outcome,
+                    "version": source.version + 1,
+                    "reviewed_by": command.reviewer,
+                    "reviewed_at": datetime.now(UTC),
+                    "review_metadata": decision_metadata(command),
+                }
+            )
+        )
+
+        return CandidateReviewDecision(
+            source_id=source.source_id,
+            outcome=command.outcome,
+            canonical_source_id=command.canonical_source_id,
+        )
+
+    @staticmethod
+    def _validate_unmatched(status: str, version: int, expected_version: int) -> None:
+        if status != "unmatched":
+            raise CandidateReviewConflictError(
+                "Only unmatched sources may receive a review decision"
+            )
+
+        if version != expected_version:
+            raise CandidateReviewConflictError("Unassigned source review is stale")
 
     async def get_all(
         self,
@@ -92,10 +271,12 @@ class PandasUnassignedSourceStorage(ProvidesUnassignedSourceStorage):
 
         table = table.sort_values(["last_seen"], ascending=False)
         sources = []
+
         for source_id, row in table.iterrows():
-            data = row.to_dict()
-            data["source_id"] = str(source_id)
-            sources.append(UnassignedSource.model_validate(data))
+            sources.append(
+                UnassignedSource.model_validate(self._source_data(row, UUID(source_id)))
+            )
+
         return sources
 
     async def get_in_radius(

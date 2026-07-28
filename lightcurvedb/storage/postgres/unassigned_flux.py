@@ -114,6 +114,31 @@ class PostgresUnassignedFluxMeasurementStorage(
                 await cur.execute(query, {"source_id": source_id})
                 return await cur.fetchall()
 
+    async def move_to_source(self, *, source_id: UUID, target_source_id: UUID) -> None:
+        """
+        Reassign every measurement from one unassigned source to another.
+        """
+
+        query = """
+            UPDATE unassigned_flux_measurements
+            SET source_id = %(target_source_id)s
+            WHERE source_id = %(source_id)s
+        """
+
+        with self.tracer.start_as_current_span(
+            "move_unassigned_flux_measurements"
+        ) as span:
+            span.set_attribute("unassigned_source.source_id", str(source_id))
+            span.set_attribute(
+                "unassigned_source.target_source_id", str(target_source_id)
+            )
+
+            async with self.cursor() as cur:
+                await cur.execute(
+                    query,
+                    {"source_id": source_id, "target_source_id": target_source_id},
+                )
+
     async def delete(self, measurement_id: UUID) -> None:
         """
         Delete an unassigned flux measurement by ID.
