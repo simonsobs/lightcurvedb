@@ -27,6 +27,14 @@ class SourceMetadata(BaseModel):
     socat_id: UUID | None = None
 
 
+class SourceProperties(BaseModel):
+    """
+    Additional properties about sources stored as a JSONB
+    column.
+    """
+    median_flux: dict[str, float]
+
+
 class Source(BaseModel):
     """
     Input model for creating sources.
@@ -39,3 +47,4 @@ class Source(BaseModel):
     dec: float | None
     variable: bool = False
     extra: SourceMetadata | None = None
+    properties: SourceProperties | None = None

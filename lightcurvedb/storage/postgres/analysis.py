@@ -3,6 +3,7 @@ Analysis of flux measurements and lightcurves.
 """
 
 import asyncio
+from collections import defaultdict
 from datetime import datetime
 from uuid import UUID
 
@@ -181,3 +182,36 @@ class PostgresAnalysisProvider(ProvidesAnalysis):
                 return {
                     f"{stats.module}_{stats.frequency}": stats for stats in statistics
                 }
+
+    async def get_median_flux_for_all_sources(self) -> dict[UUID, dict[int, float]]:
+        """
+        Get the median flux for every source, grouped by frequency, in a single
+        aggregate query (avoids one query per source).
+
+        Based on the last 30 days to avoid sorting over the entire table, which would
+        scale poorly as data accumulates. This mirrors the "current month" semantics 
+        used by TimescaleAnalysisProvider's continuous-aggregate version. 
+        
+        Note that in both implementations, a source with no measurements in the last 
+        30 days would report no median_flux.
+        """
+        query = """
+            SELECT
+                source_id,
+                frequency,
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY flux) as median_flux
+            FROM flux_measurements
+            WHERE time >= now() - interval '30 days'
+            GROUP BY source_id, frequency
+        """
+
+        with self.tracer.start_as_current_span("get_median_flux_for_all_sources"):
+            async with self.flux_storage.cursor() as cur:
+                await cur.execute(query)
+                rows = await cur.fetchall()
+
+        result: dict[UUID, dict[int, float]] = defaultdict(dict)
+        for source_id, frequency, median_flux in rows:
+            result[source_id][frequency] = median_flux
+
+        return dict(result)

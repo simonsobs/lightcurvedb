@@ -16,7 +16,7 @@ from .review import (
     CandidateReviewDecision,
     ExternalMatchEvidence,
 )
-from .source import CrossMatch, Source, SourceMetadata
+from .source import CrossMatch, Source, SourceMetadata, SourceProperties
 from .statistics import SourceStatistics
 from .unassigned_flux import UnassignedFluxMeasurement, UnassignedMeasurementMetadata
 from .unassigned_source import UnassignedSource, UnassignedSourceMetadata
@@ -32,6 +32,7 @@ __all__ = [
     "Source",
     "SourceMetadata",
     "SourceNotFoundException",
+    "SourceProperties",
     "SourceStatistics",
     "StorageException",
     "UnassignedFluxMeasurementNotFoundException",

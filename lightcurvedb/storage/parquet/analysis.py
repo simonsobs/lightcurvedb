@@ -153,3 +153,29 @@ class PandasAnalysis(ProvidesAnalysis):
             return {str(stats.frequency): stats for stats in statistics}
 
         return {f"{stats.module}_{stats.frequency}": stats for stats in statistics}
+
+    async def get_median_flux_for_all_sources(self) -> dict[UUID, dict[int, float]]:
+        """
+        Get the median flux for every source, grouped by frequency. The parquet
+        backend stores one file per source, so this reads each source's file in
+        turn rather than a single aggregate query.
+        """
+        result: dict[UUID, dict[int, float]] = {}
+
+        base_path = self.flux_storage.base_path
+        if not base_path.exists():
+            return result
+
+        for path in base_path.glob("*.parquet"):
+            source_id = UUID(path.stem)
+            table = await self.flux_storage._read_file(source_id)
+
+            if table is None or table.empty:
+                continue
+
+            medians = table.groupby("frequency")["flux"].median()
+            result[source_id] = {
+                int(frequency): float(value) for frequency, value in medians.items()
+            }
+
+        return result

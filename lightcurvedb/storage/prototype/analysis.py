@@ -54,3 +54,10 @@ class ProvidesAnalysis(Protocol):
         Get source statistics across all frequencies and modules.
         """
         ...
+
+    async def get_median_flux_for_all_sources(self) -> dict[UUID, dict[int, float]]:
+        """
+        Get the median flux for every source, grouped by frequency, in a single
+        batched operation (avoids one query per source).
+        """
+        ...

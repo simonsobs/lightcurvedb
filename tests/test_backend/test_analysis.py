@@ -32,7 +32,10 @@ async def test_weighted_statistics(backend):
         )
     )
 
-    base_time = datetime.datetime(2024, 1, 1, tzinfo=timezone.utc)
+    # Recent, not a fixed historical date: median_flux is only tracked for
+    # the current month's bucket on the timescale backend (see
+    # TimescaleAnalysisProvider), so older fixed dates wouldn't show up there.
+    base_time = datetime.datetime.now(timezone.utc) - datetime.timedelta(days=2)
     measurements = [
         FluxMeasurement(
             measurement_id=uuid7(),
@@ -63,6 +66,11 @@ async def test_weighted_statistics(backend):
     assert stats.measurement_count == 5
     assert stats.min_flux == 10.0
     assert stats.max_flux == 10.0
+
+    # Batched median flux across all sources should agree with the per-source
+    # statistics computed above.
+    median_by_source = await backend.analysis.get_median_flux_for_all_sources()
+    assert median_by_source[source][999] == stats.median_flux
 
     # Delete those measurements:
     for measurement in measurements:
