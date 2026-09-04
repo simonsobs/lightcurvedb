@@ -32,6 +32,8 @@ class SourceProperties(BaseModel):
     Additional properties about sources stored as a JSONB
     column.
     """
+
+    # Keyed as f"{module}_{frequency}", e.g. "i1_90".
     median_flux: dict[str, float]
 
 

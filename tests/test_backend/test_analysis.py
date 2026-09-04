@@ -70,7 +70,7 @@ async def test_weighted_statistics(backend):
     # Batched median flux across all sources should agree with the per-source
     # statistics computed above.
     median_by_source = await backend.analysis.get_median_flux_for_all_sources()
-    assert median_by_source[source][999] == stats.median_flux
+    assert median_by_source[source]["test-weighted_999"] == stats.median_flux
 
     # Delete those measurements:
     for measurement in measurements:

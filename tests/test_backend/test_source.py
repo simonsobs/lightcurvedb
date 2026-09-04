@@ -40,10 +40,10 @@ async def test_source_read_all_includes_median_flux(backend, setup_test_data):
     assert seeded_source.properties is not None
     assert len(seeded_source.properties.median_flux) == 4
 
-    for band, value in seeded_source.properties.median_flux.items():
-        assert band[0] == "f"
-        assert len(band) == 4
-        assert int(band[1:]) in (30, 40, 90, 150, 220, 280)
+    for key, value in seeded_source.properties.median_flux.items():
+        module, _, frequency = key.rpartition("_")
+        assert module == "i1"
+        assert int(frequency) in (30, 40, 90, 150, 220, 280)
         assert isinstance(value, float)
 
 

@@ -55,9 +55,10 @@ class ProvidesAnalysis(Protocol):
         """
         ...
 
-    async def get_median_flux_for_all_sources(self) -> dict[UUID, dict[int, float]]:
+    async def get_median_flux_for_all_sources(self) -> dict[UUID, dict[str, float]]:
         """
-        Get the median flux for every source, grouped by frequency, in a single
-        batched operation (avoids one query per source).
+        Get the median flux for every source, grouped by module and frequency
+        (keyed as f"{module}_{frequency}"), in a single batched operation
+        (avoids one query per source).
         """
         ...

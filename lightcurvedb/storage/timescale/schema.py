@@ -162,7 +162,8 @@ SELECT
         THEN (sqrt(sum(flux_err ^ 2) FILTER (WHERE flux_err IS NOT NULL))
               / count(flux_err) FILTER (WHERE flux_err IS NOT NULL))::real
         ELSE NULL
-    END AS avg_flux_err
+    END AS avg_flux_err,
+    percentile_cont(0.5) WITHIN GROUP (ORDER BY flux) AS median_flux
 FROM flux_measurements
 GROUP BY bucket, source_id, frequency, module
 WITH NO DATA;
@@ -196,46 +197,4 @@ CONTINUOUS_AGGREGATES = [
     CONTINUOUS_AGGREGATE_WEEKLY,
     CONTINUOUS_AGGREGATE_MONTHLY,
     CONTINUOUS_AGGREGATE_REFRESH_POLICIES,
-]
-
-# ---------------------------------------------------------------------------
-# Continuous aggregate backing Source.properties.median_flux.
-#
-# Deliberately a separate view from flux_monthly rather than an added column
-# on it. It is only ever read for the current bucket (see
-# TimescaleAnalysisProvider.get_median_flux_for_all_sources), so it doesn't
-# need flux_monthly's long retention, and keeping it separate means it can be
-# introduced without dropping/rebuilding a view that lightcurve binning
-# already depends on.
-#
-# start_offset is 65 days, not flux_monthly's 90; TimescaleDB requires a
-# continuous aggregate's refresh window to span at least 2 bucket widths (60
-# days here), so this is that floor plus a few days of buffer.
-# ---------------------------------------------------------------------------
-
-CONTINUOUS_AGGREGATE_MEDIAN_MONTHLY = """
-CREATE MATERIALIZED VIEW IF NOT EXISTS flux_median_monthly
-WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS
-SELECT
-    time_bucket('30 days', time) AS bucket,
-    source_id,
-    frequency,
-    percentile_cont(0.5) WITHIN GROUP (ORDER BY flux) AS median_flux
-FROM flux_measurements
-GROUP BY bucket, source_id, frequency
-WITH NO DATA;
-"""
-
-CONTINUOUS_AGGREGATE_MEDIAN_MONTHLY_REFRESH_POLICY = """
-SELECT add_continuous_aggregate_policy('flux_median_monthly',
-    start_offset => INTERVAL '65 days',
-    end_offset => INTERVAL '1 hour',
-    schedule_interval => INTERVAL '1 day',
-    if_not_exists => true
-);
-"""
-
-MEDIAN_CONTINUOUS_AGGREGATES = [
-    CONTINUOUS_AGGREGATE_MEDIAN_MONTHLY,
-    CONTINUOUS_AGGREGATE_MEDIAN_MONTHLY_REFRESH_POLICY,
 ]
