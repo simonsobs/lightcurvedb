@@ -13,3 +13,10 @@ class Instrument(BaseModel):
     telescope: str
     instrument: str
     details: dict[str, Any]
+
+
+def band_name(frequency: int) -> str:
+    """
+    Format a frequency (GHz) as its band name, e.g. 90 -> "f090".
+    """
+    return f"f{frequency:03d}"
