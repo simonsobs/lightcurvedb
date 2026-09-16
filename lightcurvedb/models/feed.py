@@ -7,6 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from lightcurvedb.models.instrument import band_name as format_band_name
+
 
 class FeedResultItem(BaseModel):
     source_id: UUID
@@ -30,4 +32,4 @@ class FeedResult(BaseModel):
 
     @property
     def band_name(self) -> str:
-        return f"f{self.frequency}"
+        return format_band_name(self.frequency)

@@ -39,7 +39,7 @@ async def test_unassigned_source_and_measurements(backend):
     measurement = UnassignedFluxMeasurement(
         measurement_id=uuid4(),
         source_id=source_id,
-        frequency=27,
+        frequency=30,
         module="i1",
         time=now,
         ra=12.5,

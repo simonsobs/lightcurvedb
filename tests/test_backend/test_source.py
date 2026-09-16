@@ -7,6 +7,7 @@ import uuid
 import pytest
 
 from lightcurvedb.client.source import (
+    source_read_all,
     source_read_in_radius,
 )
 from lightcurvedb.models.exceptions import SourceNotFoundException
@@ -26,6 +27,24 @@ async def test_read_source(backend, setup_test_data):
 async def test_read_all_sources(backend):
     all_sources = await backend.sources.get_all()
     assert len(all_sources) == 64
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_source_read_all_includes_median_flux(backend, setup_test_data):
+    sources = await source_read_all(backend)
+    sources_by_id = {source.source_id: source for source in sources}
+
+    # Every seeded source has flux measurements in exactly 4 of the 6 bands.
+    seeded_source = sources_by_id[setup_test_data[0]]
+
+    assert seeded_source.properties is not None
+    assert len(seeded_source.properties.median_flux) == 4
+
+    for key, value in seeded_source.properties.median_flux.items():
+        module, _, frequency = key.rpartition("_")
+        assert module == "i1"
+        assert int(frequency) in (30, 40, 90, 150, 220, 280)
+        assert isinstance(value, float)
 
 
 @pytest.mark.asyncio(loop_scope="session")

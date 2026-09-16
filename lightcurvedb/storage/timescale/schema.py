@@ -162,7 +162,8 @@ SELECT
         THEN (sqrt(sum(flux_err ^ 2) FILTER (WHERE flux_err IS NOT NULL))
               / count(flux_err) FILTER (WHERE flux_err IS NOT NULL))::real
         ELSE NULL
-    END AS avg_flux_err
+    END AS avg_flux_err,
+    percentile_cont(0.5) WITHIN GROUP (ORDER BY flux) AS median_flux
 FROM flux_measurements
 GROUP BY bucket, source_id, frequency, module
 WITH NO DATA;

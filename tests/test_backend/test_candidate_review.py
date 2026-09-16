@@ -135,6 +135,9 @@ async def test_terminal_decisions_materialize_directly_and_retain_metadata(backe
     canonical_measurement = await backend.fluxes.get(measurement.measurement_id)
     assert canonical_measurement.source_id == canonical_source.source_id
 
+    await backend.fluxes.delete(measurement_id=canonical_measurement.measurement_id)
+    await backend.sources.delete(source_id=canonical_source.source_id)
+
 
 @pytest.mark.asyncio(loop_scope="session")
 async def test_terminal_decision_allows_an_empty_candidate(backend):
@@ -160,3 +163,5 @@ async def test_terminal_decision_allows_an_empty_candidate(backend):
 
     assert decision.canonical_source_id is not None
     assert (await backend.unassigned_sources.get(source.source_id)).status == "novel"
+
+    await backend.sources.delete(source_id=decision.canonical_source_id)
