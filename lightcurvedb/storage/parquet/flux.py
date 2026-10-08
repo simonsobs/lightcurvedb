@@ -115,6 +115,25 @@ class PandasFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
             f"FluxMeasurement {measurement_id} not found"
         )
 
+    async def get_all_for_source(self, source_id: UUID) -> list[FluxMeasurement]:
+        """
+        Retrieve all flux measurements for a given source.
+        """
+        if not self.base_path.exists():
+            return []
+
+        table = await self._read_file(source_id)
+        if table is None:
+            return []
+
+        measurements = []
+        for _, row in table.iterrows():
+            data = row.to_dict()
+            data["measurement_id"] = row.name
+            measurements.append(FluxMeasurement.model_validate(data))
+
+        return measurements
+
     async def create_batch(
         self,
         measurements: list[FluxMeasurement],

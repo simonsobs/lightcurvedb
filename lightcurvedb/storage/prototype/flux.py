@@ -23,6 +23,12 @@ class ProvidesFluxMeasurementStorage(Protocol):
         """
         ...
 
+    async def get_all_for_source(self, source_id: UUID) -> list[FluxMeasurement]:
+        """
+        Retrieve all flux measurements for a given source.
+        """
+        ...
+
     async def create_batch(
         self,
         measurements: list[FluxMeasurement],

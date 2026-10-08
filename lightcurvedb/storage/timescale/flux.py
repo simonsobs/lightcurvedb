@@ -35,7 +35,7 @@ class TimescaleFluxMeasurementStorage(PostgresFluxMeasurementStorage):
                 %(ra)s, %(dec)s, %(ra_uncertainty)s, %(dec_uncertainty)s,
                 %(flux)s, %(flux_err)s, %(extra)s
             )
-            ON CONFLICT (time, frequency, module, source_id) DO NOTHING
+            ON CONFLICT (time, frequency, module, source_id) DO UPDATE
             RETURNING measurement_id 
         """
 

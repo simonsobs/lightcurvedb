@@ -321,6 +321,23 @@ class PostgresFluxMeasurementStorage(
                     )
                 return row
 
+    async def get_all_for_source(self, source_id: UUID) -> list[FluxMeasurement]:
+        """
+        Retrieve all flux measurements for a given source.
+        """
+        query = """
+            SELECT *
+            FROM flux_measurements
+            WHERE source_id = %(source_id)s
+        """
+
+        with self.tracer.start_as_current_span("get_all_flux_measurements_for_source") as span:
+            span.set_attribute("flux.source_id", str(source_id))
+            async with self.cursor(row_factory=class_row(FluxMeasurement)) as cur:
+                await cur.execute(query, {"source_id": source_id})
+                rows = await cur.fetchall()
+                return rows
+
     async def delete(self, measurement_id: UUID) -> None:
         """
         Delete a flux measurement by ID.
