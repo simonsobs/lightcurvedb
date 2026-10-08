@@ -15,7 +15,7 @@ dependencies = [
     "testcontainers",
     "loguru",
     "tqdm",
-    "socat @ git+https://github.com/simonsobs/socat",
+    "socat",
     "astropy",
     "uuid7==0.1.0",
     "pandas[pyarrow]",
