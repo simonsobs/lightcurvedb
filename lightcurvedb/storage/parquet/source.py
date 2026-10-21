@@ -146,16 +146,28 @@ class PandasSourceStorage(ProvidesSourceStorage):
         self, ra_min: float, ra_max: float, dec_min: float, dec_max: float
     ) -> list[Source]:
         """
-        Retrieve sources within specified RA/Dec bounds.
+        Retrieve sources within specified RA/Dec bounds. ra_min/ra_max may be given
+        in either the [-180, 180] or [0, 360) convention (or straddle neither, e.g.
+        computed from an unwrapped center +/- radius) -- both they and the stored
+        ra column are normalized mod 360 before comparing, and a box that wraps
+        across the 0/360 boundary (ra_min > ra_max after normalizing) is treated as
+        the union of [ra_min, 360) and [0, ra_max] rather than an empty intersection.
         """
         if (table := await self._read_file()) is None:
             return []
 
+        ra_min = ra_min % 360.0
+        ra_max = ra_max % 360.0
+        ra = table["ra"] % 360.0
+
+        ra_condition = (
+            (ra >= ra_min) & (ra <= ra_max)
+            if ra_min <= ra_max
+            else (ra >= ra_min) | (ra <= ra_max)
+        )
+
         in_bounds = table[
-            (table["ra"] >= ra_min)
-            & (table["ra"] <= ra_max)
-            & (table["dec"] >= dec_min)
-            & (table["dec"] <= dec_max)
+            ra_condition & (table["dec"] >= dec_min) & (table["dec"] <= dec_max)
         ]
 
         sources = []
