@@ -16,6 +16,7 @@ class MeasurementMetadata(BaseModel):
     """
 
     flags: list[str] = PydanticField(default=[])
+    map_id: str | None = PydanticField(default=None)
 
 
 class FluxMeasurement(BaseModel):

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Iterable
 from uuid import UUID
 
+import numpy as np
 import pandas as pd
 from asyncer import asyncify
 from typing_extensions import Literal
@@ -14,6 +15,20 @@ from uuid_extensions import uuid7
 from lightcurvedb.models.exceptions import FluxMeasurementNotFoundException
 from lightcurvedb.models.flux import FluxMeasurement
 from lightcurvedb.storage.prototype.flux import ProvidesFluxMeasurementStorage
+
+
+def _desanitize_numpy(value):
+    """Parquet round-trips a nested list (e.g. `extra["flags"]`) as a numpy
+    ndarray rather than the plain list it was written as, which pydantic
+    accepts at validation time but can't JSON-serialize later. Recursively
+    convert back to native types so callers always see plain lists/dicts."""
+    if isinstance(value, np.ndarray):
+        return [_desanitize_numpy(v) for v in value.tolist()]
+    if isinstance(value, dict):
+        return {k: _desanitize_numpy(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_desanitize_numpy(v) for v in value]
+    return value
 
 
 class PandasFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
@@ -51,6 +66,9 @@ class PandasFluxMeasurementStorage(ProvidesFluxMeasurementStorage):
 
         if "time" in table.columns:
             table["time"] = pd.to_datetime(table["time"], utc=False)
+
+        if "extra" in table.columns:
+            table["extra"] = table["extra"].map(_desanitize_numpy)
 
         return table
 
