@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS flux_measurements (
 
 FLUX_INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_flux_measurements_time_source_id
-    ON flux_measurements (time DESC, source_id);
+    ON flux_measurements (source_id, time DESC);
 
 CREATE INDEX IF NOT EXISTS idx_flux_measurements_measurement_id
     ON flux_measurements (measurement_id);
