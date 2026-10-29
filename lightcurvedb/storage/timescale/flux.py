@@ -22,7 +22,7 @@ class TimescaleFluxMeasurementStorage(PostgresFluxMeasurementStorage):
 
     async def create(self, measurement: FluxMeasurement) -> UUID:
         """
-        Insert single measurement.
+        Insert or update a measurement, preserving its existing ID on conflict.
         """
         query = """
             INSERT INTO flux_measurements (
@@ -36,6 +36,13 @@ class TimescaleFluxMeasurementStorage(PostgresFluxMeasurementStorage):
                 %(flux)s, %(flux_err)s, %(extra)s
             )
             ON CONFLICT (time, frequency, module, source_id) DO UPDATE
+            SET ra = EXCLUDED.ra,
+                dec = EXCLUDED.dec,
+                ra_uncertainty = EXCLUDED.ra_uncertainty,
+                dec_uncertainty = EXCLUDED.dec_uncertainty,
+                flux = EXCLUDED.flux,
+                flux_err = EXCLUDED.flux_err,
+                extra = EXCLUDED.extra
             RETURNING measurement_id 
         """
 
