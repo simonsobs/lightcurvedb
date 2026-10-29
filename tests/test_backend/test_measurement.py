@@ -10,8 +10,9 @@ import pytest
 from uuid_extensions import uuid7
 
 from lightcurvedb.models.cutout import Cutout
-from lightcurvedb.models.flux import FluxMeasurement
+from lightcurvedb.models.flux import FluxMeasurement, MeasurementMetadata
 from lightcurvedb.storage.prototype.backend import Backend
+from lightcurvedb.storage.timescale.flux import TimescaleFluxMeasurementStorage
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -64,6 +65,66 @@ async def test_measurement_add_and_delete(backend: Backend, setup_test_data):
         assert x == y, f"Expected {x} but got {y}"
 
     await backend.fluxes.delete(measurement_id=measurement_id)
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_timescale_measurement_upsert(backend: Backend, setup_test_data):
+    if not isinstance(backend.fluxes, TimescaleFluxMeasurementStorage):
+        pytest.skip("TimescaleDB-specific conflict handling")
+
+    instrument = (await backend.instruments.get_all())[0]
+    measurement = FluxMeasurement(
+        measurement_id=uuid.uuid4(),
+        source_id=setup_test_data[0],
+        frequency=instrument.frequency,
+        module=instrument.module,
+        time=datetime.datetime.now(tz=datetime.timezone.utc),
+        ra=1.0,
+        dec=2.0,
+        ra_uncertainty=0.5,
+        dec_uncertainty=0.25,
+        flux=3.0,
+        flux_err=0.5,
+        extra={"flags": ["original"]},
+    )
+    measurement_id = await backend.fluxes.create(measurement)
+    assert measurement_id == measurement.measurement_id
+
+    try:
+        replacement = measurement.model_copy(
+            update={
+                "measurement_id": uuid.uuid4(),
+                "ra": 4.0,
+                "dec": 5.0,
+                "ra_uncertainty": 0.125,
+                "dec_uncertainty": 0.0625,
+                "flux": 6.0,
+                "flux_err": 0.25,
+                "extra": MeasurementMetadata(flags=["reprocessed"]),
+            }
+        )
+        for candidate in (
+            replacement,
+            replacement.model_copy(
+                update={"ra_uncertainty": None, "dec_uncertainty": None, "extra": None}
+            ),
+        ):
+            assert await backend.fluxes.create(candidate) == measurement_id
+            recovered = await backend.fluxes.get(measurement_id)
+            expected = candidate.model_copy(update={"measurement_id": measurement_id})
+            assert recovered == expected
+            matching = [
+                item
+                for item in await backend.fluxes.get_all_for_source(
+                    measurement.source_id
+                )
+                if item.time == measurement.time
+                and item.frequency == measurement.frequency
+                and item.module == measurement.module
+            ]
+            assert len(matching) == 1
+    finally:
+        await backend.fluxes.delete(measurement_id=measurement_id)
 
 
 @pytest.mark.parametrize("bulk_insert_mode", ["unnest", "json", "csv", None])
